@@ -1,0 +1,70 @@
+﻿% !TEX root = main.tex
+% !TEX encoding = UTF-8 Unicode
+
+\tsection{Question 1. Distinguish basic, applied, and development-oriented research}
+
+In computer vision and pattern recognition, these three tracks usually form a pipeline:
+foundations, practical solutions, and product deployment.
+
+\tsubsection{Basic research}
+\begin{itemize}
+  \item Focus: new theory, algorithms, and analysis.
+  \item Output: validated method and empirical study.
+  \item Typical metrics: accuracy, robustness, complexity.
+\end{itemize}
+
+\tsubsection{Applied research}
+\begin{itemize}
+  \item Focus: solve a concrete real-world problem in a domain.
+  \item Output: task-oriented pipeline and measurable KPI improvement.
+  \item Typical constraints: noisy data, domain shift, limited labels.
+\end{itemize}
+
+\tsubsection{Development-oriented research}
+\begin{itemize}
+  \item Focus: run models reliably in production.
+  \item Output: scalable service, monitoring, and release workflow.
+  \item Typical constraints: latency, cost, reliability, maintainability.
+\end{itemize}
+
+\tsection{Question 2. Example application in pattern recognition}
+
+A retail shelf-monitoring system detects products, tracks stock level, and alerts out-of-stock events.
+Evaluation combines detection quality with business metrics such as false alerts and response time.
+
+\tsection{Question 3. Supervised, unsupervised, and reinforcement learning}
+
+\tsubsection{Supervised learning}
+Uses labeled data and optimizes prediction loss directly.
+
+\tsubsection{Unsupervised learning}
+Finds structure in unlabeled data, for example clustering and representation learning.
+
+\tsubsection{Reinforcement learning}
+Learns a policy from reward signals through interaction with an environment.
+
+\tsection{Question 4. Why meta-learning is useful}
+
+Meta-learning improves adaptation speed when new classes or tasks have very few examples.
+It is especially useful when annotation is expensive and task distribution changes often.
+
+\tsubsection{Compact comparison}
+\begin{table}[ht]
+\centering
+\caption{Supervised learning vs meta-learning by task type}
+\label{tab:week1-supervised-vs-meta}
+\begingroup
+\renewcommand{\arraystretch}{1.2}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{>{\RaggedRight\arraybackslash}p{0.22\linewidth} >{\RaggedRight\arraybackslash}X >{\RaggedRight\arraybackslash}X}
+\toprule
+\textbf{Task} & \textbf{Supervised Learning} & \textbf{Meta-Learning} \\
+\midrule
+Image classification & Needs many labeled samples per class & Adapts to new classes with few-shot support \\
+Object detection & High annotation cost for bounding boxes & Better adaptation for new categories/domains \\
+Image segmentation & Pixel labels are expensive to create & Few-shot segmentation with small support set \\
+\bottomrule
+\end{tabularx}
+\endgroup
+\end{table}

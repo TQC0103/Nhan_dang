@@ -1,0 +1,193 @@
+﻿% !TEX TS-program = xelatex
+% !TEX encoding = UTF-8 Unicode
+\documentclass[10pt,a4paper]{report}
+
+\usepackage[a4paper,left=0.75in,right=0.75in,top=1in,bottom=1in]{geometry}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[utf8]{inputenc}
+  \usepackage[T1]{fontenc}
+  \usepackage{lmodern}
+\else
+  \usepackage{fontspec}
+  \IfFileExists{LibertinusSerif-Regular.otf}{%
+    \setmainfont{LibertinusSerif-Regular.otf}[%
+      BoldFont=LibertinusSerif-Bold.otf,%
+      ItalicFont=LibertinusSerif-Italic.otf,%
+      BoldItalicFont=LibertinusSerif-BoldItalic.otf%
+    ]
+    \setsansfont{LibertinusSans-Regular.otf}[%
+      BoldFont=LibertinusSans-Bold.otf,%
+      ItalicFont=LibertinusSans-Italic.otf,%
+      BoldItalicFont=LibertinusSans-BoldItalic.otf%
+    ]
+    \setmonofont{LibertinusMono-Regular.otf}
+  }{%
+    \setmainfont{Latin Modern Roman}
+    \setsansfont{Latin Modern Sans}
+    \setmonofont{Latin Modern Mono}
+  }
+\fi
+
+\usepackage{microtype}
+\usepackage{etoolbox}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{ragged2e}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\DeclareMathSizes{13}{12}{9}{6}
+\usepackage{tikz}
+\usetikzlibrary{calc}
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+\usepackage{textcomp}
+\usepackage{xparse}
+\usepackage{titlesec}
+
+% Keep explicit English labels for consistency.
+\renewcommand{\contentsname}{Table of Contents}
+\renewcommand{\listfigurename}{List of Figures}
+\renewcommand{\listtablename}{List of Tables}
+\renewcommand{\figurename}{Figure}
+\renewcommand{\tablename}{Table}
+\renewcommand{\chaptername}{Chapter}
+
+% Bibliography
+% Compile: xelatex -> biber -> xelatex
+\usepackage[backend=biber,style=ieee]{biblatex}
+\addbibresource{references.bib}
+
+% Avoid empty bibliography warning when no citations are used.
+\newif\ifhascites
+\hascitesfalse
+\AtBeginDocument{%
+  \pretocmd{\cite}{\global\hascitestrue}{}{}%
+  \pretocmd{\parencite}{\global\hascitestrue}{}{}%
+  \pretocmd{\textcite}{\global\hascitestrue}{}{}%
+  \pretocmd{\footcite}{\global\hascitestrue}{}{}%
+  \pretocmd{\autocite}{\global\hascitestrue}{}{}%
+}
+
+\graphicspath{{figures/}}
+
+% Section numbering: I. -> 1. -> 1.1 -> 1.1.1 -> a
+\renewcommand{\thechapter}{\Roman{chapter}}
+\renewcommand{\thesection}{\arabic{section}}
+\renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
+\renewcommand{\thesubsubsection}{\thesubsection.\arabic{subsubsection}}
+\renewcommand{\theparagraph}{\thesubsubsection.\arabic{paragraph}}
+\renewcommand{\thesubparagraph}{\alph{subparagraph}}
+\setcounter{secnumdepth}{5}
+\setcounter{tocdepth}{1}
+
+\makeatletter
+\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
+  {1.0ex \@plus .2ex \@minus .2ex}%
+  {0.6ex \@plus .2ex}%
+  {\normalfont\bfseries\fontsize{10pt}{12.5pt}\selectfont}}
+\renewcommand\subparagraph{\@startsection{subparagraph}{5}{\z@}%
+  {1.0ex \@plus .2ex \@minus .2ex}%
+  {0.6ex \@plus .2ex}%
+  {\normalfont\bfseries\fontsize{10pt}{12.5pt}\selectfont}}
+\makeatother
+
+\let\origchapter\chapter
+\RenewDocumentCommand{\chapter}{s o m}{%
+  \IfBooleanTF{#1}{%
+    \IfNoValueTF{#2}{\origchapter*{#3}}{\origchapter*[#2]{#3}}%
+  }{%
+    \IfNoValueTF{#2}{\origchapter{\MakeUppercase{#3}}}{\origchapter[#2]{\MakeUppercase{#3}}}%
+  }%
+}
+
+\makeatletter
+\renewcommand\tableofcontents{%
+  \chapter*{\contentsname}%
+  \@starttoc{toc}%
+}
+\renewcommand\listoffigures{%
+  \chapter*{\listfigurename}%
+  \@starttoc{lof}%
+}
+\renewcommand\listoftables{%
+  \chapter*{\listtablename}%
+  \@starttoc{lot}%
+}
+\makeatother
+
+\titleformat{\section}
+  {\normalfont\bfseries\fontsize{15pt}{18pt}\selectfont}
+  {\thesection}{1em}{}
+
+\newcommand{\tsection}[1]{\section*{#1}\phantomsection\addcontentsline{toc}{section}{#1}}
+\newcommand{\tsubsection}[1]{\subsection*{#1}\phantomsection\addcontentsline{toc}{subsection}{#1}}
+\newcommand{\tsubsubsection}[1]{\subsubsection*{#1}\phantomsection\addcontentsline{toc}{subsubsection}{#1}}
+
+\setlist[itemize,1]{label=\textbullet,leftmargin=*,labelsep=0.5em}
+\setlist[itemize,2]{label=\textopenbullet,leftmargin=*,labelsep=0.5em}
+\providecommand{\ListStartPar}{\par}
+\setlist[description]{style=nextline,afterlabel=\ListStartPar}
+\BeforeBeginEnvironment{itemize}{\par}
+\setstretch{1.15}
+
+\newcommand{\codefile}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\abbrtarget}[2]{\leavevmode\smash{\hypertarget{abbr:#1}{}}#2}
+\newcommand{\abbrlink}[3]{\hyperlink{abbr:#1}{#3\ (#2)}}
+\newcommand{\abbrlinkS}[2]{\abbrlink{#1}{#1}{#2}}
+
+\title{Notes / Assignments}
+\author{}
+\date{\today}
+
+\begin{document}
+\input{cover.tex}
+\clearpage
+
+\fontsize{10pt}{12.5pt}\selectfont
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\input{preface.tex}
+\clearpage
+\input{info.tex}
+\clearpage
+
+\tableofcontents
+\clearpage
+\listoffigures
+\addcontentsline{toc}{chapter}{List of Figures}
+\clearpage
+\input{used_images}
+\clearpage
+\listoftables
+\addcontentsline{toc}{chapter}{List of Tables}
+\clearpage
+\chapter*{Glossary and Abbreviations}
+\addcontentsline{toc}{chapter}{Glossary and Abbreviations}
+\input{Glossary}
+\clearpage
+
+\chapter{Week 1}
+\input{Week1}
+
+\chapter{Week 2}
+\input{Week2}
+\clearpage
+\chapter*{References}
+\addcontentsline{toc}{chapter}{References}
+\ifhascites
+  \printbibliography[heading=none]
+\else
+  \noindent No citations found in the text, so the reference list is empty.
+\fi
+
+\end{document}

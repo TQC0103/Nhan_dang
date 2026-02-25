@@ -1,0 +1,66 @@
+﻿% !TEX root = main.tex
+% !TEX encoding = UTF-8 Unicode
+
+\section*{Question 1: What is a generative model?}
+
+A generative model learns a data distribution and can synthesize new samples
+that follow similar structure to training data.
+
+\section*{Question 2: Business value of Generative AI}
+
+Common revenue channels include:
+\begin{itemize}
+  \item Subscription plans for end users and teams.
+  \item API-based usage billing integrated into enterprise products.
+\end{itemize}
+
+\section*{Question 3: Practical image/video tool example}
+
+Generated media can support marketing, prototyping, content localization,
+and design iteration with lower turnaround time.
+
+\section*{Question 4: Compare VAE, Flow, GAN, and Diffusion}
+
+\begin{table}[h]
+\centering
+\small
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\linewidth}{|>{\RaggedRight\arraybackslash}p{2.2cm}|X|X|X|X|}
+\hline
+\textbf{Family} & \textbf{Core mechanism} & \textbf{Image quality} & \textbf{Sampling speed} & \textbf{Training stability} \\
+\hline
+VAE & Encode/decode through latent variables & Medium to high & Fast & High \\
+\hline
+Flow & Invertible transformation from noise & High & Fast & Medium to high \\
+\hline
+GAN & Adversarial generator/discriminator game & High & Fast & Medium \\
+\hline
+Diffusion & Iterative denoising from Gaussian noise & Very high & Slower & High \\
+\hline
+\end{tabularx}
+\end{table}
+
+\section*{Question 5: How diffusion models generate images}
+
+A diffusion model adds noise during training and learns the reverse denoising process.
+At inference, it starts from random noise and repeatedly denoises until a clean image appears.
+
+\section*{Question 6: Compare popular diffusion-based systems}
+
+Closed systems typically optimize quality and user experience,
+while open systems (such as open-weight families) prioritize customization.
+
+\section*{Question 7: Example output image}
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.7\textwidth]{assets/F2.jpg}
+  \caption{Sample generated image for demonstration}
+  \label{fig:week2-sample-image}
+\end{figure}
+
+\section*{Question 8: Practical multimodal use case}
+
+A document assistant can combine OCR, layout understanding, and language modeling
+to answer questions from scanned invoices and forms.

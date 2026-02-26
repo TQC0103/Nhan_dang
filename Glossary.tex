@@ -1,19 +1,19 @@
-﻿% This file is included from main.tex after the table of contents.
+﻿% Tệp này được include từ main.tex sau mục lục.
 
-\subsection*{A. Abbreviations}
+\subsection*{A. Chữ viết tắt}
 \begingroup
 \renewcommand{\arraystretch}{1.15}
 \setlength{\tabcolsep}{4pt}
 \small
-\begin{longtable}{>{\RaggedRight\arraybackslash}p{0.18\linewidth} >{\RaggedRight\arraybackslash}p{0.36\linewidth} >{\RaggedRight\arraybackslash}p{0.36\linewidth}}
-\caption{Abbreviations}\label{tab:glossary-abbr}\\
+\begin{longtable}{>{\RaggedRight\arraybackslash}p{0.16\linewidth} >{\RaggedRight\arraybackslash}p{0.36\linewidth} >{\RaggedRight\arraybackslash}p{0.40\linewidth}}
+\caption{Chữ viết tắt dùng trong báo cáo}\label{tab:glossary-abbr}\\
 \toprule
-\textbf{Abbrev.} & \textbf{Meaning} & \textbf{English Expansion} \\
+\textbf{Viết tắt} & \textbf{Nghĩa tiếng Việt} & \textbf{Mở rộng tiếng Anh} \\
 \midrule
 \endfirsthead
 
 \toprule
-\textbf{Abbrev.} & \textbf{Meaning} & \textbf{English Expansion} \\
+\textbf{Viết tắt} & \textbf{Nghĩa tiếng Việt} & \textbf{Mở rộng tiếng Anh} \\
 \midrule
 \endhead
 
@@ -22,35 +22,36 @@
 
 \bottomrule
 \endlastfoot
-\abbrtarget{API}{API} & Application programming interface & Application Programming Interface \\
-\abbrtarget{CNN}{CNN} & Convolution neural network & Convolutional Neural Network \\
-\abbrtarget{GPU}{GPU} & Graphics processor & Graphics Processing Unit \\
-\abbrtarget{ML}{ML} & Machine learning & Machine Learning \\
-\abbrtarget{NLP}{NLP} & Language processing by computers & Natural Language Processing \\
-\abbrtarget{OCR}{OCR} & Optical text recognition & Optical Character Recognition \\
-\abbrtarget{PSNR}{PSNR} & Peak signal-to-noise ratio & Peak Signal-to-Noise Ratio \\
-\abbrtarget{RL}{RL} & Learning by reward & Reinforcement Learning \\
-\abbrtarget{SSIM}{SSIM} & Structural similarity metric & Structural Similarity Index \\
-\abbrtarget{VLM}{VLM} & Vision-language model & Vision-Language Model \\
+\abbrtarget{AP}{AP} & Độ chính xác trung bình & Average Precision \\
+\abbrtarget{CR}{CR} & Tái phân bổ tính toán & Computation Redistribution \\
+\abbrtarget{SR}{SR} & Tái phân bổ mẫu & Sample Redistribution \\
+\abbrtarget{NMS}{NMS} & Loại bỏ cực đại không tối ưu & Non-Maximum Suppression \\
+\abbrtarget{CNN}{CNN} & Mạng nơ-ron tích chập & Convolutional Neural Network \\
+\abbrtarget{RCNN}{R-CNN} & Mạng nơ-ron tích chập theo vùng & Region-based Convolutional Neural Network \\
+\abbrtarget{FPS}{FPS} & Số khung hình mỗi giây & Frames Per Second \\
+\abbrtarget{FLOPS}{FLOPs} & Số phép toán dấu chấm động & Floating-Point Operations \\
+\abbrtarget{ICLR}{ICLR} & Hội nghị Quốc tế về Biểu diễn Học máy & International Conference on Learning Representations \\
+\abbrtarget{LBP}{LBP} & Mẫu nhị phân cục bộ & Local Binary Pattern \\
+\abbrtarget{SCRFD}{SCRFD} & Tái phân bổ mẫu và tính toán cho phát hiện khuôn mặt hiệu quả & Sample and Computation Redistribution for Efficient Face Detection \\
 \end{longtable}
 \endgroup
 
-\vspace{0.5\baselineskip}
+\clearpage
 
-\subsection*{B. Terms}
+\subsection*{B. Bảng đối chiếu thuật ngữ dịch}
 \begingroup
 \renewcommand{\arraystretch}{1.15}
 \setlength{\tabcolsep}{4pt}
 \small
 \begin{longtable}{>{\RaggedRight\arraybackslash}p{0.48\linewidth} >{\RaggedRight\arraybackslash}p{0.44\linewidth}}
-\caption{Terms}\label{tab:glossary-terms}\\
+\caption{Đối chiếu thuật ngữ tiếng Việt - tiếng Anh}\label{tab:glossary-terms}\\
 \toprule
-\textbf{Term Used in Report} & \textbf{Reference Term} \\
+\textbf{Thuật ngữ tiếng Việt (dùng trong báo cáo)} & \textbf{Thuật ngữ tiếng Anh tương ứng} \\
 \midrule
 \endfirsthead
 
 \toprule
-\textbf{Term Used in Report} & \textbf{Reference Term} \\
+\textbf{Thuật ngữ tiếng Việt (dùng trong báo cáo)} & \textbf{Thuật ngữ tiếng Anh tương ứng} \\
 \midrule
 \endhead
 
@@ -59,15 +60,25 @@
 
 \bottomrule
 \endlastfoot
-Baseline model & Baseline \\
-Domain shift & Domain shift \\
-Feature extraction & Feature extraction \\
-Few-shot learning & Few-shot learning \\
-Fine-tuning & Fine-tuning \\
-Generative model & Generative model \\
-Inference latency & Latency \\
-Meta-learning & Meta-learning \\
-Prompt engineering & Prompt engineering \\
-Support set & Support set \\
+Phát hiện khuôn mặt & Face detection \\
+Khuôn mặt rất nhỏ & Tiny face \\
+Điểm ảnh & Pixel \\
+Mô hình cơ sở & Baseline \\
+Quy trình phát hiện & Detection pipeline \\
+Cửa sổ trượt & Sliding window \\
+Mạng trục chính & Backbone \\
+Cổ đặc trưng & Neck \\
+Đầu dự đoán & Head \\
+Phát hiện một giai đoạn & One-stage detection \\
+Phát hiện hai giai đoạn & Two-stage detection \\
+Dự đoán dày đặc & Dense prediction \\
+Tăng cường dữ liệu theo tỉ lệ & Scale augmentation \\
+Kiểm thử đa tỉ lệ & Multi-scale testing \\
+Tập khó & Hard set \\
+Dịch chuyển miền dữ liệu & Domain shift \\
+Dương tính giả & False positive \\
+Đánh giá chuẩn & Benchmark \\
+Chưng cất tri thức & Distillation \\
+Thích nghi miền dữ liệu & Domain adaptation \\
 \end{longtable}
 \endgroup

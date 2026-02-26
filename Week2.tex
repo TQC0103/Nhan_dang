@@ -1,66 +1,97 @@
 ﻿% !TEX root = main.tex
 % !TEX encoding = UTF-8 Unicode
 
-\section*{Question 1: What is a generative model?}
+\section{Demonstration Objective and Success Criteria}
 
-A generative model learns a data distribution and can synthesize new samples
-that follow similar structure to training data.
-
-\section*{Question 2: Business value of Generative AI}
-
-Common revenue channels include:
+The demonstration should prove three claims:
 \begin{itemize}
-  \item Subscription plans for end users and teams.
-  \item API-based usage billing integrated into enterprise products.
+  \item The chosen method (SCRFD) is technically justified by both chapter and paper.
+  \item The system can run in practical real-time settings.
+  \item The accuracy-efficiency trade-off is visible, measurable, and reproducible.
 \end{itemize}
 
-\section*{Question 3: Practical image/video tool example}
+\section{What We Will Deliver as the SOTA Demonstration}
 
-Generated media can support marketing, prototyping, content localization,
-and design iteration with lower turnaround time.
+\subsection{Model set and expected role}
+\begin{itemize}
+  \item SCRFD-0.5GF: ultra-light deployment profile.
+  \item SCRFD-2.5GF: balanced profile for the main demonstration.
+  \item SCRFD-10GF or 34GF (if hardware permits): high-accuracy profile.
+\end{itemize}
 
-\section*{Question 4: Compare VAE, Flow, GAN, and Diffusion}
+\subsection{Evaluation conditions}
+\begin{itemize}
+  \item Input mode A: VGA single-scale stream for speed-oriented comparison.
+  \item Input mode B: original-resolution images for quality stress testing.
+  \item Input mode C: tiny-face crowded scenes to test hard-case robustness.
+\end{itemize}
 
-\begin{table}[h]
+\section{Demonstration Protocol (Step-by-Step)}
+
+\begin{enumerate}
+  \item Show baseline setup (hardware, input resolution, model profile).
+  \item Run SCRFD in real-time and display FPS, latency, and detections.
+  \item Compare at least two model sizes to show trade-off trend.
+  \item Show tiny-face or cluttered scenes and discuss observed failure modes.
+  \item Summarize results in one compact comparison table.
+\end{enumerate}
+
+\section{Metrics and Artifacts to Prepare for TAs}
+
+\subsection{Mandatory metrics}
+\begin{itemize}
+  \item Latency per frame (ms).
+  \item Throughput (FPS).
+  \item Detection quality indicator (AP if available, otherwise labeled subset precision/recall).
+  \item Parameter count and GFLOPs per model profile.
+\end{itemize}
+
+\subsection{Artifacts to submit/show}
+\begin{itemize}
+  \item One reproducible command list for each demo mode.
+  \item One summary table with all compared settings.
+  \item One short demo video (fallback if live demo is unstable).
+  \item One page of qualitative examples (easy, medium, hard cases).
+\end{itemize}
+
+\section{How to Give TAs Enough Technical Details}
+
+\begin{itemize}
+  \item Clearly separate \textit{paper-reported numbers} and \textit{team-reproduced numbers}.
+  \item Provide exact model variant names, input size, and runtime environment.
+  \item Explain every major design choice: why this model size, why this resolution, why this metric.
+  \item Report at least one failure case and proposed fix, not only successful examples.
+\end{itemize}
+
+\section{Oral Presentation Plan}
+
+\begin{table}[ht]
 \centering
+\caption{Suggested 10-minute oral structure}
+\label{tab:oral-plan}
+\begingroup
+\renewcommand{\arraystretch}{1.18}
 \small
-\renewcommand{\arraystretch}{1.2}
 \setlength{\tabcolsep}{4pt}
-\begin{tabularx}{\linewidth}{|>{\RaggedRight\arraybackslash}p{2.2cm}|X|X|X|X|}
-\hline
-\textbf{Family} & \textbf{Core mechanism} & \textbf{Image quality} & \textbf{Sampling speed} & \textbf{Training stability} \\
-\hline
-VAE & Encode/decode through latent variables & Medium to high & Fast & High \\
-\hline
-Flow & Invertible transformation from noise & High & Fast & Medium to high \\
-\hline
-GAN & Adversarial generator/discriminator game & High & Fast & Medium \\
-\hline
-Diffusion & Iterative denoising from Gaussian noise & Very high & Slower & High \\
-\hline
+\begin{tabularx}{\textwidth}{>{\RaggedRight\arraybackslash}p{0.12\linewidth} >{\RaggedRight\arraybackslash}X >{\RaggedRight\arraybackslash}p{0.20\linewidth}}
+\toprule
+\textbf{Time} & \textbf{Content} & \textbf{Expected output} \\
+\midrule
+0:00--1:30 & Problem, chapter scope, and paper scope & Clear framing and motivation \\
+1:30--4:00 & Textbook method and SCRFD method summary & Technical understanding \\
+4:00--6:30 & Chapter-paper relationship and critical comparison & Methodological depth \\
+6:30--8:30 & Live/recorded demo and quantitative table & Practical validation \\
+8:30--10:00 & Limitations, extension plan, and Q\&A setup & Research maturity and extensibility \\
+\bottomrule
 \end{tabularx}
+\endgroup
 \end{table}
 
-\section*{Question 5: How diffusion models generate images}
+\section{Execution Timeline to Reach Submission}
 
-A diffusion model adds noise during training and learns the reverse denoising process.
-At inference, it starts from random noise and repeatedly denoises until a clean image appears.
-
-\section*{Question 6: Compare popular diffusion-based systems}
-
-Closed systems typically optimize quality and user experience,
-while open systems (such as open-weight families) prioritize customization.
-
-\section*{Question 7: Example output image}
-
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=0.7\textwidth]{assets/F2.jpg}
-  \caption{Sample generated image for demonstration}
-  \label{fig:week2-sample-image}
-\end{figure}
-
-\section*{Question 8: Practical multimodal use case}
-
-A document assistant can combine OCR, layout understanding, and language modeling
-to answer questions from scanned invoices and forms.
+\begin{enumerate}
+  \item Finalize report text and figures.
+  \item Prepare reproducible demo scripts and metric extraction.
+  \item Rehearse oral flow with strict timing.
+  \item Freeze final PDF and backup demo video.
+\end{enumerate}

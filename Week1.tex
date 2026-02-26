@@ -1,70 +1,410 @@
 ﻿% !TEX root = main.tex
 % !TEX encoding = UTF-8 Unicode
 
-\tsection{Question 1. Distinguish basic, applied, and development-oriented research}
+\chapter{Phân tích chương sách: Phát hiện khuôn mặt cổ điển}
 
-In computer vision and pattern recognition, these three tracks usually form a pipeline:
-foundations, practical solutions, and product deployment.
+\section{Giới thiệu và động lực}
 
-\tsubsection{Basic research}
+Trong một hệ thống nhận dạng khuôn mặt hoàn chỉnh, phát hiện khuôn mặt là bước mở đầu của toàn bộ chuỗi xử lý.
+Trước khi chuẩn hóa hình học, trích xuất đặc trưng hay so khớp danh tính, hệ thống phải xác định đúng vị trí và phạm vi khuôn mặt trong ảnh hoặc trong khung hình video.
+Sai lệch ở bước này sẽ lan sang các bước sau và làm giảm hiệu năng toàn hệ thống.
+
+Về bản chất, phát hiện khuôn mặt không chỉ là tìm một hình chữ nhật bao quanh khuôn mặt.
+Đây là bài toán phân loại mẫu trên không gian ảnh con, trong đó cần tách lớp có mặt và lớp không có mặt dưới biến thiên lớn về vị trí, tỉ lệ, góc nhìn, chiếu sáng, biểu cảm và che khuất.
+Không gian ảnh có số chiều cao, trong khi mẫu mặt chỉ chiếm tỉ lệ nhỏ và tạo thành một cấu trúc phi tuyến phức tạp.
+Do đó, bài toán khó đồng thời ở cả biểu diễn dữ liệu lẫn xây dựng ranh giới quyết định.
+
+Các ứng dụng thực tế như giám sát, xác thực sinh trắc học và phân tích video còn đặt thêm ràng buộc thời gian thực.
+Vì vậy, bộ phát hiện phải cân bằng chặt giữa độ chính xác và hiệu quả tính toán.
+
+Động lực của chương này là làm rõ vai trò nền tảng của phát hiện khuôn mặt trong hệ nhận dạng, xác định các thách thức cốt lõi theo góc nhìn hình học và thống kê, và hệ thống hóa các hướng giải bài toán từ mô hình dựa trên hình học đến mô hình dựa trên biểu diễn và học máy.
+Chương cũng đóng vai trò cầu nối giữa nền tảng học không gian con và phân loại mẫu ở các chương trước với hệ thống nhận dạng hoàn chỉnh ở các chương sau.\cite{li2012facechapter}
+
+\section{Các công trình liên quan và kiến thức nền}
+
+Trong cấu trúc chung của cuốn sách, phát hiện khuôn mặt thuộc giai đoạn định vị khuôn mặt, đứng trước chuẩn hóa và trích xuất đặc trưng.
+Nếu các chương trước tập trung vào học không gian con, mô hình hóa đa tạp và bài toán nhiều chiều ít mẫu, thì chương này đưa các ý tưởng đó vào một tác vụ cụ thể là phân biệt ảnh con có mặt và ảnh con không có mặt.
+
+Vì vậy, phần kiến thức nền cần nhấn mạnh bốn điểm chính.
+Thứ nhất, không gian ảnh là không gian nhiều chiều nên chi phí tìm kiếm và chi phí học đều lớn.
+Thứ hai, đa tạp khuôn mặt có tính phi tuyến nên biên quyết định khó mô hình hóa bằng giả thiết đơn giản.
+Thứ ba, bài toán phát hiện là phân loại nhị phân nhưng có mất cân bằng mẫu mạnh do nền áp đảo số lượng.
+Thứ tư, biến thiên nội lớp của khuôn mặt thường rất lớn dưới điều kiện ngoài tự nhiên.
+
+Các hướng tiếp cận kinh điển có thể nhóm thành ba tuyến.
 \begin{itemize}
-  \item Focus: new theory, algorithms, and analysis.
-  \item Output: validated method and empirical study.
-  \item Typical metrics: accuracy, robustness, complexity.
+  \item \textbf{Tuyến dựa trên hình học.} Khai thác quan hệ hình học giữa các thành phần khuôn mặt như mắt, mũi và miệng. Tuyến này trực quan và gọn nhẹ nhưng phụ thuộc mạnh vào chất lượng định vị các điểm đặc trưng.
+  \item \textbf{Tuyến dựa trên biểu diễn.} Quy bài toán về phân loại các cửa sổ ảnh bằng đặc trưng toàn cục và cục bộ. Tuyến này đánh dấu bước chuyển sang mô hình hóa thống kê.
+  \item \textbf{Tuyến dựa trên học máy và phân tầng loại nhanh.} Học bộ phân loại từ dữ liệu và tổ chức theo nhiều tầng để loại sớm mẫu âm dễ, nhờ đó cải thiện đáng kể tốc độ suy luận.
 \end{itemize}
 
-\tsubsection{Applied research}
+Phát hiện khuôn mặt và nhận dạng khuôn mặt có quan hệ chặt nhưng mục tiêu khác nhau.
+Phát hiện khuôn mặt nhằm tách lớp có mặt và không có mặt trên không gian tìm kiếm rộng.
+Nhận dạng khuôn mặt nhằm phân biệt danh tính bên trong tập mẫu đã được định vị.
+Cả hai cùng chịu ảnh hưởng bởi tính phi tuyến của đa tạp khuôn mặt, biến thiên nội lớp lớn và khó khăn do dữ liệu nhiều chiều ít mẫu.
+Tuy nhiên, phát hiện khuôn mặt thường chịu ràng buộc tính toán nghiêm ngặt hơn do phải xử lý đồng thời định vị và phân loại trên toàn ảnh.\cite{li2012facechapter}
+
+\section{Phương pháp / Kỹ thuật cốt lõi}
+
+\subsection{Kỹ thuật cốt lõi rút ra từ chương sách}
+
+Kỹ thuật cốt lõi là một \textbf{bộ phát hiện cascade tăng cường dựa trên biểu diễn} gồm:
 \begin{itemize}
-  \item Focus: solve a concrete real-world problem in a domain.
-  \item Output: task-oriented pipeline and measurable KPI improvement.
-  \item Typical constraints: noisy data, domain shift, limited labels.
+  \item Đặc trưng cục bộ kiểu Haar.
+  \item Ảnh tích phân (integral image) để tính tổng đặc trưng hình chữ nhật theo thời gian hằng.
+  \item AdaBoost để xây dựng bộ phân loại mạnh từ các bộ học yếu.
+  \item Logic cascade/soft-cascade để loại sớm các mẫu âm dễ.
 \end{itemize}
 
-\tsubsection{Development-oriented research}
+\subsection{Nguyên lý vận hành theo quy trình 3 bước}
+
+Phương pháp trong sách có thể diễn giải theo cùng 3 giai đoạn bộ phát hiện đang dùng hiện nay:
 \begin{itemize}
-  \item Focus: run models reliably in production.
-  \item Output: scalable service, monitoring, and release workflow.
-  \item Typical constraints: latency, cost, reliability, maintainability.
+  \item \textbf{Sinh ứng viên:} quét cửa sổ trượt toàn diện trên các mức của tháp ảnh.
+  \item \textbf{Chấm điểm + tinh chỉnh:} bộ phân loại mạnh dựa trên boosting đánh giá từng cửa sổ ứng viên.
+  \item \textbf{Khử trùng lặp:} gộp các cửa sổ dương tính chồng lấp cao thành kết quả cuối.
 \end{itemize}
 
-\tsection{Question 2. Example application in pattern recognition}
+\subsection{Thành phần toán học và thuật toán cần báo cáo}
 
-A retail shelf-monitoring system detects products, tracks stock level, and alerts out-of-stock events.
-Evaluation combines detection quality with business metrics such as false alerts and response time.
+Phần viết cuối cho chương này sẽ viện dẫn các công thức trọng tâm trong sách:
+\begin{itemize}
+  \item Công thức tổng hợp bộ phân loại mạnh.
+  \item Công thức tính tổng hình chữ nhật bằng ảnh tích phân.
+  \item Công thức cập nhật lại trọng số mẫu trong AdaBoost.
+  \item Mô hình phân loại bất đối xứng/sự kiện hiếm.
+  \item Cấu trúc ra quyết định cascade để tối ưu tốc độ loại bỏ.
+\end{itemize}
 
-\tsection{Question 3. Supervised, unsupervised, and reinforcement learning}
+\section{Phân tích thực nghiệm}
 
-\tsubsection{Supervised learning}
-Uses labeled data and optimizes prediction loss directly.
+Chương sách chủ yếu nhấn mạnh thiết kế thuật toán và hành vi của bộ phát hiện
+(tỷ lệ phát hiện so với dương tính giả, tốc độ so với độ sâu loại bỏ),
+thay vì một giao thức chuẩn đánh giá hiện đại thống nhất. Vì vậy, báo cáo này rút ra:
+\begin{itemize}
+  \item Các chiều đo hiệu năng được nhấn mạnh (đánh đổi độ chính xác - tốc độ).
+  \item Vì sao độ sâu cascade và cách chọn bộ học yếu ảnh hưởng trực tiếp hành vi thời gian chạy.
+  \item Những giả định nào làm giảm độ vững trong bối cảnh không ràng buộc.
+\end{itemize}
 
-\tsubsection{Unsupervised learning}
-Finds structure in unlabeled data, for example clustering and representation learning.
+\section{Minh họa cài đặt (để ở báo cáo cuối kỳ)}
 
-\tsubsection{Reinforcement learning}
-Learns a policy from reward signals through interaction with an environment.
+Phần cài đặt cho mô hình cơ sở chương sách được chủ động dời sang giai đoạn báo cáo cuối kỳ.
+Ở giữa kỳ, mục này được giữ chỗ và đã chốt phạm vi:
+\begin{itemize}
+  \item Tái tạo mô hình cơ sở cửa sổ trượt tối thiểu.
+  \item Báo cáo độ trễ và kết quả định tính trên các mẫu dễ/trung bình/khó.
+  \item So sánh lỗi quan sát được với các giả định trong chương sách.
+\end{itemize}
 
-\tsection{Question 4. Why meta-learning is useful}
+\section{Thảo luận phản biện}
 
-Meta-learning improves adaptation speed when new classes or tasks have very few examples.
-It is especially useful when annotation is expensive and task distribution changes often.
+\textbf{Điểm mạnh.}
+Chiến lược loại bỏ rất hiệu quả, quy trình dễ diễn giải, và có tác động thực tiễn mạnh trong lịch sử.
 
-\tsubsection{Compact comparison}
+\textbf{Hạn chế.}
+Đặc trưng thủ công kém bền vững hơn trong điều kiện hiện đại không ràng buộc
+(che khuất, thay đổi góc nhìn, chiếu sáng phức tạp, khuôn mặt kích thước nhỏ).
+
+\textbf{Hàm ý cho báo cáo này.}
+Chương sách cung cấp bộ khung ý tưởng của bộ phát hiện mà các phương pháp hiện đại vẫn theo,
+nhưng từng giai đoạn hiện được học và tối ưu theo hướng dữ liệu.
+
+\section{Kết luận}
+
+Chương sách đóng góp nền tảng về logic phát hiện và tư duy tối ưu.
+Mô hình cơ sở này là then chốt để lý giải vì sao các phương pháp hiện đại như SCRFD
+là một bước tiến trong cách hiện thực, chứ không thay thế mục tiêu theo giai đoạn của bộ phát hiện.
+
+\chapter{Phân tích bài báo: SCRFD (ICLR 2022)}
+
+\section{Giới thiệu và động lực}
+
+Phát hiện khuôn mặt là một bài toán nền tảng trong thị giác máy tính, với nhiều
+ứng dụng quan trọng như căn chỉnh khuôn mặt, tái tạo khuôn mặt 3D, phân tích thuộc tính và nhận dạng khuôn mặt.
+Trong điều kiện tự nhiên, đây vẫn là bài toán khó, đặc biệt khi phần lớn khuôn mặt trong dữ liệu thực tế có kích thước rất nhỏ.
+
+Thống kê phân bố kích thước trên WIDER FACE cho thấy phần lớn khuôn mặt trong tập khó nhỏ hơn 32×32 điểm ảnh; vì vậy,
+năng lực xử lý khuôn mặt rất nhỏ trở thành nhân tố quyết định hiệu năng tổng thể của bộ phát hiện.\cite{guo2022scrfd,yang2016widerface}
+
+Nhiều bộ phát hiện hiện đại kế thừa mạng trục chính từ bài toán phân loại ảnh, nơi tài nguyên tính toán thường tập trung vào các tầng sâu để học
+đặc trưng ngữ nghĩa mạnh. Tuy nhiên, với khuôn mặt nhỏ, thông tin quan trọng lại xuất hiện nhiều ở các tầng nông có độ phân giải cao hơn.
+Do đó, cách phân bổ tính toán vốn hiệu quả cho phân loại ảnh chưa chắc tối ưu khi chuyển sang phát hiện khuôn mặt.\cite{guo2022scrfd}
+
+Thay vì gia tăng độ phức tạp kiến trúc bằng nhiều nhánh bổ sung, bài báo xuất phát từ giả thuyết nghiên cứu sau:
+\textit{Nếu tổng số phép tính được giữ cố định, liệu việc tái cấu trúc phân bổ tính toán giữa các tầng có cải thiện đáng kể hiệu quả phát hiện hay không?}
+
+Từ động lực đó, SCRFD đề xuất hai hướng tối ưu:
+(1) tái cân bằng tài nguyên tính toán trong bộ phát hiện để phù hợp hơn với phân bố kích thước khuôn mặt,
+và (2) điều chỉnh phân bố mẫu huấn luyện theo thang đo để tăng mật độ mẫu tại các miền kích thước quan trọng.
+Kết quả cho thấy có thể cải thiện hiệu quả rõ rệt mà không cần tăng tổng ngân sách tính toán.\cite{guo2022scrfd}
+
+\section{Các công trình liên quan và kiến thức nền}
+
+Về kiến thức nền, SCRFD kế thừa khung phát hiện ba giai đoạn đã được hình thành từ các hệ cổ điển
+và được tinh chỉnh dần trong các kiến trúc học sâu một giai đoạn lẫn hai giai đoạn.
+Về công trình liên quan, chuỗi phát triển từ Viola--Jones đến RetinaNet và các mô hình chuyên biệt khuôn mặt
+cho thấy xu hướng chuyển dịch rõ ràng từ thiết kế thủ công sang tối ưu hóa phân bố tài nguyên tính toán và phân bố mẫu dữ liệu theo đặc thù bài toán.
+
+\subsection{Luồng bộ phát hiện 3 bước}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  x=1cm,y=1cm,
+  node/.style={rectangle,rounded corners=2mm,draw=black!85,align=center,text width=4.2cm,minimum height=0.95cm,fill=cyan!10,font=\footnotesize},
+  flow/.style={->,>=stealth,line width=0.45pt,draw=black!70,shorten <=0.2pt,shorten >=0.2pt}
+]
+  \node[node] (c1) at (2.6,0.0) {(1) Sinh ứng viên\\cửa sổ/anchor/đề xuất};
+  \node[node] (c2) at (7.4,0.0) {(2) Chấm điểm + tinh chỉnh hộp\\phân loại + hồi quy};
+  \node[node] (c3) at (12.2,0.0) {(3) Khử trùng lặp\\NMS / gom nhóm};
+  \draw[flow] (c1.east) -- (c2.west);
+  \draw[flow] (c2.east) -- (c3.west);
+\end{tikzpicture}
+\caption{Quy trình phát hiện chuẩn dùng chung cho bộ phát hiện cổ điển và hiện đại.}
+\label{fig:canonical-detection-pipeline}
+\end{figure}
+
+\noindent\textbf{Diễn giải theo luồng phát hiện cơ sở.}
+Ở cách tiếp cận ngây thơ nhất, giai đoạn sinh ứng viên được thực hiện bằng cách duyệt toàn bộ cửa sổ trên ảnh ở mọi vị trí và mọi kích thước.
+Trong thực tế, thao tác này thường được cài đặt bằng quét cửa sổ trượt trên tháp tỉ lệ, nên số lượng ứng viên tăng rất nhanh theo độ phân giải ảnh và số mức tỉ lệ.
+Ở giai đoạn chấm điểm, từng cửa sổ được đánh giá độc lập để quyết định có phải khuôn mặt hay không và có thể kèm hiệu chỉnh hộp bao.
+Ở giai đoạn hợp nhất, các dự đoán chồng lấp cao được gộp lại bằng cơ chế như NMS để tránh lặp phát hiện.
+Khung ngây thơ này giúp nhìn rõ bản chất bài toán, đồng thời chỉ ra nút thắt tính toán khiến các phương pháp hiện đại phải tối ưu mạnh ở cả ba giai đoạn.
+
+\subsection{Sơ đồ tiến hóa đến SCRFD}
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  x=1cm,y=1cm,
+  era/.style={rectangle,rounded corners=2mm,draw=black!85,align=center,text width=2.7cm,minimum height=0.82cm,fill=blue!16,font=\scriptsize},
+  branch/.style={rectangle,rounded corners=2mm,draw=black!85,align=center,text width=2.4cm,minimum height=0.82cm,fill=orange!28,font=\scriptsize},
+  example/.style={rectangle,rounded corners=2mm,draw=black!85,align=center,text width=1.9cm,minimum height=0.68cm,fill=yellow!20,font=\scriptsize},
+  face/.style={rectangle,rounded corners=2mm,draw=black!85,align=center,text width=2.3cm,minimum height=0.78cm,fill=teal!18,font=\scriptsize},
+  focus/.style={rectangle,rounded corners=2mm,draw=black!90,line width=0.75pt,align=center,text width=2.8cm,minimum height=0.86cm,fill=green!26,font=\scriptsize},
+  link/.style={line width=0.42pt,draw=black!70},
+  flow/.style={draw=black!70,line width=0.42pt,-{Stealth[length=2.0mm,width=1.3mm]},line cap=round}
+]
+  \node[era] (classical) at (1.8,0.0) {Kỷ nguyên thủ công\\Viola--Jones};
+  \node[era] (deep) at (5.5,0.0) {Kỷ nguyên học sâu\\Bộ phát hiện CNN};
+
+  \node[branch] (two_stage) at (9.4,1.8) {Nhánh\\hai giai đoạn};
+  \node[branch] (one_stage) at (9.4,-1.8) {Nhánh\\một giai đoạn};
+
+  \node[example] (rcnn) at (12.8,2.6) {R-CNN};
+  \node[example] (fast_rcnn) at (15.9,2.6) {Fast R-CNN};
+  \node[example] (faster_rcnn) at (19.0,2.6) {Faster R-CNN};
+
+  \node[example] (ssd) at (12.8,-0.9) {SSD};
+  \node[example] (yolo) at (12.8,-1.8) {YOLO};
+  \node[example] (retinanet) at (12.8,-2.7) {RetinaNet};
+
+  \node[face] (retinaface) at (16.0,-2.7) {RetinaFace};
+  \node[focus] (scrfd) at (19.6,-2.7) {SCRFD (2022)};
+
+  \draw[flow] (classical.east) -- (deep.west);
+  \draw[flow] (deep.east) -- ++(0.7,0) |- (two_stage.west);
+  \draw[flow] (deep.east) -- ++(0.7,0) |- (one_stage.west);
+
+  \draw[flow] (two_stage.east) -- (rcnn.west);
+  \draw[flow] (rcnn.east) -- (fast_rcnn.west);
+  \draw[flow] (fast_rcnn.east) -- (faster_rcnn.west);
+
+  \coordinate (one_split) at ($(one_stage.east)+(0.62,0)$);
+  \coordinate (one_split_top) at ($(one_split)+(0,0.9)$);
+  \coordinate (one_split_bot) at ($(one_split)+(0,-0.9)$);
+  \fill[black!70] (one_split) circle (0.75pt);
+  \draw[link] (one_stage.east) -- (one_split);
+  \draw[link] (one_split_top) -- (one_split_bot);
+  \draw[flow] (one_split_top) -- (ssd.west);
+  \draw[flow] (one_split) -- (yolo.west);
+  \draw[flow] (one_split_bot) -- (retinanet.west);
+  \draw[flow] (retinanet.east) -- (retinaface.west);
+  \draw[flow,shorten >=1.8pt] (retinaface.east) -- (scrfd.west);
+\end{tikzpicture}
+}
+\vspace{1mm}
+
+\begin{tikzpicture}[
+  x=1cm,y=1cm,
+  leg/.style={rectangle,rounded corners=1.2mm,draw=black!80,minimum width=0.48cm,minimum height=0.32cm}
+]
+  \node[anchor=west,font=\scriptsize\bfseries] at (0,0.35) {Chú thích:};
+  \matrix (lg) [
+    matrix of nodes,
+    anchor=west,
+    nodes={font=\scriptsize,anchor=west,inner sep=1pt,outer sep=0pt},
+    column sep=1.8mm,
+    row sep=2.0mm
+  ] at (1.55,0.05) {
+    |[leg,fill=blue!16]| {} & Cột mốc theo giai đoạn &
+    |[leg,fill=orange!28]| {} & Nhánh kiến trúc &
+    |[leg,fill=yellow!20]| {} & Mô hình tiêu biểu \\
+    |[leg,fill=teal!18]| {} & Bộ phát hiện chuyên biệt khuôn mặt &
+    |[leg,fill=green!26]| {} & Phương pháp mục tiêu (SCRFD) &
+    {} & {} \\
+  };
+\end{tikzpicture}
+\caption{Lộ trình tiến hóa từ phát hiện khuôn mặt thủ công đến SCRFD (nhánh một giai đoạn).}
+\label{fig:evolution-to-scrfd}
+\end{figure}
+
+\subsection{Phân tích chi tiết các cột mốc trên đường tiến hóa đến SCRFD}
+
+\noindent\textbf{Nguyên tắc đọc chung.}
+Mỗi cột mốc kiến trúc trong Hình~\ref{fig:evolution-to-scrfd} đều có thể quy chiếu về cùng một khung phát hiện ba giai đoạn:
+sinh ứng viên, chấm điểm kèm định vị lại hộp, và hợp nhất dự đoán.
+Sự khác biệt giữa các thế hệ chủ yếu nằm ở cách hiện thực và trọng tâm tối ưu hóa tại từng giai đoạn.
+Trong phần này, tuyến phân tích chính được giữ theo chuỗi
+\textit{Viola--Jones $\rightarrow$ CNN detectors $\rightarrow$ RetinaNet $\rightarrow$ SCRFD};
+các nhánh còn lại chỉ tóm tắt để định vị bối cảnh.
+
+\noindent\textbf{Viola--Jones.}
+Ở giai đoạn sinh ứng viên, hệ thống quét cửa sổ trượt trên nhiều tỉ lệ ảnh để bao phủ không gian vị trí và kích thước khuôn mặt.
+Giai đoạn chấm điểm sử dụng đặc trưng Haar-like tính nhanh bằng ảnh tích phân, kết hợp AdaBoost để chọn đặc trưng phân biệt và tổ chức thành cascade nhiều tầng nhằm loại sớm mẫu âm.
+Giai đoạn cuối hợp nhất các cửa sổ chồng lấp thành phát hiện duy nhất.
+Đóng góp bản chất của cột mốc này là đặt nền cho một quy trình phát hiện có tính hệ thống, trong đó tốc độ được tối ưu ngay từ cơ chế ra quyết định.\cite{li2012facechapter,viola2001rapid,viola2004robust}
+
+\noindent\textbf{Kỷ nguyên học sâu.}
+Trong giai đoạn chuyển tiếp sang học sâu, cơ chế sinh ứng viên dần rời khỏi các quy tắc thủ công và gắn với bản đồ đặc trưng học được.
+Khâu chấm điểm và hồi quy hộp hưởng lợi trực tiếp từ biểu diễn sâu, nhờ đó độ tách biệt giữa mặt và nền trong bối cảnh che khuất, thay đổi tư thế và điều kiện chiếu sáng phức tạp được cải thiện đáng kể.
+NMS tiếp tục đảm nhiệm khâu hợp nhất dự đoán, nhưng chất lượng đầu vào đã cao hơn rõ rệt.
+Điểm thay đổi cốt lõi của giai đoạn này là chuyển trọng tâm từ thiết kế đặc trưng bằng tay sang học biểu diễn từ dữ liệu.
+
+\noindent\textbf{Nhánh hai giai đoạn.}
+Nhánh này gồm R-CNN, Fast R-CNN và Faster R-CNN.
+Trong R-CNN, sinh ứng viên dựa trên selective search với số lượng vùng đề xuất lớn; các vùng này được đưa qua CNN theo từng vùng, sau đó phân loại bằng SVM và hồi quy hộp, trước khi hợp nhất bằng NMS.\cite{girshick2014rcnn}
+Fast R-CNN giữ cơ chế đề xuất vùng bên ngoài nhưng tái cấu trúc khâu chấm điểm bằng cách chia sẻ đặc trưng tích chập toàn ảnh, chỉ trích xuất ROI tại bước sau, đồng thời học chung phân loại và hồi quy để giảm mạnh tính toán lặp.\cite{girshick2015fast}
+Faster R-CNN tiếp tục hợp nhất quy trình bằng cách thay selective search bằng RPN dựa trên anchor và chia sẻ đặc trưng với nhánh nhận dạng; NMS vẫn giữ vai trò then chốt ở cả mức đề xuất và mức dự đoán cuối.\cite{ren2015faster}
+Nhìn tổng thể, nhánh hai giai đoạn ưu tiên chất lượng ứng viên và độ chính xác, đánh đổi bằng độ trễ suy luận cao hơn.
+
+\noindent\textbf{Nhánh một giai đoạn sớm.}
+Nhánh này tiêu biểu bởi SSD và YOLO.
+SSD sinh ứng viên bằng default boxes đa tỉ lệ trên nhiều mức đặc trưng và dự đoán trực tiếp nhãn cùng sai lệch hộp cho từng default box trong một lượt suy luận, trước khi áp dụng NMS.\cite{liu2016ssd}
+YOLO mô hình hóa không gian ảnh theo lưới đều, dự đoán đồng thời hộp giới hạn, điểm tin cậy và xác suất lớp tại từng ô, rồi khử trùng lặp bằng ngưỡng và NMS.\cite{redmon2016yolo}
+Đóng góp quan trọng của nhánh này là hợp nhất khâu sinh ứng viên và khâu chấm điểm vào một quy trình tích hợp theo hướng thời gian thực.
+
+\noindent\textbf{RetinaNet.}
+RetinaNet duy trì cơ chế phát hiện dày đặc bằng anchor trên tháp đặc trưng đa mức.
+Khâu chấm điểm và hồi quy được tách thành hai nhánh song song; cải tiến quan trọng là focal loss nhằm giảm ảnh hưởng của mẫu âm dễ và dồn trọng số học vào mẫu khó.
+Khâu hậu xử lý vẫn sử dụng NMS để hợp nhất kết quả.
+So với SSD và YOLO, RetinaNet xử lý hiệu quả hơn bài toán mất cân bằng lớp trong phát hiện dày đặc, nhờ đó chất lượng phân loại được cải thiện rõ rệt.\cite{lin2017focal}
+
+\noindent\textbf{SCRFD.}
+SCRFD kế thừa nền tảng phát hiện dày đặc một giai đoạn với anchor đa mức, nhưng không chấp nhận nguyên trạng tỉ lệ thiết kế của mô hình gốc.
+Ở tầng phương pháp, bài báo đồng thời tối ưu kiến trúc và dữ liệu huấn luyện qua hai cơ chế:
+Computation Redistribution tái cân bằng tài nguyên tính toán giữa mạng trục chính, cổ đặc trưng, đầu dự đoán và từng tầng trong mạng trục chính;
+Sample Redistribution điều chỉnh phân bố mẫu theo thang đo để tăng cường tín hiệu học tại các miền kích thước quan trọng của khuôn mặt nhỏ.
+NMS vẫn được giữ ở khâu hợp nhất dự đoán; tuy nhiên, chất lượng hộp và điểm tin cậy được nâng lên nhờ hai tối ưu nói trên.
+So với RetinaFace và nhiều mốc trước đó, SCRFD cải thiện rõ hiệu năng trên tập khó trong khi vẫn duy trì hiệu quả tính toán trong cùng ngân sách.\cite{guo2022scrfd,deng2020retinaface}
+
+\section{Phương pháp bài báo đề xuất}
+
+\subsection{Phương pháp chính của SCRFD}
+
+SCRFD kết hợp hai hướng tối ưu phối hợp:\cite{guo2022scrfd}
+\begin{itemize}
+  \item \textbf{Computation Redistribution CR:} tái cấu trúc phân bổ tính toán giữa
+  mạng trục chính backbone, cổ đặc trưng neck, đầu dự đoán head và các tầng của mạng trục chính.
+  \item \textbf{Sample Redistribution SR:} điều chỉnh phân bố mẫu huấn luyện theo thang đo thông qua chiến lược tăng cường dữ liệu đa tỉ lệ, nhằm cải thiện khả năng học trên miền khuôn mặt nhỏ.
+\end{itemize}
+
+\noindent\textbf{Phân tích điểm kế thừa của SCRFD từ Viola--Jones.}
+Dù khác mạnh về công nghệ hiện thực, SCRFD vẫn kế thừa trực tiếp tư duy thiết kế của phương pháp Viola--Jones trong chương sách:
+\begin{itemize}
+  \item \textbf{Kế thừa khung ba bước phát hiện.}
+  Cả hai đều giữ cùng mục tiêu quy trình: sinh ứng viên, chấm điểm + định vị, rồi hợp nhất kết quả.
+  SCRFD thay thế cách làm thủ công bằng mô hình học sâu, nhưng không thay mục tiêu theo giai đoạn.
+  \item \textbf{Kế thừa tư duy đa tỉ lệ.}
+  Viola--Jones dùng tháp tỉ lệ ảnh để quét cửa sổ ở nhiều kích thước.
+  SCRFD kế thừa ý tưởng đó bằng đặc trưng đa mức và phân phối lại mẫu theo tỉ lệ để bám tốt khuôn mặt nhỏ.
+  \item \textbf{Kế thừa định hướng tối ưu hiệu quả tính toán.}
+  Viola--Jones tăng tốc bằng chuỗi phân tầng loại sớm.
+  SCRFD theo cùng tinh thần tối ưu chi phí, nhưng thực hiện bằng phân phối lại phép tính giữa mạng trục chính, cổ đặc trưng và đầu dự đoán.
+  \item \textbf{Kế thừa bước hợp nhất dự đoán cuối.}
+  Từ gom cửa sổ chồng lấp trong Viola--Jones, SCRFD giữ cùng vai trò hậu xử lý bằng NMS hiện đại.
+\end{itemize}
+Như vậy, SCRFD có thể xem là sự kế thừa có hệ thống từ Viola--Jones:
+giữ nguyên logic phát hiện cốt lõi, đồng thời hiện đại hóa từng bước bằng học sâu và tối ưu theo dữ liệu.
+
+\section{Phân tích thực nghiệm}
+
+SCRFD được đánh giá trên WIDER FACE, nơi khuôn mặt nhỏ chiếm ưu thế và bộc lộ rõ điểm yếu xử lý tỉ lệ.
+Bài báo báo cáo AP trên các tập Easy/Medium/Hard và so sánh đồng thời độ chính xác lẫn hiệu năng
+trong điều kiện suy luận được kiểm soát.\cite{guo2022scrfd,yang2016widerface}
+
+Trọng tâm phân tích của báo cáo này gồm:
+\begin{itemize}
+  \item Vì sao CR giúp chuyển tài nguyên tính toán sang các thành phần có đóng góp hiệu quả hơn cho phát hiện khuôn mặt nhỏ.
+  \item Vì sao SR cải thiện hành vi của mô hình trên tập khó thông qua tái phân bố mẫu theo thang tỉ lệ.
+  \item SCRFD định vị như thế nào so với các mô hình nền tiêu biểu ở cả nhánh một giai đoạn và hai giai đoạn.
+\end{itemize}
+
+\section{Minh họa cài đặt (để ở báo cáo cuối kỳ)}
+
+Phần cài đặt và đánh giá chuẩn đầy đủ được dời lại. Báo cáo giữa kỳ này chốt trước kế hoạch minh họa:
+\begin{itemize}
+  \item Chạy ít nhất hai mức kích thước mô hình SCRFD trên cùng một tập kiểm định.
+  \item Báo cáo AP (hoặc chỉ báo thay thế theo tập), độ trễ, FPS, và độ phức tạp mô hình.
+  \item Trình bày ví dụ định tính cả thành công/lỗi trên khuôn mặt nhỏ, đông đúc, và che khuất.
+  \item Giữ cố định môi trường và tiền xử lý để đảm bảo so sánh công bằng.
+\end{itemize}
+
+\section{Thảo luận phản biện}
+
+\subsection{Điểm mạnh}
+
+\begin{itemize}
+  \item Đánh đổi độ chính xác - hiệu năng tốt trong các ngân sách tính toán thực tế.
+  \item Tối ưu theo đặc thù bài toán một cách tường minh, thay vì kế thừa tỉ lệ kiến trúc chung.
+  \item Cải thiện ổn định trên điều kiện khó với mật độ khuôn mặt nhỏ cao.
+\end{itemize}
+
+\subsection{Hạn chế}
+
+\begin{itemize}
+  \item Quy trình tìm kiếm kiến trúc tốn kém chi phí huấn luyện.
+  \item Hiệu năng có thể nhạy với dịch chuyển miền dữ liệu ngoài thống kê của WIDER FACE.
+  \item Kiểm thử đa tỉ lệ vẫn có thể làm tăng độ trễ khi triển khai.
+\end{itemize}
+
+\subsection{Hướng cải tiến tiềm năng}
+
+\begin{itemize}
+  \item Chưng cất tri thức sang các mô hình chi phí thấp hơn cho triển khai ở thiết bị biên.
+  \item Thích nghi miền dữ liệu cho dữ liệu giám sát ban đêm/ánh sáng yếu.
+  \item Bổ sung hậu xử lý theo chất lượng/độ bất định để giảm dương tính giả có độ tự tin cao.
+\end{itemize}
+
+\subsection{Tóm tắt so sánh chương sách và SCRFD}
+
 \begin{table}[ht]
 \centering
-\caption{Supervised learning vs meta-learning by task type}
-\label{tab:week1-supervised-vs-meta}
+\caption{So sánh phương pháp chương sách và SCRFD: cùng mục tiêu, khác cách hiện thực}
+\label{tab:textbook-scrfd-diff}
 \begingroup
-\renewcommand{\arraystretch}{1.2}
+\renewcommand{\arraystretch}{1.18}
 \small
 \setlength{\tabcolsep}{4pt}
 \begin{tabularx}{\textwidth}{>{\RaggedRight\arraybackslash}p{0.22\linewidth} >{\RaggedRight\arraybackslash}X >{\RaggedRight\arraybackslash}X}
 \toprule
-\textbf{Task} & \textbf{Supervised Learning} & \textbf{Meta-Learning} \\
+\textbf{Khía cạnh} & \textbf{Chương sách (cổ điển)} & \textbf{Bài báo SCRFD (hiện đại)} \\
 \midrule
-Image classification & Needs many labeled samples per class & Adapts to new classes with few-shot support \\
-Object detection & High annotation cost for bounding boxes & Better adaptation for new categories/domains \\
-Image segmentation & Pixel labels are expensive to create & Few-shot segmentation with small support set \\
+Thiết kế đặc trưng & Họ đặc trưng thủ công Haar/LBP & Hệ đặc trưng CNN học sâu đa tầng \\
+Lõi học máy & Xây dựng bộ phân loại dựa trên boosting & Tìm kiếm CR + SR dưới ràng buộc ngân sách tính toán \\
+Chiến lược tốc độ & Loại sớm bằng cascade & Tái cấu trúc phân bổ tính toán + họ mô hình gọn \\
+Xử lý tỉ lệ & Quét theo tháp/quy tắc kinh nghiệm đa góc nhìn & Tái phân bổ tăng cường theo thang tỉ lệ được tìm kiếm \\
+Hợp nhất kết quả cuối & Gom các cửa sổ chồng lấp & NMS chuẩn trên dự đoán dày đặc \\
 \bottomrule
 \end{tabularx}
 \endgroup
 \end{table}
+
+\section{Kết luận}
+
+SCRFD giữ nguyên mục tiêu theo giai đoạn của bộ phát hiện đã hình thành từ phát hiện cổ điển,
+nhưng thay thế từng giai đoạn bằng cơ chế học được, có nhận thức ngân sách tính toán và nhạy theo thang tỉ lệ.
+Cấu trúc hai chương này làm rõ cả nền tảng lịch sử (chương sách)
+lẫn hiện thực tiên tiến hiện đại (bài báo) trong một mạch báo cáo nghiên cứu thống nhất.

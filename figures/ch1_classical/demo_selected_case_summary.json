@@ -1,0 +1,28 @@
+{
+  "image": "2--Demonstration/2_Demonstration_Protesters_2_738.jpg",
+  "step1_candidate_count": 425,
+  "final_detection_count": 11,
+  "gt_count": 10,
+  "tp": 5,
+  "fp": 6,
+  "fn": 5,
+  "params": {
+    "step1_like": {
+      "scaleFactor": 1.05,
+      "minNeighbors": 0,
+      "minSize": [
+        20,
+        20
+      ]
+    },
+    "final": {
+      "scaleFactor": 1.1,
+      "minNeighbors": 3,
+      "minSize": [
+        20,
+        20
+      ]
+    },
+    "iou_match_threshold": 0.3
+  }
+}

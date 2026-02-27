@@ -1,0 +1,50 @@
+{
+  "dataset": "WIDER FACE validation",
+  "opencv_version": "4.13.0",
+  "model": "haarcascade_frontalface_default.xml",
+  "iou_match_threshold": 0.3,
+  "roc_like_points_csv": "figures/ch1_classical/sec116_roc_like_points.csv",
+  "subwindow_size_csv": "figures/ch1_classical/sec116_subwindow_size_compare.csv",
+  "best_f1_point": {
+    "scaleFactor": 1.1,
+    "minNeighbors": 3,
+    "minSize": 20,
+    "images": 3222,
+    "gt": 39112,
+    "det": 12640,
+    "tp": 7124,
+    "fp": 5516,
+    "fn": 31988,
+    "precision": 0.5636075949367089,
+    "recall": 0.18214358764573532,
+    "f1": 0.27531303138042973
+  },
+  "best_recall_point": {
+    "scaleFactor": 1.1,
+    "minNeighbors": 0,
+    "minSize": 20,
+    "images": 3222,
+    "gt": 39112,
+    "det": 331374,
+    "tp": 10405,
+    "fp": 320969,
+    "fn": 28707,
+    "precision": 0.03139956665278507,
+    "recall": 0.26603088566168953,
+    "f1": 0.05616946389337249
+  },
+  "subwindow_best_f1": {
+    "scaleFactor": 1.1,
+    "minNeighbors": 3,
+    "minSize": 16,
+    "images": 3222,
+    "gt": 39112,
+    "det": 12640,
+    "tp": 7124,
+    "fp": 5516,
+    "fn": 31988,
+    "precision": 0.5636075949367089,
+    "recall": 0.18214358764573532,
+    "f1": 0.27531303138042973
+  }
+}

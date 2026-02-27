@@ -82,3 +82,7 @@ Desktop.ini
 
 # PDF output (optional): uncomment if you don't want to version PDFs
 # *.pdf
+
+# Local datasets (keep only placeholder guide)
+data/*
+!data/README.md

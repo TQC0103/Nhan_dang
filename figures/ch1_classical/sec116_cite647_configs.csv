@@ -1,0 +1,4 @@
+id,citation,cascades,scaleFactor,minNeighbors,minSize,mirror,nms,images,gt,det,tp,fp,fn,precision,recall,f1
+cite6_twopoint_like,[6] Brubaker et al. (IJCV 2008),haarcascade_frontalface_default.xml,1.05,2,20,False,0.35,200,6235,2240,815,1425,5420,0.3638392857142857,0.13071371291098638,0.19233038348082596
+cite17_floatboost_multiview_like,[17] Li and Zhang (TPAMI 2004),haarcascade_frontalface_default.xml;haarcascade_frontalface_alt2.xml;haarcascade_profileface.xml,1.08,3,20,True,0.35,200,6235,2243,1146,1097,5089,0.5109228711547035,0.18380112269446672,0.27034677990092004
+cite47_asymboost_fda_like,[47] Wu et al. (TPAMI 2008),haarcascade_frontalface_default.xml;haarcascade_frontalface_alt2.xml,1.05,1,20,False,0.35,200,6235,4462,1166,3296,5069,0.261317794710892,0.18700882117080994,0.21800504814433952

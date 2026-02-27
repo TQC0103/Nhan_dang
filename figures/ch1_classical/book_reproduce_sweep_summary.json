@@ -1,0 +1,112 @@
+{
+  "fig1114": {
+    "csv": "figures/ch1_classical/book_fig1114_sweep.csv",
+    "top3": [
+      {
+        "cascade_set": "fd+fa2",
+        "scaleFactor": 1.03,
+        "minNeighbors": 1,
+        "minSize": 24,
+        "maxAreaRatio": 0.2,
+        "det": 27.0,
+        "panel_hits": 9.0,
+        "oversize": 0.0,
+        "mean_area_ratio": 0.027973989195118527,
+        "score": 0.0
+      },
+      {
+        "cascade_set": "fd+fa2",
+        "scaleFactor": 1.03,
+        "minNeighbors": 1,
+        "minSize": 24,
+        "maxAreaRatio": 0.25,
+        "det": 27.0,
+        "panel_hits": 9.0,
+        "oversize": 0.0,
+        "mean_area_ratio": 0.027973989195118527,
+        "score": 0.0
+      },
+      {
+        "cascade_set": "fd+fa2",
+        "scaleFactor": 1.03,
+        "minNeighbors": 1,
+        "minSize": 24,
+        "maxAreaRatio": 0.3,
+        "det": 27.0,
+        "panel_hits": 9.0,
+        "oversize": 0.0,
+        "mean_area_ratio": 0.027973989195118527,
+        "score": 0.0
+      }
+    ],
+    "selected_for_cfgA": {
+      "cascade_set": "fd+fa2",
+      "scaleFactor": 1.03,
+      "minNeighbors": 1,
+      "minSize": 24,
+      "maxAreaRatio": 0.2,
+      "det": 27.0,
+      "panel_hits": 9.0,
+      "oversize": 0.0,
+      "mean_area_ratio": 0.027973989195118527,
+      "score": 0.0
+    },
+    "selected_for_cfgB": {
+      "cascade_set": "fd+fa2",
+      "scaleFactor": 1.03,
+      "minNeighbors": 1,
+      "minSize": 24,
+      "maxAreaRatio": 0.25,
+      "det": 27.0,
+      "panel_hits": 9.0,
+      "oversize": 0.0,
+      "mean_area_ratio": 0.027973989195118527,
+      "score": 0.0
+    }
+  },
+  "fig1115": {
+    "csv": "figures/ch1_classical/book_fig1115_sweep.csv",
+    "top3": [
+      {
+        "cascade_set": "frontalface_default+frontalface_alt2+profileface",
+        "scaleFactor": 1.07,
+        "minNeighbors": 4,
+        "minSize": 16,
+        "det": 21.0,
+        "oversize": 0.0,
+        "mean_area_ratio": 0.005837489302682445,
+        "score": 1.0
+      },
+      {
+        "cascade_set": "frontalface_default+frontalface_alt2+profileface",
+        "scaleFactor": 1.07,
+        "minNeighbors": 4,
+        "minSize": 18,
+        "det": 21.0,
+        "oversize": 0.0,
+        "mean_area_ratio": 0.005837489302682445,
+        "score": 1.0
+      },
+      {
+        "cascade_set": "frontalface_default+frontalface_alt2+profileface",
+        "scaleFactor": 1.07,
+        "minNeighbors": 4,
+        "minSize": 20,
+        "det": 21.0,
+        "oversize": 0.0,
+        "mean_area_ratio": 0.005837489302682445,
+        "score": 1.0
+      }
+    ],
+    "selected_for_best": {
+      "cascade_set": "frontalface_default+frontalface_alt2+profileface",
+      "scaleFactor": 1.07,
+      "minNeighbors": 4,
+      "minSize": 16,
+      "det": 21.0,
+      "oversize": 0.0,
+      "mean_area_ratio": 0.005837489302682445,
+      "score": 1.0
+    }
+  }
+}

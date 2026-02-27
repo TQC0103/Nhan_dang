@@ -1,0 +1,21 @@
+{
+  "source_page": "resources/book_pages/page-21.png",
+  "crop": {
+    "x": 140,
+    "y": 150,
+    "w": 940,
+    "h": 1030
+  },
+  "opencv_version": "4.13.0",
+  "selected_config": {
+    "scaleFactor": 1.08,
+    "minNeighbors": 3,
+    "minSize": 20,
+    "cascades": [
+      "haarcascade_frontalface_default.xml",
+      "haarcascade_profileface.xml"
+    ],
+    "detections": 20
+  },
+  "note": "Closest OpenCV approximation; book figure likely produced by dedicated multiview cascade (FloatBoost/extended Haar), not OpenCV pretrained frontal-only setup."
+}

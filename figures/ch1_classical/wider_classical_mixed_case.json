@@ -1,0 +1,24 @@
+{
+  "dataset": "WIDER FACE validation",
+  "selected_image": "2--Demonstration/2_Demonstration_Protesters_2_738.jpg",
+  "tp": 5,
+  "fp": 6,
+  "fn": 5,
+  "gt_count": 10,
+  "det_count": 11,
+  "legend": {
+    "green_box": "true positive detection",
+    "red_box": "false positive detection",
+    "yellow_box": "false negative ground-truth face"
+  },
+  "params": {
+    "detector": "OpenCV haarcascade_frontalface_default",
+    "scaleFactor": 1.1,
+    "minNeighbors": 3,
+    "minSize": [
+      20,
+      20
+    ],
+    "iou_match_threshold": 0.3
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "source_page": "resources/book_pages/page-20.png",
+  "crop": {
+    "x": 146,
+    "y": 148,
+    "w": 933,
+    "h": 710
+  },
+  "opencv_version": "4.13.0",
+  "model": "haarcascade_frontalface_default.xml",
+  "mode": "per_panel_detection",
+  "num_panels": 9,
+  "panels": [
+    [
+      4,
+      4,
+      178,
+      251
+    ],
+    [
+      190,
+      4,
+      365,
+      251
+    ],
+    [
+      563,
+      4,
+      366,
+      251
+    ],
+    [
+      4,
+      263,
+      178,
+      234
+    ],
+    [
+      190,
+      263,
+      365,
+      234
+    ],
+    [
+      563,
+      263,
+      366,
+      234
+    ],
+    [
+      4,
+      505,
+      178,
+      201
+    ],
+    [
+      190,
+      505,
+      365,
+      201
+    ],
+    [
+      563,
+      505,
+      366,
+      201
+    ]
+  ],
+  "config_A": {
+    "scaleFactor": 1.05,
+    "minNeighbors": 1,
+    "minSize": 18,
+    "maxAreaRatio": 0.2,
+    "cascadeSet": "frontal_default+frontal_alt2",
+    "detections": 27
+  },
+  "config_B": {
+    "scaleFactor": 1.07,
+    "minNeighbors": 1,
+    "minSize": 18,
+    "maxAreaRatio": 0.2,
+    "cascadeSet": "frontal_default+frontal_alt2",
+    "detections": 21
+  }
+}

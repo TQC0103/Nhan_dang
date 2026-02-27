@@ -1,0 +1,9 @@
+{
+  "dataset": "WIDER FACE validation subset",
+  "images_with_gt": 200,
+  "opencv_version": "4.13.0",
+  "iou_match_threshold": 0.3,
+  "csv": "figures/ch1_classical/sec116_cite647_configs.csv",
+  "best_f1": "cite17_floatboost_multiview_like",
+  "note": "Hyperparameters are citation-guided approximations for OpenCV inference. Exact ROC in Fig. 11.16 cannot be matched without original MIT-CMU protocol and original trained cascades from each method."
+}

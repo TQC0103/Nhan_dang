@@ -483,7 +483,7 @@ h(x;k,\tau,p)=
 trong đó $k$ là chỉ số đặc trưng, $\tau$ là ngưỡng và $p \in \{+1,-1\}$ là cực tính.
 Mỗi bộ phân loại yếu chỉ dựa vào một đặc trưng nên năng lực phân biệt còn hạn chế.
 
-\subsubsection{AdaBoost: xây dựng bộ phân loại mạnh}
+\subsubsection{AdaBoost: Xây dựng bộ phân loại mạnh}
 
 Với tập huấn luyện $\{(x_i,y_i)\}_{i=1}^{N}$, $y_i \in \{-1,+1\}$, mục tiêu là học:
 \[
@@ -495,19 +495,19 @@ H(x)=\mathrm{sign}\!\left(\sum_{m=1}^{M}\alpha_m h_m(x)\right)
   \item Khởi tạo trọng số mẫu $w_i^{(1)}=\frac{1}{N}$.
   \item Với mỗi vòng $m=1,\ldots,M$:
   \begin{itemize}
-    \item Huấn luyện $h_m$ để tối thiểu hóa sai số có trọng số
+    \item Huấn luyện bộ phân loại yếu $h_m$ để tối thiểu hóa sai số có trọng số:
     \[
-    \epsilon_m=\sum_{i=1}^{N} w_i^{(m)}\,\mathbf{1}[h_m(x_i)\neq y_i].
+    \epsilon_m=\sum_{i=1}^{N} w_i^{(m)}\,\mathbf{1}[h_m(x_i)\neq y_i]
     \]
-    \item Tính hệ số
+    \item Tính hệ số tin cậy:
     \[
-    \alpha_m=\frac{1}{2}\ln\!\left(\frac{1-\epsilon_m}{\epsilon_m}\right).
+    \alpha_m=\frac{1}{2}\ln\!\left(\frac{1-\epsilon_m}{\epsilon_m}\right)
     \]
-    \item Cập nhật trọng số
+    \item Cập nhật trọng số:
     \[
-    w_i^{(m+1)}=w_i^{(m)}\exp\!\big(-\alpha_m y_i h_m(x_i)\big),
+    w_i^{(m+1)}=w_i^{(m)}\exp\!\big(-\alpha_m y_i h_m(x_i)\big)
     \]
-    rồi chuẩn hóa lại tổng trọng số.
+    \item Chuẩn hóa lại tổng trọng số.
   \end{itemize}
 \end{itemize}
 
@@ -525,10 +525,17 @@ Huấn luyện thường theo trình tự:
 huấn luyện trạm trước, loại bỏ mẫu âm dễ, rồi huấn luyện trạm sau trên tập còn lại.
 Thiết kế này tạo ra cơ chế tiết kiệm tính toán theo hướng loại sớm.  \cite{viola2001rapid,viola2004robust,li2012facechapter}
 
-\subsubsection{Biến thể boosting được nhắc trong chương sách}
+\subsubsection{Asymmetric Boosting (AsymBoost): Xử lý dữ liệu mất cân bằng}
 
-Ngoài AdaBoost rời rạc, chương sách còn nhắc các biến thể boosting giá trị thực như RealBoost, GentleBoost và LogitBoost trong bối cảnh detector cascade.
-Các biến thể này khác nhau ở cách mô hình hóa đầu ra bộ học yếu và cách cập nhật, nhưng cùng mục tiêu tăng khả năng phân biệt khi vẫn giữ chi phí kiểm tra thấp ở từng trạm.  \cite{li2012facechapter}
+Trong phát hiện khuôn mặt, lượng cửa sổ nền (background) áp đảo hoàn toàn so với khuôn mặt, khiến mô hình dễ có xu hướng bỏ qua khuôn mặt. Để giải quyết, Viola \& Jones phát triển \textbf{AsymBoost}. Bằng cách chấp nhận tăng tỷ lệ nhận diện nhầm nền thành mặt, AsymBoost giúp tỷ lệ bắt dính khuôn mặt đạt đến $99.9\%$, sự đánh đổi này sau đó sẽ được khắc phục triệt để nhờ kiến trúc Cascade nhiều tầng.
+
+\noindent\textbf{Quy trình AsymBoost} chia sẻ hoàn toàn các bước tính sai số $\epsilon_m$ và hệ số $\alpha_m$ với AdaBoost chuẩn. Điểm khác biệt duy nhất nằm ở bước \textbf{cập nhật trọng số}, trong đó tích hợp thêm tham số phạt bất đối xứng $k > 1$:
+\[
+w_i^{(m+1)} = w_i^{(m)}\exp\!\big(-\alpha_m y_i h_m(x_i)\big) \cdot \begin{cases} k & \text{nếu } y_i = +1 \text{ và } h_m(x_i) = -1 \\ 1 & \text{trong các trường hợp còn lại} \end{cases}
+\]
+
+\textit{(Hệ số $k$ khuếch đại trọng số của các mẫu khuôn mặt bị phân loại sai (False Negative), ép mô hình bắt buộc phải ưu tiên xử lý chúng ở vòng lặp tiếp theo).} Sau đó, tiến hành chuẩn hóa lại tổng trọng số như bình thường.
+
 
 \subsubsection{Đánh giá ưu và nhược điểm}
 
@@ -632,6 +639,80 @@ Bước này hoàn thiện chuỗi xử lý tháp hình ảnh, quét cửa sổ,
 
 Cơ chế xác nhận dựa trên nhiều phát hiện lân cận phản ánh tư duy loại sớm và bỏ phiếu theo mật độ, trong đó các phát hiện đơn lẻ thường khó trở thành bằng chứng đủ mạnh cho quyết định cuối cùng.
 Những nguyên lý này tiếp tục được kế thừa dưới nhiều hình thức trong các hệ thống phát hiện đối tượng hiện đại, chẳng hạn ngưỡng hóa theo điểm tin cậy, khử trùng lặp bằng loại bỏ không cực đại và hợp nhất dự đoán ở giai đoạn hậu xử lý. \cite{ren2015faster,lin2017focal}
+
+\subsection{Áp dụng các cải tiến kỹ thuật vào bộ khung cơ sở}
+
+\subsubsection{Định tuyến mô hình theo góc nhìn (Face-Pose Hierarchy)}
+
+\noindent\textbf{Vấn đề thực tiễn}
+\\
+Bộ phân loại Cascade truyền thống thường chỉ được huấn luyện cho khuôn mặt nhìn thẳng (frontal face). Khi áp dụng vào môi trường thực tế với đa dạng góc xoay của đầu (in-plane và out-of-plane), hiệu năng của hệ thống suy giảm nghiêm trọng.
+
+\noindent\textbf{Cơ chế định tuyến (Routing)}
+\\
+
+\begin{figure}[H]
+  
+\centering
+\includegraphics[width=0.75\textwidth]{figures/ch1_classical/fig1110.png}
+\caption{Fig. 11.10 trong chương sách: minh họa của cấu trúc phát hiện khuôn mặt ở đa góc nhìn. Nguồn Huang et al. \cite{book4107571}}
+\label{fig:book-fig1110}
+\end{figure}
+
+Hệ thống sử dụng cấu trúc cây quyết định phân cấp (Detector Pyramid) thay vì một luồng tuyến tính \ref{fig:book-fig1110}:
+
+\begin{itemize}
+  \item \textbf{Nút gốc (Root Node):} Hoạt động như một trạm phân loại góc nhìn sơ bộ. Nó quét cửa sổ ảnh và ước lượng nhanh hướng của khuôn mặt (ví dụ: thẳng, nghiêng trái, nghiêng phải).
+  \item \textbf{Nút lá (Leaf Nodes):} Cửa sổ ảnh sau đó được luân chuyển vào các nhánh Cascade chuyên biệt đã được huấn luyện riêng cho góc độ đó.
+\end{itemize}
+
+\noindent\textbf{Đánh giá}
+\begin{itemize}
+  \item \textit{Ưu điểm:} Mở rộng khả năng nhận diện đa góc độ (multiview) mà không làm giảm tốc độ rà quét (do chỉ chạy 1 luồng nhánh thay vì chạy song song mọi mô hình).
+  \item \textit{Hạn chế:} Tốn chi phí huấn luyện nhiều bộ Cascade; rủi ro sai số tích lũy (nếu trạm gốc phân loại sai góc, khuôn mặt sẽ bị đưa vào sai nhánh và bị loại bỏ vĩnh viễn).
+\end{itemize}
+
+\subsubsection{Nâng cấp bộ trích xuất với đặc trưng MB-LBP}
+
+\noindent\textbf{Vấn đề thực tiễn}
+\\
+Đặc trưng Haar-like cơ sở chỉ phản ánh được sự chênh lệch cường độ sáng tối (gradient) cơ bản, dễ bị ảnh hưởng bởi nhiễu và điều kiện chiếu sáng phức tạp.
+
+\noindent\textbf{Cơ chế trích xuất}
+\\
+Thay thế Haar-like bằng Multi-Block Local Binary Pattern (MB-LBP):
+\begin{itemize}
+  \item Không so sánh từng điểm ảnh, hệ thống so sánh cường độ sáng trung bình của $1$ khối trung tâm với $8$ khối lân cận bao quanh nó.
+  \item Kết quả xuất ra một mã nhị phân 8-bit, biểu diễn dưới dạng biểu đồ tần suất (Histogram) để phản ánh cấu trúc vi mô (kết cấu bề mặt).
+  \item Vẫn tận dụng triệt để mô hình Integral Image để tính tổng cường độ sáng của các khối, giữ nguyên độ phức tạp $O(1)$.
+\end{itemize}
+
+\noindent\textbf{Đánh giá}
+\begin{itemize}
+  \item \textit{Ưu điểm:} Cực kỳ mạnh mẽ trong việc nắm bắt kết cấu cục bộ (texture); tính kháng nhiễu với thay đổi ánh sáng tốt hơn Haar-like.
+  \item \textit{Hạn chế:} Không gian đặc trưng là rời rạc (categorical), buộc phải thay đổi kiến trúc của bộ phân loại yếu (dùng Bảng tra cứu - Look-up table thay vì so sánh ngưỡng số thực).
+\end{itemize}
+
+\subsubsection{Huấn luyện bất đối xứng với AsymBoost}
+
+\noindent\textbf{Vấn đề thực tiễn}
+\\
+Bài toán trượt cửa sổ sinh ra sự mất cân bằng dữ liệu cực độ (1 khuôn mặt / hàng triệu ảnh nền). AdaBoost truyền thống dễ bị chệch, thiên vị lớp đa số để giảm sai số tổng, dẫn đến bỏ sót khuôn mặt.
+
+\noindent\textbf{Cơ chế huấn luyện}
+\\
+Sử dụng thuật toán Asymmetric Boosting (AsymBoost) để can thiệp vào quá trình cập nhật trọng số:
+\begin{itemize}
+  \item Đưa vào hệ số phạt bất đối xứng $k > 1$.
+  \item Nếu mô hình bỏ sót khuôn mặt (False Negative), trọng số của mẫu đó bị khuếch đại lên $k$ lần ở vòng lặp sau.
+  \item Nếu mô hình nhận diện nhầm ảnh nền (False Positive), trọng số chỉ được cập nhật bình thường.
+\end{itemize}
+
+\noindent\textbf{Đánh giá}
+\begin{itemize}
+  \item \textit{Ưu điểm:} Ép mô hình dịch chuyển ngưỡng quyết định, đảm bảo tỷ lệ phát hiện (Detection Rate) luôn tiệm cận 100\%; phù hợp tuyệt đối với triết lý "thà bắt nhầm còn hơn bỏ sót" của các trạm Cascade đầu tiên.
+  \item \textit{Hạn chế:} Việc thiên vị lớp thiểu số làm tăng đáng kể tỷ lệ báo động giả (False Alarm), đẩy gánh nặng tính toán sang các trạm Cascade ở phía sau; đòi hỏi tinh chỉnh thủ công hệ số $k$.
+\end{itemize}
 
 \section{Phân tích kết quả trong chương sách}
 

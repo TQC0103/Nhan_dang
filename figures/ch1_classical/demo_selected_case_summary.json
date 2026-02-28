@@ -1,6 +1,6 @@
 {
   "image": "2--Demonstration/2_Demonstration_Protesters_2_738.jpg",
-  "step1_candidate_count": 425,
+  "step1_raw_detection_count": 425,
   "final_detection_count": 11,
   "gt_count": 10,
   "tp": 5,

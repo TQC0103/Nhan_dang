@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import json
@@ -7,7 +8,6 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = ROOT / "data" / "widerface"
@@ -22,6 +22,7 @@ def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     candidates = [
         "C:/Windows/Fonts/arial.ttf",
         "C:/Windows/Fonts/tahoma.ttf",
+        "C:/Windows/Fonts/segoeui.ttf",
     ]
     for fp in candidates:
         try:
@@ -42,6 +43,7 @@ def _draw_utf8_text(
     pil_img = Image.fromarray(rgb)
     draw = ImageDraw.Draw(pil_img)
     font = _load_font(size)
+    # PIL expects RGB; caller gives BGR.
     draw.text(origin, text, font=font, fill=(color[2], color[1], color[0]))
     out = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
     img_bgr[:, :] = out
@@ -109,13 +111,17 @@ def greedy_match(
 
 
 def put_label(img, text: str) -> None:
-    cv2.rectangle(img, (8, 8), (min(img.shape[1] - 8, 560), 40), (0, 0, 0), -1)
+    x1, y1 = 8, 8
+    x2 = min(img.shape[1] - 8, 940)
+    y2 = 44
+    cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 0), -1)
     _draw_utf8_text(img, text, (14, 12), size=22, color=(255, 255, 255))
 
 
 def main() -> None:
     case_meta = json.loads(CASE_META.read_text(encoding="utf-8"))
     rel_path = case_meta["selected_image"]
+
     img_path = IMG_ROOT / rel_path
     img = cv2.imread(str(img_path))
     if img is None:
@@ -126,13 +132,13 @@ def main() -> None:
         str(Path(cv2.data.haarcascades) / "haarcascade_frontalface_default.xml")
     )
 
-    # Approximate Step 1 output: very loose detections as dense candidates.
+    # Step 1: raw detections before grouping (minNeighbors=0).
     dense_raw = detector.detectMultiScale(
         gray, scaleFactor=1.05, minNeighbors=0, minSize=(20, 20)
     )
     dense = [(int(x), int(y), int(w), int(h)) for (x, y, w, h) in dense_raw]
 
-    # Step 2+3 practical output with grouping.
+    # Step 2+3: practical output after grouping.
     final_raw = detector.detectMultiScale(
         gray, scaleFactor=1.1, minNeighbors=3, minSize=(20, 20)
     )
@@ -140,19 +146,17 @@ def main() -> None:
 
     gts = load_gt_for_image(rel_path)
     matches, fn_idx, fp_idx = greedy_match(gts, final, thr=0.3)
-    tp = len(matches)
-    fn = len(fn_idx)
-    fp = len(fp_idx)
+    tp, fp, fn = len(matches), len(fp_idx), len(fn_idx)
 
     vis_dense = img.copy()
     for x, y, w, h in dense:
         cv2.rectangle(vis_dense, (x, y), (x + w, y + h), (255, 180, 0), 1)
-    put_label(vis_dense, f"Bước 1 mô phỏng: ứng viên dày | số khung={len(dense)}")
+    put_label(vis_dense, f"Bước 1: phát hiện thô trước gom nhóm | số khung={len(dense)}")
 
     vis_final = img.copy()
     for x, y, w, h in final:
         cv2.rectangle(vis_final, (x, y), (x + w, y + h), (40, 220, 40), 2)
-    put_label(vis_final, f"Bước 2+3: sau cascade + gom nhóm | số khung={len(final)}")
+    put_label(vis_final, f"Bước 2 và 3: sau cascade và gom nhóm | số khung={len(final)}")
 
     vis_eval = img.copy()
     matched_det = {di for _, di in matches}
@@ -173,7 +177,7 @@ def main() -> None:
 
     summary = {
         "image": rel_path,
-        "step1_candidate_count": len(dense),
+        "step1_raw_detection_count": len(dense),
         "final_detection_count": len(final),
         "gt_count": len(gts),
         "tp": tp,
@@ -186,11 +190,11 @@ def main() -> None:
         },
     }
     (OUT_DIR / "demo_selected_case_summary.json").write_text(
-        json.dumps(summary, indent=2), encoding="utf-8"
+        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
     )
 
     print("Selected image:", rel_path)
-    print("Step1-like candidates:", len(dense))
+    print("Step1 raw detections:", len(dense))
     print(f"Final: TP={tp}, FP={fp}, FN={fn}, GT={len(gts)}, DET={len(final)}")
     print("Saved:", OUT_DIR / "demo_step1_dense_candidates.jpg")
     print("Saved:", OUT_DIR / "demo_step2_step3_final.jpg")
@@ -200,3 +204,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

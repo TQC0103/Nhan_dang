@@ -1356,22 +1356,43 @@ Phần cài đặt và benchmark đầy đủ được dời lại. Báo cáo gi
   \item Giữ cố định môi trường và tiền xử lý để đảm bảo so sánh công bằng.
 \end{itemize}
 
+\section{Thử nghiệm}
+Nhằm đánh giá hiệu quả của các phương pháp Computation Redistribution và Sample Redistribution, nhóm dự định thực hiện thêm các thử nghiệm khác ngoài bài báo:
+\begin{itemize}
+    \item Thay đổi cấu trúc mạng nhằm đánh giá sự linh hoạt của phương pháp Computation Redistribution trên các kiến trúc khác nhau.
+    \item Thay đổi tập dữ liệu để xem rằng phương pháp Sample Redistribution có thể áp dụng trên các tập dữ liệu có độ phân giải khác, không phải là dữ liệu về khuôn mặt ...
+    \item ...
+\end{itemize}
+Những thử nghiệm này sẽ được hoàn thành và báo cáo lại vào phần cuối kỳ.
+
 \section{Thảo luận phản biện}
 
 \subsection{Điểm mạnh}
+Bài báo mang đến những đóng góp kỹ thuật rất ấn tượng, giải quyết thành công điểm nghẽn về ``nút thắt cổ chai tính toán'' trong bài toán phát hiện khuôn mặt
 
 \begin{itemize}
-  \item Đánh đổi độ chính xác - hiệu năng tốt trong các ngân sách tính toán thực tế.
-  \item Tối ưu theo đặc thù bài toán một cách tường minh, thay vì kế thừa tỉ lệ kiến trúc chung.
-  \item Cải thiện ổn định trên điều kiện khó với mật độ khuôn mặt nhỏ cao.
+  \item \textbf{Tối ưu hóa toàn diện:} Khác với các phương pháp đi trước như CR-NAS (chỉ tối ưu backbone), BFbox (bỏ qua head), hay ASFD (chỉ tối ưu neck), SCRFD thực hiện phân bổ lại tính toán trên toàn bộ ba thành phần: backbone, neck và head. Điều này giải quyết triệt để sự dư thừa tính toán do việc "vay mượn" trực tiếp cấu trúc mạng phân loại ảnh thông thường.
+  \item \textbf{Chiến lược thu hẹp không gian tìm kiếm:} Thay vì để hệ thống NAS (Neural Architecture Search) mò mẫm trong một không gian khổng lồ và phức tạp như phương pháp BFBox hay Evolutionary Search, SCRFD đã có những thiết kế kỹ thuật cực kỳ thông minh:
+  \begin{itemize}
+    \item \textbf{Giảm bậc tự do:} Gộp tham số phần stem vào C2, cố định thiết kế ``shared head'' cho cả 3 tỷ lệ bản đồ đặc trưng, thiết lập các quy tắc chốt chặn
+    \item \textbf{Tìm kiếm hai bước:} Tách quá trình tìm kiếm thành CRFD1 (chỉ tìm trên backbone) và CRFD2 (tìm trên toàn mạng dựa trên backbone đã tối ưu) giúp hệ thống khoanh vùng chính xác kiến trúc tốt nhất
+    \item \textbf{Ứng dụng Bootstrap thống kê:} Sử dụng empirical bootstrap để ước lượng khoảng phân bổ tính toán tốt nhất từ hàng trăm mô hình ngẫu nhiên, giúp loại bỏ nhiễu do những mô hình chất lượng kém gây ra.
+  \end{itemize}
+  \item \textbf{Tự động hóa việc tăng cường mẫu:} Chuyển từ việc thiết lập thủ công các thông số scale augmentation sang một không gian zoom-in/zoom-out có thể tự động tìm kiếm. Phương pháp này giúp hệ thống tự biết cách cắt/phóng ảnh để phân bổ chính xác lượng mặt nhỏ vào các giai đoạn nông của mạng, gia tăng đáng kể số lượng anchor dương tính.
+  \item \textbf{Cân bằng giữa độ chính xác và chi phí:} Phương pháp này đạt hiệu suất cao trên bộ dữ liệu khó như WIDER FACE. Phiên bản SCRFD-34GF có chỉ số AP cao hơn TinaFace tới 4.78\% trên tập Hard, trong khi nhanh hơn gấp 3 lần, tiêu tốn lượng tính toán chỉ bằng khoảng 20\%, và giảm kích thước mô hình xuống chưa tới 1/3.
+  \item \textbf{Tính mở rộng cao:} Phương pháp chứng minh khả năng áp dụng linh hoạt từ mức tính toán cực thấp cho di động (0.5 GFlops) đến mức cao (34 GFlops)
 \end{itemize}
 
 \subsection{Hạn chế}
 
+Mặc dù rất đột phá, phương pháp luận của SCRFD vẫn dựa trên một số giả định và còn tồn tại các giới hạn kỹ thuật sau
 \begin{itemize}
-  \item Quy trình tìm kiếm kiến trúc tốn kém chi phí huấn luyện.
-  \item Hiệu năng có thể nhạy với dịch chuyển miền dữ liệu ngoài thống kê của WIDER FACE.
-  \item Kiểm thử đa tỉ lệ vẫn có thể làm tăng độ trễ khi triển khai.
+  \item \textbf{Chi phí tính toán khổng lồ:} Để tạo ra được kiến trúc tối ưu cuối cùng, hệ thống yêu cầu một lượng tài nguyên rất lớn. Cụ thể, thuật toán cần lấy mẫu và huấn luyện 320 mô hình cho bước CRFD1, tiếp tục huấn luyện 320 mô hình cho bước CRFD2, và huấn luyện thêm 320 mô hình trong 80 epochs nữa để tìm bộ thông số SR. Do đó, quá trình thiết kế mạng tốn kém tài nguyên máy chủ hơn rất nhiều so với việc sử dụng các mạng có sẵn.
+  \item \textbf{Giả định các khối cơ bản là cố định:} Thuật toán tìm kiếm của SCRFD chỉ giới hạn ở mức độ vĩ mô (số lượng khối, số kênh) và được đặt trên giả định rằng các ``khối mạng tiêu chuẩn'' là cố định (như Residual, Bottleneck, hoặc Depth-wise). Mạng không tự tìm kiếm các phép toán mới ở cấp độ vi mô bên trong từng khối như các thuật toán NAS truyền thống.
+  \item \textbf{Sự thiên lệch theo dữ liệu và độ phân giải mục tiêu:} Cấu trúc tính toán được tác giả tìm ra (dồn phần lớn tính toán cho giai đoạn C2, C3) bị ảnh hưởng cực kỳ mạnh bởi đặc thù của bộ dữ liệu WIDER FACE và việc đánh giá ở độ phân giải thấp VGA. Nếu đem nguyên phương pháp này áp dụng vào một bài toán có phần lớn khuôn mặt cận cảnh, có độ phân giải cao thì cấu trúc hiện tại có thể không còn tối ưu, và người dùng buộc phải tiêu tốn tài nguyên chạy lại toàn bộ vòng lặp tìm kiếm mô hình từ đầu.
+  \item \textbf{Vẫn bất lực với các khuôn mặt siêu nhỏ:} Mặc dù phương pháp SR giúp tăng cường mẫu cho mặt nhỏ, chính tác giả thừa nhận rằng với các khuôn mặt có kích thước cực kỳ nhỏ (nhỏ hơn 4x4 pixel), chúng vẫn sẽ bị hệ thống bỏ qua trong quá trình huấn luyện do không thể khớp thành công với các hộp neo.
+  \item \textbf{Giới hạn bởi các ngưỡng chặn thủ công:} Dù tuyên bố là tự động hóa, thiết kế không gian tìm kiếm vẫn bị kẹp giữa các giới hạn do con người áp đặt (như độ sâu khối tối đa 24, số kênh tối đa 512, tỷ lệ thu/phóng chỉ nằm từ 0.1 đến 3.0). Những giới hạn ``cứng'' này có thể vô tình chặn thuật toán tiến tới những cấu trúc kiến trúc dị biệt nhưng tối ưu hơn.
+  \item \textbf{Khó áp dụng cho các tác vụ hoặc kiến trúc khác:} Các tác giả đã lựa chọn một kiến trúc cố định, đủ đơn giản, dành cho tác vụ phát hiện khuôn mặt, điều chỉnh các phần nhằm giảm bậc tự do. Nếu thay đổi kiến trúc hoặc tác vụ, người dùng buộc phải tự tìm cách tối ưu hóa không gian tìm kiếm.
 \end{itemize}
 
 \subsection{Giá trị ứng dụng công nghiệp}

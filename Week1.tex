@@ -972,17 +972,183 @@ Hạn chế thể hiện rõ ở các vùng nền giàu kết cấu gây nhận 
 Quan sát này nhất quán với kết quả tổng hợp toàn tập ở phần phân tích thực nghiệm.
 
 \section{Thảo luận phản biện}
+\subsection{Đặc trưng Haar-like và Cấu trúc Cascade (Viola-Jones)}
+\textbf{Điểm mạnh}
+\begin{itemize}
+    \item Tốc độ phát hiện cực nhanh nhờ kỹ thuật Hình ảnh tích phân giúp tính toán các đặc trưng chỉ bằng vài phép tính.
+    \item Cấu trúc Cascade giúp loại bỏ phần lớn các vùng không phải khuôn mặt ngay ở những bước đầu, tiết kiệm đáng kể thời gian tính toán
+\end{itemize}
+\textbf{Điểm yếu}
+\begin{itemize}
+    \item Độ chính xác không cao, đặc biệt với các khuôn mặt bị che khuất, nghiêng hoặc có kích thước nhỏ.
+    \item Đặc trưng Haar-like chỉ có thể phát hiện các đặc điểm cơ bản của khuôn mặt, không thể phát hiện các chi tiết phức tạp.
+    \item Số lượng đặc trưng quá lớn khiến việc huấn luyện ban đầu tốn rất nhiều thời gian.
+\end{itemize}
+\textbf{Hướng cải thiện:}
+\begin{itemize}
+    \item Tích hợp đặc trưng HOG - Histogram of Oriented Gradients \cite{dalal2005histograms}: Để khắc phục giới hạn của Haar-like, hệ thống Cascade được cải tiến bằng cách kết hợp trực tiếp với đặc trưng HOG. Trong khi Haar-like chịu trách nhiệm bắt các khối sáng tối trên bề mặt, HOG có thế mạnh vượt trội trong việc trích xuất thông tin về hướng của cạnh và mô hình hóa chi tiết hình dáng, cấu trúc đường nét cục bộ của đối tượng. Việc tích hợp này giúp bộ phân loại được bổ trợ lẫn nhau: nó không chỉ nhận diện được mảng sáng tối mà còn nắm bắt được khung xương hình học của đối tượng. Nhờ vậy, mô hình giảm thiểu đáng kể tỷ lệ báo động giả trong các môi trường có nền nhiễu phức tạp và cực kỳ hiệu quả khi ứng dụng phát hiện các đối tượng có cấu trúc biến đổi cao như người đi bộ hay khuôn mặt nhiều góc độ.
+    
+    Khác với Haar-like tính tổng cường độ sáng, HOG tính toán độ lớn gradient $G$ và hướng $\theta$ tại mỗi điểm ảnh $(x,y)$ thông qua đạo hàm bậc 1 theo trục $x$ và $y$:
+    \begin{equation}
+        G = \sqrt{G_x^2 + G_y^2}, \quad \theta = \arctan\left(\frac{G_y}{G_x}\right)
+    \end{equation}
+    Các giá trị này sau đó được gom nhóm vào các biểu đồ phân bố theo các vùng không gian, giúp mô hình hóa ranh giới đối tượng cực kỳ mạnh mẽ trước sự thay đổi của ánh sáng.
+\end{itemize}
 
-\textbf{Điểm mạnh.}
-Chiến lược loại bỏ rất hiệu quả, quy trình dễ diễn giải, và có tác động thực tiễn mạnh trong lịch sử.
+\subsection{Các đặc trưng cục bộ mở rộng (Extended Haar, MB-LBP, Granular)}
+\textbf{Điểm mạnh}
+\begin{itemize}
+    \item Cung cấp độ chính xác phát hiện cao hơn, xử lý tốt hơn tình trạng khuôn mặt bị xoay ngang hoặc nghiêng.
+    \item MB-LBP tính toán rất hiệu quả bằng ảnh tích phân.
+\end{itemize}
+\textbf{Điểm yếu}
+\begin{itemize}
+    \item Làm tăng yêu cầu về không gian lưu trữ và bộ nhớ. Một số loại đặc trưng làm tăng thời gian ở giai đoạn Boosting.
+\end{itemize}
+\textbf{Hướng cải thiện:}
+\begin{itemize}
+  \item Tích hợp Ảnh kênh tích phân \cite{dollar2009integral}: Mở rộng tính toán trên đa kênh như màu LUV, gradient, ... thay vì chỉ cường độ sáng. Phương pháp này giúp tăng năng lực phân biệt đối tượng mà vẫn duy trì tốc độ tính toán hằng số nhờ ảnh tích phân.
+  \item Cơ chế chọn lọc dựa trên tính thưa \cite{zhang2010local}: Sử dụng chuẩn $L_1$ trong quá trình huấn luyện để lọc ra các đặc trưng hạt tối ưu, giúp giảm dung lượng bộ nhớ mà không làm giảm độ chính xác.
+  
+  Thay vì chỉ tối thiểu hóa lỗi phân loại thông thường, quá trình huấn luyện kết hợp thêm hàm phạt chuẩn $L_1$ đối với vector trọng số $\mathbf{w}$ của các đặc trưng:
+    \begin{equation}
+        \min_{\mathbf{w}} \left( \text{Loss}(\mathbf{w}) + \lambda \|\mathbf{w}\|_1 \right)
+    \end{equation}
+    Thuộc tính toán học của chuẩn $L_1$ sẽ ép phần lớn các trọng số của các đặc trưng không quan trọng về đúng $0$, từ đó tự động chọn lọc ra một tập đặc trưng cực kỳ nhỏ gọn gọn mà vẫn giữ nguyên sức mạnh phân loại.
+\end{itemize}
 
-\textbf{Hạn chế.}
-Đặc trưng thủ công kém bền vững hơn trong điều kiện hiện đại không ràng buộc
-(che khuất, thay đổi góc nhìn, chiếu sáng phức tạp, khuôn mặt kích thước nhỏ).
+\subsection{AdaBoost}
+\textbf{Điểm mạnh}
+\begin{itemize}
+    \item Rất hiệu quả trong việc xây dựng ranh giới phân loại phi tuyến tính mạnh mẽ.
+    \item Các biến thể ít cực đoan hơn (GentleBoost, LogitBoost) xử lý tốt các tập dữ liệu có chứa nhiễu
+\end{itemize}
+\textbf{Điểm yếu}
+\begin{itemize}
+    \item Giả định tính đơn điệu có thể bị phá vỡ.
+    \item Dễ bị quá khớp nếu số lượng bộ phân loại quá lớn.
+    \item Thời gian huấn luyện lâu.
+\end{itemize}
+\textbf{Hướng cải thiện:}
+\begin{itemize}
+  \item Real AdaBoost với bảng tra cứu \cite{wu2004fast}: Sử dụng giá trị thực và bảng ánh xạ để làm mượt ranh giới phân loại, giúp mô hình hội tụ nhanh hơn và đạt độ chính xác cao hơn AdaBoost nhị phân truyền thống.
+  
+  Thay vì xuất ra nhãn rời rạc $\{-1, +1\}$, bộ phân loại yếu $h_m(x)$ trong Real AdaBoost dự đoán một nửa giá trị logarit của tỷ số khả năng:
+    \begin{equation}
+        h_m(x) = \frac{1}{2} \ln \frac{P(y=1|x)}{P(y=-1|x)}
+    \end{equation}
+  
+  \item Cơ chế cắt tỉa trọng số \cite{friedman2000additive}: Loại bỏ các mẫu có trọng số thấp trong quá trình huấn luyện để tập trung vào các mẫu khó, giúp rút ngắn đáng kể thời gian xây dựng bộ phân loại mạnh.
 
-\textbf{Hàm ý cho báo cáo này.}
-Chương sách cung cấp bộ khung ý tưởng của bộ phát hiện mà các phương pháp hiện đại vẫn theo,
-nhưng từng giai đoạn hiện được học và tối ưu theo hướng dữ liệu.
+  Tại mỗi vòng lặp, thuật toán sắp xếp các trọng số $w_i$ giảm dần và chỉ giữ lại một phần trăm mẫu có tổng khối lượng trọng số lớn nhất: $\sum_{i \in \text{kept}} w_i > \theta$. Các mẫu bị phân loại đúng (trọng số cực nhỏ) sẽ bị loại bỏ khỏi tính toán ở vòng đó.
+\end{itemize}
+
+\subsection{FloatBoost và Forward Feature Selection}
+\textbf{Điểm mạnh}
+\begin{itemize}
+    \item FFS huấn luyện nhanh hơn AdaBoost
+    \item FloatBoost khắc phục được nhược điểm tính phi đơn điệu của AdaBoost, giúp giảm tỷ lệ lỗi hoặc giảm thời gian phát hiện nhờ loại bỏ bớt các bộ phân loại dư thừa
+\end{itemize}
+\textbf{Điểm yếu}
+\begin{itemize}
+    \item FFS có độ chính xác thấp hơn AdaBoost một chút.
+    \item FloatBoost tốn kém chi phí tính toán hơn ở khâu huấn luyện vì phải liên tục kiểm tra và tính toán lại sau mỗi lần loại bỏ.
+\end{itemize}
+\textbf{Hướng cải thiện:}
+\begin{itemize}
+  \item Tìm kiếm Heuristic trong FloatBoost \cite{li2004floatboost}: Giới hạn độ sâu quay lui bằng các thuật toán heuristic để cân bằng giữa thời gian huấn luyện và chất lượng tập đặc trưng, tránh việc kiểm tra dư thừa quá mức.
+
+  Theo thuật toán FloatBoost chuẩn, việc quay lui xảy ra nếu chi phí $J(H_M - h') < J_{M-1}^{\min}$ \cite{li2004floatboost}. Khi thêm Heuristic, ta áp đặt thêm một điều kiện dừng:
+    \begin{equation}
+        \text{Quay lui nếu } J(H_M - h') < J_{M-1}^{\min} \quad \text{và} \quad \text{depth} \le d_{\max}
+    \end{equation}
+    Việc giới hạn độ sâu $d_{\max}$ này chặn đứng các vòng lặp vô tận khi thuật toán cố gắng tối ưu những phần thập phân không đáng kể của hàm lỗi.
+\end{itemize}
+
+\subsection{Các phương pháp học bất đối xứng (AsymBoost, LAC)}
+\textbf{Điểm mạnh}
+\begin{itemize}
+    \item Cải thiện đáng kể độ chính xác của cấu trúc Cascade bằng cách thiết lập các mục tiêu học tập cụ thể
+    \item MB-LBP tính toán rất hiệu quả bằng ảnh tích phân.
+\end{itemize}
+\textbf{Điểm yếu}
+\begin{itemize}
+    \item Đòi hỏi phải tinh chỉnh thủ công hoặc dùng thuật toán phụ trợ để tìm ra các trọng số/tham số bất đối xứng phù hợp
+\end{itemize}
+\textbf{Hướng cải thiện:}
+\begin{itemize}
+  \item Tự động hóa điều chỉnh chi phí \cite{masnadi2010design}: Tích hợp hàm mục tiêu dựa trên đường cong ROC để thuật toán tự động tìm điểm cân bằng giữa tỷ lệ phát hiện và báo động giả mà không cần can thiệp thủ công.
+
+  Quy tắc cập nhật trọng số bất đối xứng cơ bản có dạng $w_i^{(M)} = C \exp(-y_i H_M(x_i))$ \cite{wu2008asymmetric}. Thay vì cố định hệ số $C$ ngay từ đầu, phương pháp tự động \cite{masnadi2010design} sẽ tính toán $C_t$ tại mỗi bước $t$ như một hàm phụ thuộc vào sự chênh lệch giữa tỷ lệ báo động giả hiện tại $\text{FPR}_t$ và mục tiêu $\text{FPR}_{\text{target}}$ trên đường cong ROC, ép bộ phân loại từ từ hội tụ về đúng điểm hoạt động mong muốn.
+\end{itemize}
+
+\subsection{Soft Cascade / Multi-exit Cascade}
+\textbf{Điểm mạnh}
+\begin{itemize}
+    \item Giữ lại và sử dụng thông tin lịch sử của các bộ phân loại trước đó, giúp đạt hiệu suất phát hiện cao hơn và giảm đáng kể thời gian kiểm tra do các mẫu không phải khuôn mặt bị loại bỏ cực kỳ sớm.
+\end{itemize}
+\textbf{Điểm yếu}
+\begin{itemize}
+    \item Đòi hỏi phải có thêm một tập dữ liệu xác thực riêng để sắp xếp tối ưu thứ tự các bộ phân loại yếu và tìm ra ngưỡng loại bỏ chuẩn xác.
+\end{itemize}
+\textbf{Hướng cải thiện:}
+\begin{itemize}
+  \item Ứng dụng lý thuyết Wald \cite{sochman2005waldboost}: Sử dụng Kiểm định tỷ số xác suất tuần tự để tối ưu hóa ngưỡng dừng tại mỗi bước, đảm bảo thời gian đưa ra quyết định là ngắn nhất về mặt toán học.
+
+  Đối với một cửa sổ $x$, mô hình duy trì một tỷ số khả năng tích lũy $R_m(x)$:
+    \begin{equation}
+        R_m(x) = \frac{P(x | \text{khuôn mặt})}{P(x | \text{không phải mặt})}
+    \end{equation}
+    Ở mỗi bước $m$, nếu $R_m(x) \le A$ (ngưỡng từ chối), loại bỏ mẫu; nếu $R_m(x) \ge B$ (ngưỡng chấp nhận), kết luận là khuôn mặt; nếu nằm giữa, tiếp tục đánh giá. Các ngưỡng $A$ và $B$ được tính toán tối ưu dựa trên xác suất sai lầm loại I và loại II cho phép.
+\end{itemize}
+
+\subsection{Detector-Pyramid / View-based Framework}
+\textbf{Điểm mạnh}
+\begin{itemize}
+    \item Giải quyết triệt để vấn đề phát hiện khuôn mặt đa góc nhìn mà không cần phải mô hình hóa cấu trúc 3D phức tạp.
+\end{itemize}
+\textbf{Điểm yếu}
+\begin{itemize}
+    \item Hệ thống phức tạp.
+    \item Phải huấn luyện riêng biệt nhiều mô hình con và cần các cơ chế để phân xử/gộp kết quả khi có nhiều mô hình cùng báo phát hiện một khuôn mặt ở các góc độ khác nhau.
+\end{itemize}
+\textbf{Hướng cải thiện:}
+\begin{itemize}
+  \item Cơ chế chia sẻ đặc trưng \cite{torralba2007sharing}: Sử dụng cấu trúc cây để dùng chung các đặc trưng ở những tầng đầu, chỉ phân tách ở những tầng sâu xử lý góc nhìn chuyên biệt. Điều này giúp giảm dung lượng mô hình và tăng tốc độ tổng thể.
+
+  Hệ thống được thiết kế dưới dạng cây phân nhánh từ thô đến tinh \cite{torralba2007sharing}. 
+    \begin{itemize}
+        \item \textbf{Nút gốc:} Đánh giá các đặc trưng Haar-like chung nhất có ở mọi góc độ khuôn mặt.
+        \item \textbf{Các nhánh:} Càng xuống tầng sâu, cây càng rẽ nhánh thành các bộ phân loại chuyên biệt.
+    \end{itemize}
+    Cấu trúc này giúp giảm dung lượng mô hình và tăng tốc độ tổng thể so với việc chạy độc lập nhiều bộ dò tìm.
+    \begin{figure}[h!]
+      \centering
+      \begin{tikzpicture}[
+          level distance=1.8cm,
+          level 1/.style={sibling distance=4.5cm},
+          level 2/.style={sibling distance=2.2cm},
+          every node/.style={rectangle, draw=black!70, rounded corners=1mm, fill=blue!5, minimum width=2cm, align=center, font=\small},
+          edge from parent/.style={draw, -latex, thick, black!70}
+      ]
+      \node[fill=blue!15, font=\bfseries] {Tất cả góc độ khuôn mặt}
+          child { node {Nghiêng trái}
+              child { node {$-90^\circ \sim -45^\circ$} }
+              child { node {$-45^\circ \sim -15^\circ$} }
+          }
+          child { node {Trực diện}
+              child { node {$-15^\circ \sim +15^\circ$} }
+          }
+          child { node {Nghiêng phải}
+              child { node {$+15^\circ \sim +45^\circ$} }
+              child { node {$+45^\circ \sim +90^\circ$} }
+          };
+      \end{tikzpicture}
+      \caption{Minh họa cấu trúc phân nhánh hình cây từ thô đến tinh để xử lý khuôn mặt đa góc nhìn.}
+      \label{fig:tree_structure}
+  \end{figure}
+
+\end{itemize}
 
 \section{Kết luận}
 
@@ -1417,13 +1583,20 @@ Theo mô tả trong bài báo, để thực hiện empirical bootstrap cho từn
 \end{itemize}
 
 \subsection{Hướng cải tiến tiềm năng}
-
 \begin{itemize}
-  \item Chưng cất tri thức sang các mô hình chi phí thấp hơn cho triển khai ở thiết bị biên.
-  \item Thích nghi miền dữ liệu cho dữ liệu giám sát ban đêm/ánh sáng yếu.
-  \item Bổ sung hậu xử lý theo chất lượng/độ bất định để giảm dương tính giả có độ tự tin cao.
-\end{itemize}
+  \item \textbf{Tối ưu hóa chi phí tìm kiếm bằng One-Shot NAS hoặc Zero-Shot NAS:}
+  Để giải quyết vấn đề chi phí tính toán khổng lồ, có thể áp dụng phương pháp Weight-sharing NAS. Thay vì huấn luyện biệt lập, một mạng siêu lớn chứa tất cả các cấu trúc tiềm năng sẽ được huấn luyện một lần duy nhất. Sau đó, các mạng con sẽ thừa hưởng trọng số để đánh giá, giúp giảm thời gian từ hàng nghìn giờ GPU xuống còn vài chục giờ. Ngoài ra, việc ứng dụng các chỉ số Zero-shot proxy có thể giúp dự đoán hiệu suất mô hình mà không cần huấn luyện, giúp sàng lọc nhanh không gian tìm kiếm \cite{mellor2021neural}.
+  \item \textbf{Tăng cường khả năng phát hiện mặt siêu nhỏ bằng Generative Adversarial Networks (GAN):}
+  Với các khuôn mặt nhỏ hơn 4x4 pixel vốn bị SCRFD bỏ qua, hướng cải thiện khả thi là tích hợp một nhánh Super-Resolution - SR dựa trên GAN ngay trước giai đoạn trích xuất đặc trưng. Thay vì chỉ phân bổ lại mẫu, mô hình có thể chủ động khôi phục các chi tiết bị mất của vùng ảnh mờ. Việc kết hợp các module Context-aware cũng giúp mạng tận dụng thông tin ngữ cảnh để dự đoán vị trí khuôn mặt khi các đặc điểm nội tại không còn rõ nét.
+  \item \textbf{Mở rộng tìm kiếm sang cấp độ vi mô:}
+  SCRFD hiện chỉ tập trung vào cấu trúc vĩ mô. Một hướng cải tiến mạnh mẽ là cho phép NAS tìm kiếm cả các phép toán bên trong (kernel size, dilation rate, activation function). Việc sử dụng Dynamic Convolution hoặc các khối Inverted Residual tùy biến có thể giúp Backbone thích nghi tốt hơn với sự thay đổi về độ phân giải, thay vì chỉ cố định các khối ResNet cơ bản.
 
+  \item \textbf{Cơ chế thích nghi đa miền:}
+  Để tránh sự thiên lệch vào bộ dữ liệu WIDER FACE, có thể phát triển cơ chế Meta-Learning để mô hình tự điều chỉnh phân bổ tính toán dựa trên đặc điểm của dữ liệu đầu vào theo thời gian thực. Việc thiết kế không gian tìm kiếm linh hoạt, tự động điều chỉnh các ngưỡng chặn dựa trên phân phối kích thước đối tượng trong batch huấn luyện sẽ giúp mô hình có tính tổng quát hóa cao hơn.
+
+  \item \textbf{Tích hợp Vision Transformer (ViT) trong phân bổ đặc trưng:}
+  Sự dư thừa tính toán trong CNN có thể được khắc phục bằng cách sử dụng các khối Lightweight Transformer ở các tầng sâu. Cơ chế Self-attention giúp mô hình nắm bắt mối quan hệ xa tốt hơn CNN truyền thống, hỗ trợ việc phân loại chính xác các khuôn mặt bị che khuất hoặc thiếu sáng mà không cần tăng quá nhiều FLOPs.
+\end{itemize}
 \subsection{Tóm tắt so sánh chương sách và SCRFD}
 
 \begin{table}[ht]

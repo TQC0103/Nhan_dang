@@ -441,14 +441,31 @@ Mục này làm rõ ba thành phần nền tảng:
   \item AdaBoost để chọn và kết hợp đặc trưng.
 \end{itemize}
 
-\subsubsection{Không gian đặc trưng và động cơ chọn đặc trưng Haar}
+\subsubsection{Không gian đặc trưng và cơ chế thể hiện đặc trưng Haar}
 
-Trong cửa sổ 24 nhân 24 có 576 giá trị cường độ.
-Nếu dùng trực tiếp vector điểm ảnh thô, biểu diễn thường kém ổn định trước thay đổi chiếu sáng, khó nhấn mạnh cấu trúc khuôn mặt và tốn chi phí tính toán.
-Viola--Jones thay biểu diễn thô bằng đặc trưng Haar-like, là hiệu giữa tổng cường độ của các vùng chữ nhật.
-Các mẫu điển hình gồm hai vùng, ba vùng và bốn vùng, giúp phản ánh tương phản cục bộ như mắt, sống mũi và má.
-Các tương phản điển hình gồm vùng mắt tối hơn vùng má và sống mũi sáng hơn vùng hai bên.
-Không gian đặc trưng khả dĩ trong một cửa sổ chuẩn là rất lớn, nên bắt buộc phải có cơ chế chọn đặc trưng hiệu quả.  \cite{viola2001rapid,viola2004robust}
+Trong một cửa sổ có kích thước chuẩn $24 \times 24$ pixel, có tổng cộng 576 giá trị cường độ sáng. Nếu dùng trực tiếp vector điểm ảnh thô, biểu diễn này thường kém ổn định trước sự thay đổi của chiếu sáng, khó nhấn mạnh các cấu trúc đặc thù của khuôn mặt và tốn nhiều chi phí tính toán. Do đó, Viola--Jones đề xuất sử dụng đặc trưng Haar-like để thay thế.
+
+Để hiểu rõ cơ chế này, cần phân biệt sự khác nhau căn bản giữa "cửa sổ" và "đặc trưng": cửa sổ $24 \times 24$ đóng vai trò là một khung không gian cố định, trong khi đặc trưng Haar là các filter bao gồm các vùng chữ nhật đen và trắng kề nhau. Các bộ lọc này có kích thước thay đổi (nhỏ hơn hoặc bằng $24 \times 24$) và được quét (trượt) qua các tọa độ khác nhau bên trong khung không gian đó. 
+
+
+\begin{figure}[H]
+  
+\centering
+\includegraphics[width=0.4\textwidth]{figures/ch1_classical/fig112haar.png}
+\caption{Fig. 11.2 trong chương sách: minh họa haar filter. 1 đặc trưng là giá trị hiệu giữa phần màu trắng và màu đen.}
+\label{fig:book-fig112}
+\end{figure}
+
+Các mẫu điển hình thường gồm tổ hợp hai, ba hoặc bốn vùng chữ nhật.  Chúng đóng vai trò như thước đo độ tương phản cục bộ. Các tương phản điển hình có thể kể đến như: vùng hốc mắt luôn tối hơn vùng má (phát hiện bằng mẫu hai vùng đặt nằm ngang), hay sống mũi sáng hơn vùng hai bên (phát hiện bằng mẫu ba vùng đặt thẳng đứng).
+
+Sự đồ sộ của không gian đặc trưng bắt nguồn từ việc tổ hợp ba yếu tố của các bộ lọc:
+\begin{enumerate}
+  \item \textbf{Loại mẫu hình (Type):} Cấu trúc hai, ba hoặc bốn vùng hình chữ nhật.
+  \item \textbf{Kích thước (Scale):} Bộ lọc có thể tự do co giãn kích thước từ mức rất nhỏ (như $2 \times 2$ pixel) cho đến khi lấp đầy toàn bộ cửa sổ $24 \times 24$.
+  \item \textbf{Vị trí (Position):} Trượt bộ lọc qua mọi tọa độ khả dĩ bên trong giới hạn của cửa sổ.
+\end{enumerate}
+
+Nhờ sự tổ hợp đa dạng này, chỉ trong một cửa sổ chuẩn $24 \times 24$, hệ thống có thể sinh ra một không gian khổng lồ lên tới hơn 160.000 đặc trưng Haar khả dĩ. Số lượng biến thể này lớn hơn rất nhiều so với số lượng điểm ảnh thô ban đầu (576). Vì phần lớn trong số 160.000 đặc trưng này mang thông tin dư thừa hoặc vô dụng, việc áp dụng mô hình là bất khả thi nếu không có một cơ chế học máy (như AdaBoost) để tự động chọn lọc ra những đặc trưng mang lại độ chính xác cao nhất. \cite{viola2001rapid,viola2004robust}
 
 \subsubsection{Integral Image: tính đặc trưng trong thời gian hằng}
 

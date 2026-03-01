@@ -1,17 +1,91 @@
-﻿\chapter*{Thông tin chung}
+\chapter*{Thông tin chung}
 \addcontentsline{toc}{chapter}{Thông tin chung}
 
-\begin{itemize}
-  \item \textbf{Tên báo cáo:} (điền tên báo cáo)
-  \item \textbf{Học phần / Đơn vị:} (điền tên học phần hoặc đơn vị)
-  \item \textbf{Nhóm trưởng:} Trương Quốc Cường (23127333)
-  \item \textbf{Thành viên nhóm:} Lê Anh Duy (23127011), Trần Gia Huy (23127199)
-  \item \textbf{Chương sách được chọn:} \textit{Handbook of Face Recognition} (2nd Edition), chương \textit{Face Detection}, trang 277--301, tác giả chương Stan Z. Li và Jianxin Wu.
-  \item \textbf{Thông tin bài báo phân tích:} \textit{Sample and Computation Redistribution for Efficient Face Detection}, hội nghị ICLR 2022, tác giả Jia Guo, Jiankang Deng, Alexandros Lattas, Stefanos Zafeiriou.
-  \item \textbf{Mục tiêu:} Báo cáo giữa kỳ tập trung vào hiểu khung phát hiện ba bước, tái lập detector Viola--Jones theo ví dụ chương sách, và phân tích phương pháp SCRFD theo bài báo gốc.
-  \item \textbf{Phạm vi:} Không tái tạo toàn bộ pha tìm kiếm NAS do giới hạn tài nguyên tính toán; phần đối chiếu SCRFD dựa trên số liệu công bố trong bài báo; phần minh họa triển khai mở rộng sẽ dùng mô hình có sẵn ở giai đoạn báo cáo cuối kỳ.
-  \item \textbf{Công cụ / Môi trường:} XeLaTeX + Biber cho báo cáo; Python và OpenCV cho tái lập detector cổ điển; nguồn dữ liệu gồm hình ví dụ trong chương sách và WIDER FACE validation.
-\end{itemize}
+\noindent
+\begin{tabular}{@{}l l@{}}
+  \textbf{Tên môn học:} & Nhận dạng mẫu \\
+  \textbf{Lớp:} & 23KHMT \\
+  \textbf{Học kỳ:} & 2 \\
+  \textbf{Năm học:} & 2025--2026 \\[4pt]
+  \textbf{Giảng viên:} & Thầy Võ Thanh Lâm \\
+  & Thầy Lê Hoàng Thái \\
+  & Thầy Nguyễn Thanh Tình \\[6pt]
+  \textbf{Sinh viên:} & 23127333 Trương Quốc Cường \\
+  & 23127011 Lê Anh Duy \\
+  & 23127199 Trần Gia Huy \\
+\end{tabular}
 
-Sau khi hoàn tất thông tin trên, tiếp tục triển khai nội dung chính
-theo cấu trúc chương/mục của báo cáo.
+\section*{Thông tin đề tài}
+\phantomsection
+\addcontentsline{toc}{section}{Thông tin đề tài}
+
+\begin{itemize}
+  \item \textbf{Chủ đề:} Sự tiến hóa của kỹ thuật phát hiện khuôn mặt, từ phương pháp cổ điển đến hướng tối ưu kiến trúc và dữ liệu trong học sâu.
+  \item \textbf{Chương sách được chọn:} \textit{Handbook of Face Recognition}, ấn bản thứ hai, Chapter 11 \textit{Face Detection}, trang 277--301, tác giả Stan Z. Li và Jianxin Wu.
+  \item \textbf{Bài báo phân tích:} \textit{Sample and Computation Redistribution for Efficient Face Detection}, ICLR 2022, tác giả Jia Guo, Jiankang Deng, Alexandros Lattas, Stefanos Zafeiriou.
+  \item \textbf{Mục tiêu báo cáo giữa kỳ:} nắm khung phát hiện ba bước, tái lập detector Viola--Jones theo ví dụ trong chương sách và phân tích phương pháp SCRFD theo bài báo gốc.
+  \item \textbf{Phạm vi:} không tái tạo pha tìm kiếm NAS do giới hạn tài nguyên tính toán; phần đối chiếu SCRFD dựa trên số liệu công bố trong bài báo; phần minh họa triển khai mở rộng sẽ thực hiện ở báo cáo cuối kỳ.
+\end{itemize}
+\clearpage
+\section*{Bảng tự đánh giá theo tiêu chí chấm điểm}
+\phantomsection
+\addcontentsline{toc}{section}{Bảng tự đánh giá theo tiêu chí chấm điểm}
+
+\begingroup
+\renewcommand{\arraystretch}{1.20}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{longtable}{@{}
+  >{\RaggedRight\arraybackslash}p{0.59\textwidth}
+  >{\centering\arraybackslash}p{0.13\textwidth}
+  >{\centering\arraybackslash}p{0.09\textwidth}
+  >{\RaggedRight\arraybackslash}p{0.16\textwidth}
+@{}}
+\toprule
+\textbf{Tiêu chí} & \textbf{Điểm tối đa} & \textbf{Tự chấm} & \textbf{Minh chứng} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Tiêu chí} & \textbf{Điểm tối đa} & \textbf{Tự chấm} & \textbf{Minh chứng} \\
+\midrule
+\endhead
+
+\textbf{1. Nhận dạng và mô tả kỹ thuật trong chương sách}
+\par Xác định đúng kỹ thuật trung tâm của chương sách
+\par Trình bày rõ nguyên lý vận hành, các bước chính, mô hình toán hoặc kiến trúc
+& 2.0 & 2.0 & Chương I \\
+\midrule
+
+\textbf{2. Phân tích phương pháp trong bài báo khoa học}
+\par Trình bày rõ phương pháp chính của bài báo
+\par Giải thích mục tiêu kỹ thuật, cách tiếp cận và lý do phương pháp hiệu quả
+& 2.0 & 2.0 & Chương II \\
+\midrule
+
+\textbf{3. Mối liên hệ giữa chương sách và bài báo}
+\par Chỉ ra cách phương pháp trong bài báo được xây dựng dựa trên kỹ thuật trong chương sách
+\par Phân tích khác biệt về phương pháp giữa nội dung sách và tiếp cận nghiên cứu hiện đại
+& 2.0 & 2.0 & Chương II \\
+\midrule
+
+\textbf{4. Đánh giá kỹ thuật về điểm mạnh, hạn chế và phạm vi áp dụng}
+\par Đánh giá điểm mạnh của phương pháp trình bày trong bài báo
+\par Nêu hạn chế, giả định và các vấn đề còn mở
+& 2.0 & 2.0 & Chương I và Chương II \\
+\midrule
+
+\textbf{5. Nhận định cá nhân và khả năng mở rộng}
+\par Nhận định về hiệu quả hoặc ý nghĩa thực tiễn của phương pháp
+\par Đề xuất cải tiến hoặc hướng ứng dụng khác
+& 1.0 & 1.0 & Chương II \\
+\midrule
+
+\textbf{6. Trình bày học thuật và chất lượng báo cáo}
+\par Chất lượng trình bày và diễn đạt trong báo cáo và thuyết trình
+\par Tuân thủ liêm chính học thuật, trích dẫn và ghi nguồn đầy đủ
+& 1.0 & 1.0 & Toàn báo cáo \\
+\midrule
+\textbf{Tổng} & \textbf{10.0} & \textbf{10.0} & \\
+\bottomrule
+\end{longtable}
+\endgroup

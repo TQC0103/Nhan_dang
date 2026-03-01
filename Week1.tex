@@ -1667,7 +1667,7 @@ Lấy cảm hứng từ phương pháp RegNet \cite{guo2022scrfd}, nhóm tác gi
 
 Mặc dù cấu trúc tổng thể của một mạng phát hiện khá đơn giản, nhưng nếu để hệ thống tự do kết hợp, số lượng cấu hình mạng có thể tạo ra sẽ rất lớn \cite{guo2022scrfd}. Do đó, mục tiêu cốt lõi của phần này là tinh giản không gian tìm kiếm đó xuống thành một không gian thiết kế ít chiều thông qua việc kiểm soát chặt chẽ các bậc tự do.
 
-\noindent \textbf{Tinh giản không gian xương sống}
+\noindent\textbf{Tinh giản không gian xương sống}
 \begin{itemize}
     \item \textit{Cấu trúc cơ sở:} Backbone bao gồm phần Stem và phần Body gồm 4 giai đoạn $C_2, C_3, C_4, C_5$ hoạt động ở các độ phân giải giảm dần \cite{guo2022scrfd}. Tại mỗi giai đoạn $i$, cấu trúc có 2 bậc tự do chính là số lượng khối $d_i$ và độ rộng khối $w_i$ \cite{guo2022scrfd}.
     \item \textit{Gộp bậc tự do:} Vì số lượng kênh của phần Stem luôn bằng với độ rộng của khối Residual đầu tiên trong giai đoạn $C_2$, nên bậc tự do của Stem ($w_1$) được gộp thẳng vào tham số $w_2$ \cite{guo2022scrfd}. Do đó, toàn bộ phần Backbone chỉ còn lại đúng 8 bậc tự do (4 giai đoạn $\times$ 2 tham số $d_i, w_i$).
@@ -2062,7 +2062,7 @@ Theo mô tả trong bài báo, để thực hiện empirical bootstrap cho từn
 \end{itemize}
 \subsection{Tóm tắt so sánh chương sách và SCRFD}
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \caption{So sánh phương pháp chương sách và SCRFD: cùng mục tiêu, khác cách hiện thực}
 \label{tab:textbook-scrfd-diff}

@@ -1,6 +1,18 @@
 ﻿\chapter*{Lời mở đầu}
 \addcontentsline{toc}{chapter}{Lời mở đầu}
 
-Mẫu báo cáo này được chuẩn bị cho viết học thuật bằng LaTeX.
-Tài liệu bao gồm trang bìa, mục lục, danh mục hình và bảng,
-danh mục thuật ngữ/chữ viết tắt, cùng quy trình tài liệu tham khảo với XeLaTeX và Biber.
+Phát hiện khuôn mặt là một trong những bài toán nền tảng và có ứng dụng rộng rãi nhất trong lĩnh vực thị giác máy tính và nhận dạng mẫu. Từ các hệ thống giám sát an ninh, xác thực sinh trắc học, phân tích mạng xã hội đến các ứng dụng thực tế tăng và giảm trên thiết bị di động, khả năng định vị chính xác vị trí khuôn mặt trong ảnh và video đóng vai trò then chốt trong toàn bộ chuỗi xử lý nhận dạng.
+
+Trong khuôn khổ môn học Nhận dạng mẫu, nhóm chúng em được giao nhiệm vụ nghiên cứu và phân tích sâu bài toán phát hiện khuôn mặt qua hai góc nhìn bổ trợ: phương pháp cổ điển và phương pháp hiện đại dựa trên học sâu. Báo cáo tiến độ giữa kỳ này tập trung vào hai hướng nghiên cứu chính. Thứ nhất, chúng em phân tích chi tiết chương sách về phát hiện khuôn mặt cổ điển, đặc biệt là phương pháp Viola--Jones với cấu trúc cascade tăng cường, đặc trưng Haar-like và các kỹ thuật tối ưu tính toán. Thứ hai, chúng em nghiên cứu bài báo SCRFD được công bố tại hội nghị ICLR 2022, một trong những phương pháp tiên tiến nhất hiện nay trong việc tái phân bổ tài nguyên tính toán và phân bố mẫu huấn luyện để cải thiện hiệu năng phát hiện khuôn mặt rất nhỏ.
+
+Cấu trúc báo cáo được tổ chức thành hai chương chính. Chương I trình bày phân tích chương sách về phát hiện khuôn mặt cổ điển, bao gồm động lực nghiên cứu, kiến thức nền, các kỹ thuật cốt lõi như tháp hình ảnh, quét cửa sổ trượt, cascade classifier, AdaBoost và các cải tiến kỹ thuật. Chương II tập trung vào phân tích bài báo SCRFD, làm rõ kiến trúc Backbone--Neck--Head, hai cơ chế tối ưu Computation Redistribution và Sample Redistribution, cùng với đánh giá so sánh với các phương pháp tiền nhiệm.
+
+Qua quá trình nghiên cứu và thực hiện báo cáo này, nhóm chúng em đã có cơ hội tiếp cận sâu sắc với cả nền tảng lý thuyết cổ điển lẫn xu hướng nghiên cứu hiện đại trong lĩnh vực nhận dạng mẫu nói chung và phát hiện khuôn mặt nói riêng. Chúng em nhận thấy rằng mặc dù công nghệ học sâu đã đạt được những bước tiến vượt bậc, các nguyên lý thiết kế từ phương pháp cổ điển như loại sớm, phân bổ tính toán và xử lý mất cân bằng lớp vẫn giữ giá trị tham khảo quan trọng trong thiết kế hệ thống hiện đại.
+
+Nhóm chúng em xin chân thành cảm ơn Thầy Võ Thanh Lâm, Thầy Lê Hoàng Thái và Thầy Nguyễn Thanh Tình đã tận tình hướng dẫn và tạo điều kiện để chúng em hoàn thành báo cáo này. Mặc dù đã cố gắng nghiên cứu và trình bày một cách có hệ thống, báo cáo không tránh khỏi những thiếu sót. Chúng em rất mong nhận được sự đóng góp ý kiến và chỉ bảo của các Thầy để báo cáo được hoàn thiện hơn trong giai đoạn tiếp theo.
+
+\vspace{1.5cm}
+\begin{flushright}
+\textit{Thành phố Hồ Chí Minh, tháng 3 năm 2026}\\[0.5cm]
+\textbf{Nhóm sinh viên thực hiện}
+\end{flushright}

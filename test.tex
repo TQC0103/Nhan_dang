@@ -1,0 +1,42 @@
+\documentclass{beamer}
+\usepackage{tikz}
+\usetikzlibrary{positioning, fit, arrows.meta, shapes.geometric, backgrounds, calc}
+\begin{document}
+\begin{frame}
+      \begin{tikzpicture}[
+        scale=0.7, transform shape, 
+        node distance=0.8cm and 1.0cm,
+        process/.style={draw=blue!80!black, thick, rectangle, rounded corners, fill=blue!10, minimum width=3.5cm, minimum height=1.6cm, align=center, font=\sffamily\small},
+        data/.style={draw=green!60!black, thick, rectangle, rounded corners, fill=green!10, minimum width=3.5cm, minimum height=1.6cm, align=center, font=\sffamily\small},
+        bootstrap/.style={draw=orange!80!black, thick, rectangle, rounded corners, fill=orange!10, minimum width=4.5cm, minimum height=2.2cm, align=center, font=\sffamily\small},
+        result/.style={draw=red!80!black, thick, rectangle, rounded corners, fill=red!10, minimum width=3.5cm, minimum height=1.6cm, align=center, font=\sffamily\bfseries\small},
+        arrow/.style={-Latex, thick, draw=black!70, rounded corners=5pt},
+        customlabel/.style={font=\sffamily\footnotesize, color=black!70}
+    ]
+
+    \node[process] (n1) {A};
+    \node[process, right=of n1] (n2) {B};
+    \node[process, right=of n2] (n3) {C};
+    \node[data, below=1.2cm of n3] (n4) {D};
+
+    \node[bootstrap, left=of n4] (n5) {
+        \textbf{Empirical Bootstrap}\\
+        \textit{(Lặp lại $10^3$ lần)}\\[0.2cm]
+        1. Sample \textbf{25\%} (có hoàn lại)\\
+        2. Chọn cặp có \textbf{Max AP}
+    };
+
+    \node[result, left=of n5] (n6) {Tính 95\% CI\\\& Lấy Median\\[0.15cm]\textcolor{red!70!black}{\textbf{Tỉ lệ phân bổ\\tốt nhất}}};
+
+    \draw[arrow] (n1) -- (n2);
+    \draw[arrow] (n2) -- (n3);
+    \draw[arrow] (n3.south) -- (n4.north);
+    \draw[arrow] (n4) -- (n5);
+    \draw[arrow] (n5) -- (n6);
+
+    \node[customlabel, above=0.1cm of n2] {VD: 2.5 GFlops};
+    \node[customlabel, below=0.1cm of n4] {$x_i$: Tỉ lệ tính toán (Computation Ratio)};
+
+    \end{tikzpicture}
+\end{frame}
+\end{document}

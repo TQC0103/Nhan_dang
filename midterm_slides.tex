@@ -29,7 +29,7 @@
 \usepackage{amssymb}
 \usepackage{xurl}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning,calc}
+\usetikzlibrary{positioning, fit, arrows.meta, shapes.geometric, backgrounds, calc}
 
 % beamer already loads hyperref; configure it here.
 \hypersetup{hidelinks}
@@ -325,11 +325,152 @@
   \end{center}
 \end{frame}
 
+\begin{frame}{Computation Redistribution (CR): giảm bậc tự do}
+  \begin{itemize}
+    \item Không gian kiến trúc mạng gốc vô cùng lớn. Để tối ưu hóa việc tìm kiếm, tác giả đã thiết kế lại và ép không gian này xuống chỉ còn \textbf{11 bậc tự do (Degrees of Freedom - DoFs)}.
+  \end{itemize}
+  \begin{figure}
+  \begin{tikzpicture}[
+    scale=0.55,transform shape,
+    node distance=1.5cm and 1cm,
+    % Styles
+    basebox/.style={draw, rectangle, rounded corners, align=center, minimum height=1.2cm, font=\sffamily},
+    backbonebox/.style={basebox, fill=blue!10, minimum width=2cm},
+    neckbox/.style={basebox, fill=green!10, minimum width=2cm},
+    headbox/.style={basebox, fill=orange!20, minimum width=2.5cm, minimum height=4cm},
+    arrow/.style={-Latex, thick, draw=black!70},
+    highlight/.style={font=\sffamily\footnotesize\bfseries, color=red!70!black, align=center},
+    grouplabel/.style={font=\sffamily\large\bfseries, align=center}
+]
+
+% ================= BACKBONE =================
+\node[backbonebox, fill=gray!20] (stem) {\textbf{Stem}\\3 layers};
+\node[backbonebox, right=of stem] (c2) {\textbf{C2}\\$d_2$ blocks\\$w_2$ channels};
+\node[backbonebox, right=of c2] (c3) {\textbf{C3}\\$d_3$ blocks\\$w_3$ channels};
+\node[backbonebox, right=of c3] (c4) {\textbf{C4}\\$d_4$ blocks\\$w_4$ channels};
+\node[backbonebox, right=of c4] (c5) {\textbf{C5}\\$d_5$ blocks\\$w_5$ channels};
+
+% Backbone arrows
+\draw[arrow] (stem) -- (c2);
+\draw[arrow] (c2) -- (c3);
+\draw[arrow] (c3) -- (c4);
+\draw[arrow] (c4) -- (c5);
+
+% Highlight Stem DoF reduction
+\node[highlight, below=0.3cm of stem] (stemnote) {Stem channel $w_1$\\merged to $w_2$};
+\draw[dashed, red!70!black, thick] (stemnote) -- (stem);
+
+% ================= NECK (PAFPN) =================
+\node[neckbox, below=2cm of c3] (n3) {\textbf{Neck $P_3$}\\$n$ channels};
+\node[neckbox, below=2cm of c4] (n4) {\textbf{Neck $P_4$}\\$n$ channels};
+\node[neckbox, below=2cm of c5] (n5) {\textbf{Neck $P_5$}\\$n$ channels};
+
+% Neck arrows 
+\draw[arrow] (c3) -- (n3);
+\draw[arrow] (c4) -- (n4);
+\draw[arrow] (c5) -- (n5);
+\draw[arrow, <->, dashed] (n3) -- (n4);
+\draw[arrow, <->, dashed] (n4) -- (n5);
+
+% Highlight Neck DoF (Đưa sang dưới P3 để nhường chỗ đi dây mũi tên)
+\node[highlight, below=1.2cm of n3] (necknote) {Fixed $n$ channels\\for entire Neck};
+
+% ================= HEAD =================
+% Đặt Head sang bên phải của P5 để không bị đè
+\node[headbox, right=1.5cm of n5] (head) {\textbf{Shared Head}\\$m$ blocks\\$h$ channels\\ \vspace{0.2cm} \\ \textit{(Weights shared} \\ \textit{across all} \\ \textit{3 scales)}};
+
+% ================= OUTPUT =================
+\node[right=1.2cm of head, align=center, font=\sffamily\bfseries] (output) {Class \&\\Box Loss};
+\draw[arrow] (head) -- (output);
+
+% ================= ARROWS TO HEAD =================
+% Đi dây mũi tên gọn gàng không cắt ngang khối
+\draw[arrow] (n5.east) -- (head.west |- n5.east);
+\draw[arrow] (n4.south) |- ([yshift=-0.8cm]head.west);
+\draw[arrow] (n3.south) |- ([yshift=-1.4cm]head.west);
+
+% ================= GROUPING & LABELS =================
+\begin{scope}[on background layer]
+    % Backbone Group
+    \node[draw=blue!50, dashed, thick, rounded corners, fit=(stem) (c2) (c3) (c4) (c5) (stemnote), inner sep=15pt] (bb_group) {};
+    \node[grouplabel, text=blue!70!black, above=0.2cm of bb_group] {Backbone (8 DoFs)};
+
+    % Neck Group (Mở rộng viền xuống dưới để bao trọn các mũi tên đi dây)
+    \coordinate (neck_bottom) at ($(n3.south) + (0,-1.6cm)$);
+    \node[draw=green!60!black, dashed, thick, rounded corners, fit=(n3) (n4) (n5) (necknote) (neck_bottom), inner sep=15pt] (nk_group) {};
+    \node[grouplabel, text=green!60!black, below=0.2cm of nk_group] {Neck (1 DoF)};
+    
+    % Head Group
+    \node[draw=orange!80, dashed, thick, rounded corners, fit=(head), inner sep=15pt] (hd_group) {};
+    \node[grouplabel, text=orange!80!black, above=0.2cm of hd_group] {Head (2 DoFs)};
+\end{scope}
+
+\end{tikzpicture}
+\caption{Trực quan hóa không gian tìm kiếm được rút gọn của SCRFD.}
+\end{figure}
+\end{frame}
+
+\begin{frame}{Computation Redistribution (CR): Đánh giá phân bổ}
+  \begin{itemize}
+    \item \textbf{Vấn đề:} Dù đã giảm còn 11 bậc tự do, không gian tìm kiếm vẫn chứa lượng lớn các mô hình kém hiệu quả.
+    \item \textbf{Giải pháp:} Tìm ra \textit{tỉ lệ phân bổ tính toán ($x_i$)} tối ưu nhất bằng cách lấy mẫu ngẫu nhiên kết hợp thống kê \textbf{Empirical Bootstrap}.
+  \end{itemize}
+\begin{figure}
+\begin{tikzpicture}[
+    scale=0.7,transform shape,
+    node distance=1cm and 1.2cm,
+    % Styles
+    process/.style={draw=blue!80!black, thick, rectangle, rounded corners, fill=blue!10, minimum width=3.5cm, minimum height=1.6cm, align=center, font=\sffamily\small},
+    data/.style={draw=green!60!black, thick, rectangle, rounded corners, fill=green!10, minimum width=3.5cm, minimum height=1.6cm, align=center, font=\sffamily\small},
+    bootstrap/.style={draw=orange!80!black, thick, rectangle, rounded corners, fill=orange!10, minimum width=4.5cm, minimum height=2.2cm, align=center, font=\sffamily\small},
+    result/.style={draw=red!80!black, thick, rectangle, rounded corners, fill=red!10, minimum width=3.5cm, minimum height=1.6cm, align=center, font=\sffamily\bfseries\small},
+    arrow/.style={-Latex, thick, draw=black!70, rounded corners=5pt},
+    label/.style={font=\sffamily\footnotesize, color=black!70}
+]
+
+% ================= HÀNG 1 (Trái -> Phải) =================
+\node[process] (n1) {\textbf{Random Sampling}\\từ Search Space};
+
+\node[process, right=of n1] (n2) {\textbf{Lọc lấy 320 Models}\\(Nằm trong giới hạn\\Flops mục tiêu)};
+
+\node[process, right=of n2] (n3) {\textbf{Train 320 Models}\\80 Epochs\\(trên WIDER FACE)};
+
+% ================= HÀNG 2 (Phải -> Trái) =================
+% Căn giữa khối Data dưới khối Train
+\node[data, below=1.5cm of n3] (n4) {\textbf{Đánh giá AP}\\$\rightarrow$ Thu được 320 cặp\\$(x_i, AP_i)$};
+
+\node[bootstrap, left=of n4] (n5) {
+    \textbf{Empirical Bootstrap}\\
+    \textit{(Lặp lại $10^3$ lần)}\\[0.2cm]
+    1. Sample \textbf{25\%} (có hoàn lại)\\
+    2. Chọn cặp có \textbf{Max AP}
+};
+
+\node[result, left=of n5] (n6) {Tính 95\% CI\\\& Lấy giá trị Median\\[0.15cm]\textcolor{red!70!black}{\textbf{Tỷ lệ phân bổ tốt nhất}}};
+
+% ================= MŨI TÊN (ĐƯỜNG DẪN) =================
+\draw[arrow] (n1) -- (n2);
+\draw[arrow] (n2) -- (n3);
+
+% Mũi tên vòng từ Hàng 1 xuống Hàng 2
+\draw[arrow] (n3.south) -- (n4.north);
+
+\draw[arrow] (n4) -- (n5);
+\draw[arrow] (n5) -- (n6);
+
+% ================= CHÚ THÍCH THÊM =================
+\node[label, above=0.1cm of n2] {VD: 2.5 GFlops};
+\node[label, below=0.1cm of n4] {$x_i$: Computation Ratio};
+\end{tikzpicture}
+\caption{Quy trình tìm kiếm phân bổ tính toán tối ưu sử dụng Empirical Bootstrap.}
+\end{figure}
+\end{frame}
+
 \begin{frame}{Sample Redistribution (SR): tái phân bổ mẫu theo tỉ lệ}
   \begin{itemize}
     \setlength{\itemsep}{5pt}
     \item Quan sát: phát hiện mặt nhỏ phụ thuộc mạnh vào \textbf{phân phối tỉ lệ} và augmentation.\ \cite{guo2022scrfd}
-    \item Thiết kế ``zoom-in / zoom-out'' search-able:
+    \item Thiết kế zoom-in / zoom-out search-able:
       \begin{itemize}
         \setlength{\itemsep}{2pt}
         \item chọn tập scale rời rạc \(S=\{s_{\min}, s_{\min}+0.1, \ldots, s_{\max}\}\),
@@ -339,11 +480,87 @@
   \end{itemize}
 \end{frame}
 
+\begin{frame}{Sample Redistribution (SR): Tối ưu hóa khớp Anchor}
+  \begin{itemize}
+    \item \textbf{Vấn đề:} Các tham số tăng cường quy mô truyền thống thường được thiết kế thủ công và cố định cho mọi mạng, dẫn đến việc khớp anchor không tối ưu.
+    \item \textbf{Giải pháp SR:} Thực hiện tìm kiếm ngẫu nhiên trên 320 tập scale augmentation để tìm ra phân phối mẫu tốt nhất cho từng kiến trúc cụ thể.
+    \item \textbf{Hiệu quả thực nghiệm (trên SCRFD-2.5GF):}
+      \begin{itemize}
+        \item Tập scale tối ưu tìm được:
+        \begin{equation}
+          \mathbb{S} = \{0.5, 0.7, 0.8, 1.0, 1.1, 1.2, 1.4, 1.5, 1.8, 2.0, 2.3, 2.6\}
+        \end{equation}
+        \item Tăng đáng kể số lượng Positive Anchors tại các thang đo nhỏ như 16 và 32.
+        \item AP trên tập Hard tăng thêm 0.48\% so với việc mở rộng tập scale thủ công.
+      \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Sample Redistribution (SR): Cơ chế Zoom-in và Zoom-out}
+  \begin{itemize}
+    \item Tái phân bổ mẫu bằng cách thay đổi tỉ lệ zooming $s$ từ tập $\mathbb{S}$ đã tìm kiếm.
+  \end{itemize}
+
+  \begin{figure}
+    \centering
+    \begin{tikzpicture}[
+        scale=0.6, transform shape,
+        % Định dạng hộp ảnh (bo góc, màu nền dịu)
+        imgbox/.style={draw=black!70, thick, minimum width=3.5cm, minimum height=3.5cm, fill=blue!5, rounded corners=3pt},
+        % Định dạng hộp khuôn mặt
+        facebox/.style={draw=orange!80!black, fill=orange!30, font=\footnotesize\bfseries, align=center, rounded corners=1pt},
+        % Định dạng mũi tên
+        arrow/.style={-Latex, thick, draw=blue!70!black, rounded corners=2pt}
+    ]
+
+    % --- ẢNH GỐC ---
+    \node[imgbox] (orig) at (0,0) {};
+    % Đặt chữ ở nửa trên của hộp
+    \node[font=\sffamily, align=center] at ([yshift=0.8cm]orig.center) {Ảnh gốc\\(Short edge)};
+    % Đặt ô Face ở nửa dưới của hộp (không còn bị đè chữ)
+    \node[facebox, minimum size=0.8cm] (f0) at ([yshift=-0.4cm]orig.center) {Face};
+
+    % --- ZOOM IN (Mặt to lên) ---
+    \node[imgbox, below left=2.2cm and 1.8cm of orig] (zin) {};
+    \node[facebox, minimum size=2.2cm] at (zin.center) {Face};
+    
+    \node[below=0.3cm of zin, align=center, font=\small\sffamily] {
+        \textbf{Zoom-in} ($s < 1.0$)\\
+        Mặt trở nên \textbf{LỚN} hơn\\
+        \textit{Phù hợp cho stage sâu}
+    };
+
+    % --- ZOOM OUT (Mặt nhỏ đi + Padding) ---
+    \node[imgbox, below right=2.2cm and 1.8cm of orig, fill=gray!20] (zout) {};
+    % Vùng ảnh thực tế bị co lại (nền xanh nhạt giống ảnh gốc)
+    \node[draw=black!50, fill=blue!5, minimum size=1.5cm] (inner) at (zout.center) {};
+    \node[facebox, minimum size=0.3cm, font=\tiny\bfseries] at (inner.center) {}; 
+    % Nhãn Padding đặt gọn ở mép dưới
+    \node[font=\footnotesize\sffamily, color=black!70] at ([yshift=-1.3cm]zout.center) {Padding};
+    
+    \node[below=0.3cm of zout, align=center, font=\small\sffamily] {
+        \textbf{Zoom-out} ($s > 1.0$)\\
+        Mặt trở nên \textbf{NHỎ} hơn\\
+        \textit{Phù hợp cho stage nông}
+    };
+
+    % --- MŨI TÊN ĐỐI XỨNG ---
+    % Tạo điểm nút giữa để chia 2 nhánh vuông vức
+    \coordinate (mid) at ([yshift=-1cm]orig.south);
+    \draw[thick, draw=blue!70!black] (orig.south) -- (mid);
+    \draw[arrow] (mid) -| (zin.north) node[pos=0.25, above, font=\sffamily\bfseries] {$s=0.5$};
+    \draw[arrow] (mid) -| (zout.north) node[pos=0.25, above, font=\sffamily\bfseries] {$s=2.5$};
+
+    \end{tikzpicture}
+    \caption{Cơ chế Sample Redistribution giúp tăng cường mẫu cho các khuôn mặt cực nhỏ thông qua zoom-out.}
+  \end{figure}
+\end{frame}
+
 \begin{frame}{Kết quả định lượng: trade-off Accuracy--Efficiency}
   \begin{itemize}
     \setlength{\itemsep}{6pt}
-    \item SCRFD báo cáo hiệu quả cao trên WIDER FACE; ví dụ SCRFD-34GF hơn TinaFace \(+4.78\%\) AP (hard) và nhanh hơn \(>3\times\) trên GPU (VGA).\ \cite{guo2022scrfd,yang2016widerface}
-    \item Ablation (paper): CR và SR đều đóng góp; kết hợp cho cải thiện mạnh nhất ở hard set.\ \cite{guo2022scrfd}
+    \item SCRFD báo cáo hiệu quả cao trên WIDER FACE; ví dụ SCRFD-34GF hơn TinaFace \(+4.78\%\) AP (hard) và nhanh hơn \(>3\times\) trên GPU ở kích thước VGA.\ \cite{guo2022scrfd,yang2016widerface}
+    \item Ablation Study: CR và SR đều đóng góp; kết hợp cho cải thiện mạnh nhất ở hard set.\ \cite{guo2022scrfd}
   \end{itemize}
   \vspace{6pt}
   \small
@@ -359,6 +576,7 @@
   \vspace{2pt}
   {\scriptsize (Bảng rút gọn từ ablation trong paper, tập validation @ VGA).}
 \end{frame}
+
 
 \section{Liên hệ sách--paper và đánh giá}
 
@@ -386,39 +604,78 @@
   \end{tabular}
 \end{frame}
 
-\begin{frame}{(4) Đánh giá kỹ thuật: điểm mạnh, hạn chế, phạm vi}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.5\textwidth}
-    \textbf{Điểm mạnh (SCRFD)}
-    \begin{itemize}
-      \setlength{\itemsep}{4pt}
-      \item Hiệu quả ở nhiều mức compute, đặc biệt ảnh low-res.\ \cite{guo2022scrfd}
-      \item Thiết kế ``đúng prior'' của khuôn mặt \(\Rightarrow\) tránh dư thừa như detector tổng quát.
-      \item CR/SR đơn giản, có thể áp dụng như quy trình tối ưu.
-    \end{itemize}
-    \column{0.5\textwidth}
-    \textbf{Hạn chế / giả định}
-    \begin{itemize}
-      \setlength{\itemsep}{4pt}
-      \item Phụ thuộc phân phối dữ liệu (WIDER FACE) và chiến lược augmentation.\ \cite{yang2016widerface}
-      \item Random search/NAS tốn chi phí huấn luyện; tái lập đầy đủ cần tài nguyên.
-      \item Vẫn cần NMS; độ bền với domain shift/occlusion cần kiểm chứng thêm.
-    \end{itemize}
-  \end{columns}
+\begin{frame}{(4) Đánh giá kỹ thuật: Điểm mạnh cốt lõi}
+  \begin{itemize}
+    \setlength{\itemsep}{8pt}
+    \item \textbf{Phương pháp luận thực tiễn:} Khẳng định rõ thông điệp không áp dụng thụ động các cấu trúc mạng phân loại tổng quát sang bài toán đặc thù, mà chủ động tái thiết kế không gian mạng để giữ chi tiết cho khuôn mặt nhỏ.
+    \item \textbf{Đa dạng ngân sách tính toán:} Tạo ra một dải tham số phong phú từ 0.5GFLOPs tới 34GFLOPs, đáp ứng mọi giới hạn hiệu năng của phần cứng.\ \cite{guo2022scrfd}
+    \item \textbf{Tính nhất quán của quá trình phát triển:} Phối hợp nhịp nhàng giữa hai trục tài nguyên và dữ liệu mà không làm cồng kềnh mô hình, giúp duy trì tư duy xuyên suốt từ nghiên cứu quy mô nhỏ tới đám đông phức tạp.
+  \end{itemize}
 \end{frame}
 
-\begin{frame}{(5) Nhận định cá nhân và hướng mở rộng}
+\begin{frame}{(4) Đánh giá kỹ thuật: Hạn chế và rào cản kỹ thuật}
+  \begin{itemize}
+    \setlength{\itemsep}{8pt}
+    \item \textbf{Chi phí NAS khổng lồ:} Quá trình tìm kiếm kiến trúc thông qua Empirical Bootstrap cần huấn luyện hàng trăm mô hình trên cụm GPU, tạo rào cản tái lập rất lớn cho các nhóm nghiên cứu quy mô nhỏ.\ \cite{guo2022scrfd}
+    \item \textbf{Các ràng buộc giới hạn việc tìm kiếm:} Không gian được đóng khung bằng các ngưỡng chặn thủ công và dùng kiến trúc khối cơ bản mô-đun hóa định sẵn, chưa vươn tới việc tìm kiếm các cấu trúc vi mô bên trong từng khối tích chập.
+    \item \textbf{Yếu điểm miền dữ liệu và đối tượng siêu nhỏ:} Việc áp dụng thực tiễn gặp thách thức trước sự lệch miền so với dữ liệu WIDER FACE; cùng với đó các khuôn mặt dưới ngưỡng neo vẫn bị giảm độ nhạy do không đủ đặc trưng.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{(4) Đánh giá kỹ thuật: Phạm vi ứng dụng công nghiệp}
+  \begin{itemize}
+    \setlength{\itemsep}{8pt}
+    \item \textbf{Triển khai ở lớp thiết bị biên:} Các biến thể cấu hình nhẹ có thể chạy trực tiếp, độc lập với độ trễ thấp trên smartphone, hệ thống thu phát IoT hay các camera an ninh nhận diện tại cửa.
+    \item \textbf{Triển khai ở lớp máy chủ:} Thông qua những phiên bản phức tạp hơn, hệ thống vẫn duy trì sự nhạy bén và độ vạch đích cao với các khung hình góc rộng trong sân vận động hay ga tàu, nơi con người trông hết sức nhỏ bé.
+    \item \textbf{Hướng dẫn tinh chỉnh kiến trúc vĩ mô:} Bài học từ SCRFD khuyến khích người làm công nghiệp không chạy lại NAS từ con số âm, mà dùng luôn nguyên lý của CR/SR để cân chỉnh tham số theo miền đích mới.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{(5) Nhận định cá nhân về bài báo SCRFD}
   \begin{itemize}
     \setlength{\itemsep}{6pt}
-    \item \textbf{Nhận định:} SCRFD cho thấy ``tối ưu đúng chỗ'' (CR/SR) có thể đem lại bước nhảy lớn về trade-off mà không cần kiến trúc phức tạp.
-    \item \textbf{Hướng mở rộng khả thi:}
-      \begin{itemize}
-        \setlength{\itemsep}{3pt}
-        \item distillation cho các bản 0.5--1.0GF để giữ AP khi ràng buộc compute,
-        \item hardware-aware search (CPU/mobile NPU) thay vì chỉ GFLOPs,
-        \item cải thiện robustness (che khuất, ánh sáng) bằng dữ liệu/augmentation mục tiêu.
-      \end{itemize}
+    \item \textbf{Bước tiến về tư duy thiết kế:} Nghiên cứu này chứng minh giải pháp ``tối ưu đúng chỗ'' đem lại kết quả vượt trội và kinh tế hơn việc tạo ra một cấu trúc mạng mới phức tạp.
+    \item \textbf{Ưu tiên tính thực tiễn đại trà:} Việc thu hẹp không gian tìm kiếm kết hợp thống kê Empirical Bootstrap cung cấp quy trình tối ưu dễ tái hiện, mở ra tiềm năng tạo các detector nhẹ nhưng hiệu quả trên thiết bị IoT/di động.
+    \item \textbf{Phát huy triệt để dữ liệu cục bộ:} Cơ chế Sample Redistribution thông qua scale augmentation là minh chứng cho việc tận dụng tốt thuộc tính phân bố đặc thù của khuôn mặt nhỏ trực tiếp trong quá trình tính loss.
   \end{itemize}
+\end{frame}
+
+\begin{frame}{Hướng mở rộng khả thi và ứng dụng}
+  \begin{columns}[c,onlytextwidth]
+    \column{0.50\textwidth}
+    \begin{itemize}
+      \setlength{\itemsep}{6pt}
+      \item \textbf{Tích hợp Knowledge Distillation:} Có thể dùng mô hình SCRFD khổng lồ làm Teacher, huấn luyện bản cực nhỏ làm Student để duy trì độ chính xác cao nhưng chi phí tính toán siêu thấp.
+      \item \textbf{Hardware-aware NAS:} Tìm kiếm trực tiếp kiến trúc với độ trễ đo thực tế trên phần cứng mục tiêu dựa vào hàm mục tiêu thay vì bị trói vào lý thuyết GFLOPs.
+      \item \textbf{Cải thiện độ bền vững:} Tập trung augmentation bổ sung cho các cấu trúc đặc biệt bị che khuất một phần (ví dụ: đeo khẩu trang dày, rèm che một nửa mặt, chiếu sáng cực yếu).
+    \end{itemize}
+    \column{0.45\textwidth}
+    \vspace{-6pt}
+    \begin{figure}
+      \centering
+      \begin{tikzpicture}[
+          scale=0.7, transform shape,
+          box/.style={draw=black!70, thick, rounded corners=3pt, align=center, minimum width=2.8cm, minimum height=1.2cm, font=\sffamily\bfseries},
+          teach/.style={box, fill=purple!10, draw=purple!80!black},
+          stud/.style={box, fill=teal!10, draw=teal!80!black},
+          loss/.style={draw=red!80!black, thick, rectangle, rounded corners=5pt, fill=red!5, font=\sffamily\scriptsize, align=center, minimum height=1cm},
+          arrow/.style={-Latex, thick, draw=black!70}
+        ]
+        
+        \node[teach] (t) {Teacher Model\\(SCRFD 34GF)};
+        \node[stud, below=1.5cm of t] (s) {Student Model\\(SCRFD 0.5GF)};
+        \node[loss, right=0.8cm of t, yshift=-1.35cm] (l) {Distillation\\Loss\\\textit{Soft Labels}};
+        
+        \draw[arrow, dashed, draw=purple!80!black] (t.east) -| (l.north);
+        \draw[arrow, dashed, draw=teal!80!black] (s.east) -| (l.south);
+        
+        \node[box, fill=orange!10, draw=orange!80!black, left=0.8cm of t, yshift=-1.35cm, scale=0.85] (data) {Input\\Images};
+        \draw[arrow] (data) |- (t.west);
+        \draw[arrow] (data) |- (s.west);
+      \end{tikzpicture}
+      \caption{Mô phỏng hướng mở rộng bằng Knowledge Distillation.}
+    \end{figure}
+  \end{columns}
 \end{frame}
 
 \section{Chuẩn học thuật và tài liệu tham khảo}

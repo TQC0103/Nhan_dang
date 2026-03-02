@@ -1,6 +1,6 @@
 % !TEX TS-program = xelatex
 % !TEX encoding = UTF-8 Unicode
-\documentclass[aspectratio=169,10pt]{beamer}
+\documentclass[aspectratio=169,11pt]{beamer}
 
 % Template base: standard Beamer structure (e.g., Overleaf "Beamer presentation").
 \usetheme{Madrid}
@@ -104,74 +104,177 @@
 
 \begin{frame}{(1) Kỹ thuật trung tâm của chương sách}
   \begin{block}{Kỹ thuật cốt lõi}
-    Khung phát hiện khuôn mặt đa tỉ lệ kiểu \textbf{Viola--Jones}: tháp ảnh + quét cửa sổ trượt + chấm điểm nhanh bằng Haar/Integral Image + \textbf{cascade} tăng cường (AdaBoost).\ \cite{li2012facechapter,viola2001rapid,viola2004robust}
+    \textbf{Viola--Jones cascade detector} gồm hai luồng: (i) \textbf{training cascade theo stage} với AdaBoost + hard negative mining; (ii) \textbf{inference} với image pyramid + sliding window + cascade + gom nhóm.\ \cite{li2012facechapter,viola2001rapid,viola2004robust}
   \end{block}
   \begin{itemize}
     \setlength{\itemsep}{4pt}
-    \item \textbf{Mục tiêu:} phát hiện thời gian thực trên ảnh tĩnh/video (tối ưu tốc độ, giảm báo động giả).
-    \item \textbf{Đặc điểm bài toán:} số lượng cửa sổ âm \(\gg\) dương \(\Rightarrow\) loại sớm là chiến lược then chốt.
+    \item Cửa sổ chuẩn: \(24\times24\); đặc trưng Haar-like tính nhanh bằng integral image.
+    \item Ý tưởng then chốt: \textbf{loại sớm} phần lớn mẫu âm để đạt thời gian thực.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Khung phát hiện 3 bước (tư duy hệ thống)}
+\begin{frame}{Flow Training Cascade}
+  \begin{block}{Mục tiêu}
+    Huấn luyện theo stage để \(F_{\text{total}}=\prod_i f_i \le F_{\text{target}}\).
+  \end{block}
   \begin{enumerate}
     \setlength{\itemsep}{6pt}
-    \item \textbf{Sinh giả thuyết (proposal generation):} tháp ảnh + cửa sổ trượt tạo ra tập ứng viên ở nhiều tỉ lệ.
-    \item \textbf{Chấm điểm / phân loại:} đánh giá nhanh từng cửa sổ (weak-to-strong).
-    \item \textbf{Hợp nhất kết quả:} ngưỡng hóa + Non-Maximum Suppression (NMS).
+    \item \textbf{Dữ liệu:} positives \(24\times24\) (face), negatives (background). \textit{Không dùng pyramid ở training.}
+    \item \textbf{Train stage \(i\):} AdaBoost thêm weak learners \(\Rightarrow\) strong classifier; chỉnh \(\theta_i\) để đạt \(Recall \ge d_i\) và \(FPR \le f_i\).
+    \item \textbf{Hard negative mining:} chạy stage \(i\) trên ảnh nền lớn, thu FP \(\Rightarrow\) cập nhật negative set; huấn luyện stage \(i{+}1\) và lặp.
   \end{enumerate}
-  \vspace{6pt}
-  \begin{center}
-    \includegraphics[width=0.92\linewidth]{custom/classical_cascade_detailed_flow.png}
-  \end{center}
+  \vspace{2pt}
+  {\scriptsize Theo \cite{viola2001rapid,viola2004robust,li2012facechapter}.}
 \end{frame}
 
-\begin{frame}{Integral Image và đặc trưng Haar-like (mô hình toán)}
-  \begin{block}{Integral Image}
-    \[
-      I_{\Sigma}(x,y) = \sum_{x'\le x,\,y'\le y} I(x',y')
-    \]
-    Tổng cường độ trong một hình chữ nhật bất kỳ tính trong \(O(1)\) phép toán (4 truy vấn) \(\Rightarrow\) trích xuất Haar-like rất nhanh.\ \cite{viola2001rapid,viola2004robust}
+\begin{frame}{Train Stage \(i\): AdaBoost (chọn weak learner)}
+  \begin{block}{Đặt mục tiêu stage}
+    Detection rate \(d_i\) (ví dụ \(0.99\)), false positive rate \(f_i\) (ví dụ \(0.5\)).
   \end{block}
+  \begin{enumerate}
+    \setlength{\itemsep}{6pt}
+    \item Duyệt tất cả feature (Haar-like), với mỗi feature tìm threshold \(\tau\) tốt nhất.
+    \item Chọn weak classifier \(h_m(x)\) có weighted error nhỏ nhất.
+    \item Tính \(\alpha_m\) và cập nhật trọng số mẫu (reweight) \(\Rightarrow\) tập trung vào mẫu khó.\ \cite{viola2001rapid}
+  \end{enumerate}
+  \vspace{4pt}
+  \textbf{Integral Image (tính nhanh Haar-like):}
+  \[
+    I_{\Sigma}(x,y)=\sum_{x'\le x,\,y'\le y} I(x',y')
+  \]
+  {\small Tổng trên hình chữ nhật tính \(O(1)\).\ \cite{viola2001rapid,viola2004robust}}
+\end{frame}
+
+\begin{frame}{Train Stage \(i\): strong classifier + chỉnh threshold}
+  \begin{itemize}
+    \setlength{\itemsep}{8pt}
+    \item \textbf{Strong classifier:} \(\displaystyle H(x)=\sum_{m=1}^{M}\alpha_m h_m(x)\).
+    \item \textbf{Chỉnh ngưỡng stage \(\theta_i\):} chọn \(\theta_i\) để \(Recall \ge d_i\).
+    \item \textbf{Kiểm tra FPR:} nếu \(FPR \le f_i\) \(\Rightarrow\) stage hoàn thành; nếu chưa \(\Rightarrow\) thêm weak learner.
+  \end{itemize}
+  \vspace{6pt}
+  \begin{block}{Hard Negative Mining (sau khi stage xong)}
+    Chạy stage \(i\) lên ảnh nền lớn, thu các window âm bị nhận nhầm \(\Rightarrow\) negative set mới (positive giữ nguyên) để train stage \(i{+}1\).\ \cite{viola2004robust}
+  \end{block}
+\end{frame}
+
+\begin{frame}{Flow Inference (Detection)}
+  \begin{block}{Mục tiêu}
+    Tìm khuôn mặt trong ảnh mới với chi phí thấp nhờ cascade loại sớm.\ \cite{viola2004robust}
+  \end{block}
+  \begin{enumerate}
+    \setlength{\itemsep}{9pt}
+    \item \textbf{Image pyramid:} scale ảnh theo tỉ lệ \(s_k\) để bao phủ nhiều kích thước mặt.
+    \item \textbf{Sliding window:} tại mỗi scale, trượt cửa sổ \(24\times24\) \(\Rightarrow\) rất nhiều window.
+    \item \textbf{Cascade:} stage 1 \(\rightarrow\) stage 2 \(\rightarrow\) \(\cdots\); bị loại ở stage nào \(\Rightarrow\) dừng ngay; qua hết \(\Rightarrow\) giữ lại.
+    \item \textbf{Gom nhóm:} merge các bounding box chồng lấp (NMS/merge) để ra kết quả cuối.
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{Minh họa cài đặt (Chương I): thiết lập và giao thức}
+  \begin{itemize}
+    \setlength{\itemsep}{7pt}
+    \item \textbf{Thư viện:} OpenCV \texttt{CascadeClassifier} với Haar cascades.\ \cite{bradski2000opencv,opencv_cascade_docs}
+    \item \textbf{Dữ liệu:} WIDER FACE validation; nhóm chạy toàn tập trên \(1{,}687\) ảnh (đọc nhãn thành công).\ \cite{yang2016widerface,hf_widerface}
+    \item \textbf{Đối sánh TP/FP/FN:} ghép dự đoán--nhãn bằng IoU \(=0.3\) (phù hợp hộp cascade thường không khít) + ghép một-một tham lam.
+    \item \textbf{Chỉ số:} Precision, Recall, F1 tổng hợp trên toàn tập.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Kết quả tổng hợp (1{,}687 ảnh WIDER FACE val)}
+  \renewcommand{\arraystretch}{1.25}
+  \centering
+  \begin{tabular}{@{}l r@{}}
+    \toprule
+    \textbf{Đại lượng} & \textbf{Giá trị} \\
+    \midrule
+    Tổng số nhãn thật & 37{,}161 khuôn mặt \\
+    Tổng số dự đoán & 9{,}211 hộp \\
+    TP / FP / FN & 6{,}100 / 3{,}111 / 31{,}061 \\
+    Precision / Recall / F1 & 66.23\% / 16.42\% / 26.31\% \\
+    \bottomrule
+  \end{tabular}
+  \vspace{10pt}
+  \begin{block}{Insight nhanh}
+    Precision khá cao nhưng Recall rất thấp \(\Rightarrow\) cascade hoạt động tốt cho một phần khuôn mặt chính diện rõ, nhưng hụt mạnh với mặt nhỏ/che khuất/tư thế khó trong bối cảnh ngoài tự nhiên.\ \cite{yang2016widerface}
+  \end{block}
+\end{frame}
+
+\begin{frame}{Tái lập theo mục 11.6 (đánh đổi phát hiện vs báo động giả)}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.50\textwidth}
+    \centering
+    \includegraphics[height=0.42\textheight,width=\linewidth,keepaspectratio]{ch1_classical/sec116_roc_like_curve.png}
+    \column{0.50\textwidth}
+    \centering
+    \includegraphics[height=0.42\textheight,width=\linewidth,keepaspectratio]{ch1_classical/sec116_subwindow_compare_curve.png}
+  \end{columns}
+  \vspace{2pt}
+  {\small Sweep bám sát validation (3{,}222 ảnh đọc nhãn thành công), cố định \texttt{scaleFactor=1.1}, \texttt{minSize=20}, IoU \(=0.3\).\ \cite{yang2016widerface,hf_widerface}}
   \begin{itemize}
     \setlength{\itemsep}{4pt}
-    \item \textbf{Haar-like:} hiệu giữa các vùng sáng/tối (mắt--má, sống mũi--hai bên, \ldots).
-    \item \textbf{Hệ quả:} số đặc trưng khả dĩ cực lớn \(\Rightarrow\) cần cơ chế chọn lọc tự động (AdaBoost).
+    \item Giảm \texttt{minNeighbors} \(\Rightarrow\) tăng Recall nhưng false positives bùng nổ (sau gom nhóm).
+    \item Điểm cân bằng theo F1 trong sweep nằm quanh \texttt{minNeighbors=2..3}; tăng \texttt{minSize} quá lớn làm giảm Recall.
+    \item Phù hợp với kết luận trong chương sách về trade-off detection rate vs false alarms.\ \cite{li2012facechapter}
   \end{itemize}
 \end{frame}
 
-\begin{frame}{AdaBoost và Cascade classifier (nguyên lý vận hành)}
-  \begin{itemize}
-    \setlength{\itemsep}{5pt}
-    \item \textbf{AdaBoost:} chọn đặc trưng phân biệt + kết hợp weak learners \(\Rightarrow\) strong classifier.\ \cite{viola2001rapid}
-    \item \textbf{Cascade:} nhiều ``trạm'' tăng dần độ mạnh; nếu trượt ngưỡng ở trạm sớm thì loại ngay.
-    \item \textbf{Ưu tiên tốc độ:} phần lớn cửa sổ âm dừng ở trạm rất sớm \(\Rightarrow\) gần thời gian thực.
-  \end{itemize}
-  \vspace{6pt}
-  \begin{center}
-    \includegraphics[width=0.92\linewidth]{custom/classical_cascade_detailed_flow.png}
-  \end{center}
-\end{frame}
-
-\begin{frame}{Minh họa cài đặt: OpenCV Haar Cascade}
+\begin{frame}{Ánh xạ 3 cấu hình (theo tài liệu) và kết quả tái lập}
   \begin{columns}[T,onlytextwidth]
-    \column{0.54\textwidth}
+    \column{0.58\textwidth}
     \begin{itemize}
-      \setlength{\itemsep}{5pt}
-      \item Dùng \texttt{CascadeClassifier} (OpenCV) với mô hình \texttt{frontalface} mặc định.\ \cite{bradski2000opencv,opencv_cascade_docs}
-      \item Quan sát lỗi điển hình:
-        \begin{itemize}
-          \setlength{\itemsep}{2pt}
-          \item khó với khuôn mặt nhỏ/che khuất,
-          \item nhạy với góc quay, ánh sáng,
-          \item false positive trên nền có cấu trúc tương tự.
-        \end{itemize}
+      \setlength{\itemsep}{6pt}
+      \item \cite{brubaker2008cascade_design}: 1 cascade chính diện; \texttt{scaleFactor=1.05}, \texttt{minNeighbors=2}, \texttt{minSize=20}.
+      \item \cite{li2004floatboost}: 3 cascade (\texttt{frontal\_default}, \texttt{frontal\_alt2}, \texttt{profile}) + quét ảnh lật ngang; \texttt{scaleFactor=1.08}, \texttt{minNeighbors=3}, \texttt{minSize=20}.
+      \item \cite{wu2008asymmetric}: ưu tiên độ phủ; 2 cascade (\texttt{frontal\_default}, \texttt{frontal\_alt2}); \texttt{scaleFactor=1.05}, \texttt{minNeighbors=1}, \texttt{minSize=20}.
     \end{itemize}
-    \column{0.46\textwidth}
-    \includegraphics[width=\linewidth]{ch1_classical/book_fig1114_reproduce_final.jpg}
+    \column{0.42\textwidth}
+    \small
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabular}{@{}lccc@{}}
+      \toprule
+      \textbf{Neo theo} & \textbf{P} & \textbf{R} & \textbf{F1} \\
+      \midrule
+      \cite{brubaker2008cascade_design} & 36.38 & 13.07 & 19.23 \\
+      \cite{li2004floatboost} & 51.09 & 18.38 & 27.03 \\
+      \cite{wu2008asymmetric} & 26.13 & 18.70 & 21.80 \\
+      \bottomrule
+    \end{tabular}
     \vspace{2pt}
-    {\scriptsize Ví dụ minh họa (WIDER FACE val).}
+    {\scriptsize (Tập con 200 ảnh WIDER FACE val).}
   \end{columns}
+\end{frame}
+
+\begin{frame}{Case study ảnh khó: từ phát hiện thô đến sau gom nhóm}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.50\textwidth}
+    \centering
+    \includegraphics[height=0.62\textheight,width=\linewidth,keepaspectratio]{ch1_classical/demo_step1_dense_candidates.jpg}
+    \column{0.50\textwidth}
+    \centering
+    \includegraphics[height=0.62\textheight,width=\linewidth,keepaspectratio]{ch1_classical/demo_step2_step3_final.jpg}
+  \end{columns}
+  \vspace{6pt}
+  Trước gom nhóm: 425 phát hiện thô (\texttt{minNeighbors=0}).\quad
+  Sau cascade + gom nhóm: 11 hộp.\ \cite{yang2016widerface}
+\end{frame}
+
+\begin{frame}{Case study ảnh khó: TP/FP/FN và insight}
+  \begin{center}
+    \includegraphics[height=0.68\textheight,width=0.92\linewidth,keepaspectratio]{ch1_classical/demo_tp_fp_fn_overlay.jpg}
+  \end{center}
+  \vspace{4pt}
+  Đối chiếu nhãn: TP \(=5\), FP \(=6\), FN \(=5\) (10 khuôn mặt).
+  FP thường ở nền giàu kết cấu; FN tập trung ở mặt nhỏ/che khuất/tư thế khó.\ \cite{viola2004robust,li2012facechapter}
+\end{frame}
+
+\begin{frame}{Insight từ minh họa cài đặt (kết nối sang phương pháp hiện đại)}
+  \begin{itemize}
+    \setlength{\itemsep}{8pt}
+    \item \textbf{Hyperparam nhạy:} \texttt{minNeighbors} quyết định trade-off recall vs false positives (đúng tinh thần mục 11.6).\ \cite{li2012facechapter}
+    \item \textbf{Hạn chế cấu trúc:} cửa sổ cố định + Haar-like khó nắm bắt biến thiên pose/occlusion và tỉ lệ rất nhỏ \(\Rightarrow\) recall thấp trên WIDER FACE.\ \cite{yang2016widerface}
+    \item \textbf{Động lực cho SCRFD:} thay vì tăng thủ công cascade/đặc trưng, hướng hiện đại tối ưu phân bổ compute và phân phối mẫu theo tỉ lệ để cải thiện mặt nhỏ trong ngân sách tính toán.\ \cite{guo2022scrfd}
+  \end{itemize}
 \end{frame}
 
 \section{Chương II -- Phương pháp bài báo SCRFD (hiện đại)}

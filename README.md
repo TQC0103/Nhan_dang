@@ -1,5 +1,13 @@
 ﻿# LaTeX Midterm Report Workspace
 
+## Phân công công việc
+
+| Thành viên | Nội dung phụ trách |
+|---|---|
+| Trương Quốc Cường | Cơ sở chương sách (Viola--Jones) và thực nghiệm/tái lập theo chương sách (pipeline, tham số, đánh giá); chọn bài báo; làm slide và chỉnh sửa nội dung/trình bày. |
+| Lê Anh Duy | Method của bài báo SCRFD và các cải tiến/động lực so với hướng cổ điển mà chương sách gợi mở; vẽ các biểu đồ cần thiết để minh họa. |
+| Trần Gia Huy | Nhận định cá nhân; điểm mạnh--hạn chế; khả năng mở rộng, phạm vi ứng dụng và hướng phát triển tiếp; làm slide. |
+
 Repository này đã được sắp xếp lại theo hướng tách rõ:
 - nguồn LaTeX đang biên soạn
 - dữ liệu thực nghiệm

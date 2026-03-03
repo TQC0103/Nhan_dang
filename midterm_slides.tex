@@ -97,7 +97,7 @@
   \begin{itemize}
     \setlength{\itemsep}{4pt}
     \item \textbf{Chương sách (Chương I):} \textit{Face Detection} trong \textit{Handbook of Face Recognition} (2nd ed.), Chapter 11.\ \cite{li2012facechapter}
-    \item \textbf{Bài báo (Chương II):} \textit{Sample and Computation Redistribution for Efficient Face Detection} (SCRFD), ICLR 2022.\ \cite{guo2022scrfd}
+    \item \textbf{Bài báo (Chương II):} \textit{Sample and Computation Redistribution for Efficient Face Detection} (SCRFD), ICLR 2022, CORE A*.\ \cite{guo2022scrfd}
     \item \textbf{Mục tiêu giữa kỳ:} nắm khung phát hiện 3 bước; tái lập Viola--Jones (minh họa OpenCV); phân tích SCRFD theo paper.
   \end{itemize}
 \end{frame}
@@ -106,16 +106,18 @@
   \small
   \setlength{\tabcolsep}{5pt}
   \renewcommand{\arraystretch}{1.15}
-  \begin{tabular}{@{}p{0.72\textwidth}cc@{}}
+  \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.62\textwidth}ccc@{}}
     \toprule
-    \textbf{Tiêu chí} & \textbf{Max} & \textbf{Chương} \\
+    \textbf{Tiêu chí} & \textbf{Max} & \textbf{Tự chấm} & \textbf{Chương} \\
     \midrule
-    1. Nhận dạng \& mô tả kỹ thuật trong chương sách & 2.0 & I \\
-    2. Phân tích phương pháp trong bài báo khoa học & 2.0 & II \\
-    3. Mối liên hệ giữa chương sách và bài báo & 2.0 & II \\
-    4. Điểm mạnh, hạn chế, phạm vi áp dụng & 2.0 & I + II \\
-    5. Nhận định cá nhân \& khả năng mở rộng & 1.0 & II \\
-    6. Trình bày học thuật \& liêm chính (trích dẫn) & 1.0 & Tất cả \\
+    1. Nhận dạng \& mô tả kỹ thuật trong chương sách & 2.0 & 2.0 & I \\
+    2. Phân tích phương pháp trong bài báo khoa học & 2.0 & 2.0 & II \\
+    3. Mối liên hệ giữa chương sách và bài báo & 2.0 & 2.0 & II \\
+    4. Điểm mạnh, hạn chế, phạm vi áp dụng & 2.0 & 2.0 & I + II \\
+    5. Nhận định cá nhân \& khả năng mở rộng & 1.0 & 1.0 & II \\
+    6. Trình bày học thuật \& liêm chính (trích dẫn) & 1.0 & 1.0 & Tất cả \\
+    \midrule
+    \textbf{Tổng} & \textbf{10.0} & \textbf{10.0} & \textbf{--} \\
     \bottomrule
   \end{tabular}
 \end{frame}
@@ -275,7 +277,7 @@
   \begin{enumerate}
     \setlength{\itemsep}{6pt}
     \item \textbf{Sinh feature:} liệt kê nhiều Haar-like / MB-LBP tại nhiều vị trí--kích thước trên window \(24\times24\) (tính nhanh nhờ \textit{integral image}).\ \cite{viola2001rapid,viola2004robust}
-    \item \textbf{Chọn weak learner (vòng \(m\)):} với mỗi feature, tìm ngưỡng \(\tau\) (và polarity) để tối thiểu \textbf{weighted error}; lấy feature tốt nhất làm \(h_m(x)\).
+    \item \textbf{Chọn weak learner (vòng \(m\)):} với mỗi feature, tìm ngưỡng \(\tau\) để tối thiểu \textbf{weighted error}; lấy feature tốt nhất làm \(h_m(x)\).
     \item \textbf{Boosting \(\rightarrow\) strong classifier:} lặp \(m=1..M\), cộng dồn \(\alpha_m h_m(x)\) để được \(H(x)=\sum_{m=1}^{M}\alpha_m h_m(x)\).
     \item \textbf{Chỉnh threshold stage \(\theta_i\):} đặt \(\theta_i\) để đạt \textbf{recall} mục tiêu \(d_i\) (chấp nhận FP tạm thời), rồi đưa sang stage tiếp theo.\ \cite{viola2004robust}
   \end{enumerate}

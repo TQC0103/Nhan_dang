@@ -44,6 +44,7 @@
 \usepackage{etoolbox}
 \usepackage{graphicx}
 \usepackage{booktabs}
+\usepackage{array}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{xurl}
@@ -119,7 +120,7 @@
   \end{tabular}
 \end{frame}
 
-\section{Chương I -- Kỹ thuật trong chương sách (cổ điển)}
+\section{Chương I -- Kỹ thuật trong chương sách}
 
 
 \begin{frame}{Sơ đồ luồng Viola--Jones cascade detector}
@@ -151,7 +152,7 @@
   \begin{itemize}
     \setlength{\itemsep}{4pt}
     \item \textbf{Haar-like:} so sánh tổng sáng giữa các vùng chữ nhật (tính nhanh bằng integral image).
-    \item \textbf{MB-LBP:} so sánh trung tâm với 8 khối lân cận (mã 8-bit) \(\Rightarrow\) dùng \textit{look-up table} để phân loại nhanh.
+    \item \textbf{MB-LBP:} so sánh trung tâm với 8 khối lân cận (mã 8-bit).
   \end{itemize}
 \end{frame}
 
@@ -366,7 +367,7 @@
   \end{tabular}
   \vspace{10pt}
   \begin{block}{Insight nhanh}
-    Precision khá cao nhưng Recall rất thấp \(\Rightarrow\) cascade hoạt động tốt cho một phần khuôn mặt chính diện rõ, nhưng hụt mạnh với mặt nhỏ/che khuất/tư thế khó trong bối cảnh ngoài tự nhiên.\ \cite{yang2016widerface}
+    Precision khá cao nhưng Recall rất thấp \(\Rightarrow\) cascade hoạt động tốt cho khuôn mặt chính diện, nhưng hụt mạnh với mặt nhỏ/che khuất/tư thế khó trong bối cảnh ngoài tự nhiên.\ \cite{yang2016widerface}
   \end{block}
 \end{frame}
 
@@ -411,7 +412,7 @@
       \bottomrule
     \end{tabular}
     \par\vspace{2pt}
-    \parbox{\linewidth}{\centering\scriptsize (Tập con 200 ảnh WIDER FACE val).\par}
+    \parbox{\linewidth}{\centering\scriptsize Chạy trên tập con 200 ảnh WIDER FACE val.\par}
   \end{columns}
 \end{frame}
 
@@ -441,21 +442,20 @@
     \setlength{\itemsep}{4pt}
     \item \textbf{Computation Redistribution (CR):} tái phân bổ FLOPs giữa \textit{backbone--neck--head}.
     \item \textbf{Sample Redistribution (SR):} tái phân bổ mẫu dương theo thang tỉ lệ qua tìm kiếm tập scale augmentation.
-    \item \textbf{Triển khai:} random search trong search space thiết kế gọn \(\Rightarrow\) tạo ``họ'' SCRFD theo nhiều mức GFLOPs.
+    \item \textbf{Triển khai:} random search trong search space thiết kế gọn \(\Rightarrow\) tạo họ SCRFD theo nhiều mức GFLOPs.
   \end{itemize}
 \end{frame}
 
 \begin{frame}{Kiến trúc tổng quát (Backbone--Neck--Head)}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.52\textwidth}
-    \begin{itemize}
-      \setlength{\itemsep}{5pt}
-      \item Nền tảng theo hướng single-shot, có neck đa tỉ lệ và head dự đoán dày đặc.\ \cite{guo2022scrfd}
-      \item Điểm nhấn của SCRFD không phải ``module mới'', mà là \textbf{phân bổ đúng tài nguyên} cho đúng nơi cần.
-    \end{itemize}
-    \column{0.48\textwidth}
-    \includegraphics[width=\linewidth]{custom/scrfd_backbone_neck_head.png}
-  \end{columns}
+  \centering
+    \includegraphics[width=0.92\linewidth,height=0.55\textheight,keepaspectratio]{custom/scrfd_backbone_neck_head.png}\par
+  
+  \vspace{4pt}
+  \begin{itemize}
+    \setlength{\itemsep}{5pt}
+    \item Nền tảng theo hướng single-shot, có neck đa tỉ lệ và head dự đoán dày đặc.\ \cite{guo2022scrfd}
+    \item Điểm nhấn của SCRFD không phải module mới, mà là \textbf{phân bổ đúng tài nguyên} cho đúng nơi cần.
+  \end{itemize}
 \end{frame}
 
 \begin{frame}{Computation Redistribution (CR): ý tưởng và tham số}
@@ -709,18 +709,20 @@
     \item Ablation Study: CR và SR đều đóng góp; kết hợp cho cải thiện mạnh nhất ở hard set.\ \cite{guo2022scrfd}
   \end{itemize}
   \vspace{6pt}
-  \small
-  \begin{tabular}{@{}lccc@{}}
-    \toprule
-    \textbf{Thiết lập (2.5GF)} & \textbf{Easy} & \textbf{Medium} & \textbf{Hard} \\
-    \midrule
-    Baseline (ResNet, aug mặc định) & 91.87 & 89.49 & 67.32 \\
-    CR@two-steps (CRFD)            & 92.66 & 90.72 & 71.37 \\
-    CR@two-steps + SR (SCRFD)      & 93.78 & 92.16 & 77.87 \\
-    \bottomrule
-  \end{tabular}
-  \vspace{2pt}
-  {\scriptsize (Bảng rút gọn từ ablation trong paper, tập validation @ VGA).}
+  {\centering
+    \small
+    \begin{tabular}{@{}lccc@{}}
+      \toprule
+      \textbf{Thiết lập (2.5GF)} & \textbf{Easy} & \textbf{Medium} & \textbf{Hard} \\
+      \midrule
+      Baseline (ResNet, aug mặc định) & 91.87 & 89.49 & 67.32 \\
+      CR@two-steps (CRFD)            & 92.66 & 90.72 & 71.37 \\
+      CR@two-steps + SR (SCRFD)      & 93.78 & 92.16 & 77.87 \\
+      \bottomrule
+    \end{tabular}
+    \par\vspace{2pt}
+    \parbox{\linewidth}{\centering\scriptsize (Bảng rút gọn từ ablation trong paper, tập validation @ VGA).\par}
+  }
 \end{frame}
 
 
@@ -738,7 +740,7 @@
 \begin{frame}{Khác biệt cốt lõi: cổ điển vs nghiên cứu hiện đại}
   \small
   \renewcommand{\arraystretch}{1.15}
-  \begin{tabular}{@{}p{0.32\textwidth}p{0.32\textwidth}p{0.32\textwidth}@{}}
+  \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.32\textwidth}>{\raggedright\arraybackslash}p{0.32\textwidth}>{\raggedright\arraybackslash}p{0.32\textwidth}@{}}
     \toprule
     \textbf{Khía cạnh} & \textbf{Chương sách (Viola--Jones)} & \textbf{Paper (SCRFD)} \\
     \midrule
@@ -780,7 +782,7 @@
 \begin{frame}{(5) Nhận định cá nhân về bài báo SCRFD}
   \begin{itemize}
     \setlength{\itemsep}{6pt}
-    \item \textbf{Bước tiến về tư duy thiết kế:} Nghiên cứu này chứng minh giải pháp ``tối ưu đúng chỗ'' đem lại kết quả vượt trội và kinh tế hơn việc tạo ra một cấu trúc mạng mới phức tạp.
+    \item \textbf{Bước tiến về tư duy thiết kế:} Nghiên cứu này chứng minh giải pháp tối ưu đúng chỗ đem lại kết quả vượt trội và kinh tế hơn việc tạo ra một cấu trúc mạng mới phức tạp.
     \item \textbf{Ưu tiên tính thực tiễn đại trà:} Việc thu hẹp không gian tìm kiếm kết hợp thống kê Empirical Bootstrap cung cấp quy trình tối ưu dễ tái hiện, mở ra tiềm năng tạo các detector nhẹ nhưng hiệu quả trên thiết bị IoT/di động.
     \item \textbf{Phát huy triệt để dữ liệu cục bộ:} Cơ chế Sample Redistribution thông qua scale augmentation là minh chứng cho việc tận dụng tốt thuộc tính phân bố đặc thù của khuôn mặt nhỏ trực tiếp trong quá trình tính loss.
   \end{itemize}
@@ -793,7 +795,7 @@
       \setlength{\itemsep}{6pt}
       \item \textbf{Tích hợp Knowledge Distillation:} Có thể dùng mô hình SCRFD khổng lồ làm Teacher, huấn luyện bản cực nhỏ làm Student để duy trì độ chính xác cao nhưng chi phí tính toán siêu thấp.
       \item \textbf{Hardware-aware NAS:} Tìm kiếm trực tiếp kiến trúc với độ trễ đo thực tế trên phần cứng mục tiêu dựa vào hàm mục tiêu thay vì bị trói vào lý thuyết GFLOPs.
-      \item \textbf{Cải thiện độ bền vững:} Tập trung augmentation bổ sung cho các cấu trúc đặc biệt bị che khuất một phần (ví dụ: đeo khẩu trang dày, rèm che một nửa mặt, chiếu sáng cực yếu).
+      \item \textbf{Cải thiện độ bền vững:} Tập trung augmentation bổ sung cho các cấu trúc đặc biệt bị che khuất một phần (ví dụ: đeo khẩu trang dày, rèm che một nửa mặt).
     \end{itemize}
     \column{0.45\textwidth}
     \vspace{-6pt}
@@ -845,7 +847,7 @@
 
 \begin{frame}{Q\&A}
   \centering
-  \Large Cảm ơn thầy/cô và các bạn!
+  \Large Cảm ơn thầy và các bạn!
 \end{frame}
 
 \end{document}

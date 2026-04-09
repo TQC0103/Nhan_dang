@@ -101,13 +101,18 @@ print_step "4/8" "Installing PyTorch stack"
   "cudatoolkit=${CUDA_TOOLKIT_VERSION}"
 
 print_step "5/8" "Installing Python dependencies"
-run_in_env python -m pip install -U "pip<25" setuptools wheel
+run_in_env python -m pip install -U "pip<24.1" "setuptools<58" "wheel<0.38"
+echo "Installing ConfigSpace 0.4.11 from conda-forge to avoid old PyPI build issues"
+"${MICROMAMBA_BIN}" install -y -r "${MAMBA_ROOT_PREFIX}" -n "${ENV_NAME}" \
+  -c conda-forge \
+  "configspace=0.4.11"
 run_in_env python -m pip install \
   "numpy<2" \
   "cython<3" \
   matplotlib scipy Pillow tqdm terminaltables \
-  autotorch tensorboard opencv-python==4.8.1.78 \
+  tensorboard opencv-python==4.8.1.78 \
   onnxruntime-gpu==1.14.0 mmpycocotools
+run_in_env python -m pip install --no-build-isolation autotorch
 
 print_step "6/8" "Installing mmcv-full ${MMCV_VERSION}"
 run_in_env python -m pip uninstall -y mmcv mmcv-full mmdet || true

@@ -12,9 +12,10 @@ from .ssd_vgg import SSDVGG
 from .trident_resnet import TridentResNet
 
 from .mobilenet import MobileNetV1
+from .mobilenet_v1_ks import MobileNetV1KS, MobileNetV1_KernelSearch
 
 __all__ = [
     'RegNet', 'ResNet', 'ResNetV1d', 'ResNetV1e', 'ResNeXt', 'SSDVGG', 'HRNet', 'Res2Net',
     'HourglassNet', 'DetectoRS_ResNet', 'DetectoRS_ResNeXt', 'Darknet',
-    'ResNeSt', 'TridentResNet', 'MobileNetV1'
+    'ResNeSt', 'TridentResNet', 'MobileNetV1', 'MobileNetV1KS', 'MobileNetV1_KernelSearch'
 ]

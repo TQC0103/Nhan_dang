@@ -25,6 +25,11 @@ bash prepare_retinaface_data.sh \
   --source-root /path/to/dataset_or_widerface_root \
   --ann-root /path/to/annotation_root \
   --force
+
+# Or let the helper download and prepare the dataset directly
+bash prepare_retinaface_data.sh \
+  --download-all \
+  --force
 ```
 
 ### Training

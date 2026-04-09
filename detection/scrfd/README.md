@@ -82,6 +82,10 @@ Please refer to [mmdetection](https://github.com/open-mmlab/mmdetection/blob/mas
    ```
    bash prepare_retinaface_data.sh --source-root /path/to/dataset_root --ann-root /path/to/annotation_root --force
    ```
+   Or download and prepare it directly:
+   ```
+   bash prepare_retinaface_data.sh --download-all --force
+   ```
  
 
 #### Annotation Format 

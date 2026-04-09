@@ -108,6 +108,14 @@ bash prepare_retinaface_data.sh \
   --force
 ```
 
+If the VPS does not have the dataset yet, download and prepare it directly:
+
+```bash
+bash prepare_retinaface_data.sh \
+  --download-all \
+  --force
+```
+
 ## 6. Sanity Check
 
 Run a few import/config checks before launching the search.

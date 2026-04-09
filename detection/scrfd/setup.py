@@ -1,10 +1,17 @@
 #!/usr/bin/env python
 import os
 from setuptools import find_packages, setup
+from setuptools.command.build_ext import build_ext
 
-import torch
-from torch.utils.cpp_extension import (BuildExtension, CppExtension,
-                                       CUDAExtension)
+try:
+    import torch
+    from torch.utils.cpp_extension import (BuildExtension, CppExtension,
+                                           CUDAExtension)
+except Exception:
+    torch = None
+    BuildExtension = build_ext
+    CppExtension = None
+    CUDAExtension = None
 
 
 def readme():
@@ -23,6 +30,9 @@ def get_version():
 
 
 def make_cuda_ext(name, module, sources, sources_cuda=[]):
+    if torch is None or CppExtension is None or CUDAExtension is None:
+        raise RuntimeError(
+            'Torch C++ extensions require a working torch installation.')
 
     define_macros = []
     extra_compile_args = {'cxx': []}

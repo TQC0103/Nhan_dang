@@ -46,6 +46,13 @@ echo "[3/7] Installing PyTorch ${PYTORCH_VERSION} with CUDA toolkit ${CUDA_TOOLK
   "torchvision=${TORCHVISION_VERSION}" \
   "torchaudio=${TORCHAUDIO_VERSION}" \
   "cudatoolkit=${CUDA_TOOLKIT_VERSION}"
+"${MICROMAMBA_BIN}" install -y -r "${MAMBA_ROOT_PREFIX}" -n "${ENV_NAME}" \
+  -c conda-forge \
+  "mkl=2024.0.0"
+"${MICROMAMBA_BIN}" run -r "${MAMBA_ROOT_PREFIX}" -n "${ENV_NAME}" python - <<'PY'
+import torch
+print("Torch import OK:", torch.__version__)
+PY
 
 echo "[4/7] Installing Python build/runtime dependencies"
 "${MICROMAMBA_BIN}" run -r "${MAMBA_ROOT_PREFIX}" -n "${ENV_NAME}" python -m pip install -U "pip<24.1" "setuptools<58" "wheel<0.38"

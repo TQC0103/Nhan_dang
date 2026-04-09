@@ -18,7 +18,13 @@ conda create -n scrfd python=3.8 -y
 conda activate scrfd
 
 # Install PyTorch with CUDA
-pip install torch==1.10.0 torchvision==0.11.0 torchaudio==0.10.0 -c pytorch -c nvidia
+conda install -y -c pytorch -c conda-forge \
+  pytorch=1.10.0 torchvision=0.11.0 torchaudio=0.10.0 cudatoolkit=11.3
+conda install -y -c conda-forge mkl=2024.0.0
+python - <<'PY'
+import torch
+print("Torch import OK:", torch.__version__)
+PY
 
 # Install mmcv and mmdet
 pip install mmcv-full==1.4.0 -f https://download.openmmlab.com/mmcv/dist/torch1.10.0/cu113/index.html

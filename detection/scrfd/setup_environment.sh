@@ -34,7 +34,7 @@ pip install mmdet==2.17.0
 pip install -U "pip<24.1" "setuptools<58" "wheel<0.38"
 pip install onnxruntime-gpu==1.14.0
 pip install opencv-python==4.5.5.64
-pip install Pillow scipy "yapf<0.40.2"
+pip install "numpy<1.24" Pillow scipy "yapf<0.40.2"
 
 echo "=== Setup Complete ==="
 echo "Activate environment: conda activate scrfd"

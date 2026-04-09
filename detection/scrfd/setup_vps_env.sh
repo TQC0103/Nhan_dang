@@ -118,7 +118,7 @@ PY
 print_step "5/8" "Installing Python dependencies"
 run_in_env python -m pip install -U "pip<24.1" "setuptools<58" "wheel<0.38"
 run_in_env python -m pip install \
-  "numpy<2" \
+  "numpy<1.24" \
   "cython<3" \
   matplotlib scipy Pillow tqdm terminaltables \
   "yapf<0.40.2" \

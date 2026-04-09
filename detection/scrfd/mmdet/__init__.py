@@ -1,6 +1,18 @@
+import numpy as np
 import mmcv
 
 from .version import __version__, short_version
+
+
+# Compatibility aliases for legacy NumPy usage in the upstream SCRFD/MMDet code.
+if not hasattr(np, 'int'):
+    np.int = int
+if not hasattr(np, 'float'):
+    np.float = float
+if not hasattr(np, 'bool'):
+    np.bool = bool
+if not hasattr(np, 'object'):
+    np.object = object
 
 
 def digit_version(version_str):

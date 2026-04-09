@@ -3,6 +3,8 @@ import sys
 
 
 def _thread_env_prefix():
+    if os.environ.get('SCRFD_LIMIT_HOST_THREADS', '0') != '1':
+        return ''
     env_map = {
         'OMP_NUM_THREADS': os.environ.get('OMP_NUM_THREADS', '1'),
         'MKL_NUM_THREADS': os.environ.get('MKL_NUM_THREADS', '1'),

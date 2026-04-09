@@ -4,7 +4,10 @@ import matplotlib.pyplot as plt
 import mmcv
 import numpy as np
 import torch
-from mmcv.ops import RoIPool
+try:
+    from mmcv.ops import RoIPool
+except Exception:
+    RoIPool = None
 from mmcv.parallel import collate, scatter
 from mmcv.runner import load_checkpoint
 
@@ -111,10 +114,11 @@ def inference_detector(model, img):
         # scatter to specified GPU
         data = scatter(data, [device])[0]
     else:
-        for m in model.modules():
-            assert not isinstance(
-                m, RoIPool
-            ), 'CPU inference with RoIPool is not supported currently.'
+        if RoIPool is not None:
+            for m in model.modules():
+                assert not isinstance(
+                    m, RoIPool
+                ), 'CPU inference with RoIPool is not supported currently.'
         # just get the actual data from DataContainer
         data['img_metas'] = data['img_metas'][0].data
 

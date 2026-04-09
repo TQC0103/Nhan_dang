@@ -120,7 +120,9 @@ def _fingerprint(text):
 
 
 def _build_worker_command(args, worker_group, worker_num_configs, worker_seed):
-    generator_script = osp.join(osp.dirname(__file__), 'generate_configs_2.5g_kernel_search.py')
+    generator_script = osp.join(
+        osp.dirname(osp.abspath(__file__)),
+        'generate_configs_2.5g_kernel_search.py')
     command = [
         sys.executable,
         generator_script,
@@ -152,11 +154,14 @@ def _build_worker_command(args, worker_group, worker_num_configs, worker_seed):
 
 def main():
     args = get_args()
+    script_dir = osp.dirname(osp.abspath(__file__))
+    scrfd_root = osp.dirname(script_dir)
 
-    final_group = osp.normpath(args.group)
+    final_group = osp.abspath(osp.normpath(args.group))
     final_group_name = osp.basename(final_group)
     if not final_group_name:
         raise ValueError('Could not infer final group name from --group')
+    args.template_config = osp.abspath(osp.normpath(args.template_config))
 
     os.makedirs(final_group, exist_ok=True)
     existing_files = _collect_group_files(final_group)
@@ -203,7 +208,7 @@ def main():
         log_handle = open(log_path, 'w', encoding='utf-8')
         process = subprocess.Popen(
             command,
-            cwd=osp.dirname(osp.dirname(__file__)),
+            cwd=scrfd_root,
             stdout=log_handle,
             stderr=subprocess.STDOUT)
         processes.append((worker_idx, process, log_path))

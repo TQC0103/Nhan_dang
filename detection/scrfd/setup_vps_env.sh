@@ -115,7 +115,7 @@ run_in_env python -m pip install \
   "cython<3" \
   matplotlib scipy Pillow tqdm terminaltables \
   tensorboard opencv-python==4.8.1.78 \
-  onnxruntime-gpu==1.14.0 mmpycocotools
+  onnxruntime-gpu==1.14.0 "pycocotools>=2.0.6"
 
 print_step "6/8" "Installing mmcv-full ${MMCV_VERSION}"
 run_in_env python -m pip uninstall -y mmcv mmcv-full mmdet || true

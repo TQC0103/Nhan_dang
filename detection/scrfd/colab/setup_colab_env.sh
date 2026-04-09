@@ -54,7 +54,7 @@ echo "[4/7] Installing Python build/runtime dependencies"
   "cython<3" \
   matplotlib scipy Pillow tqdm terminaltables \
   tensorboard gdown opencv-python==4.8.1.78 \
-  onnxruntime-gpu==1.14.0 mmpycocotools
+  onnxruntime-gpu==1.14.0 "pycocotools>=2.0.6"
 
 echo "[5/7] Installing mmcv-full ${MMCV_VERSION}"
 "${MICROMAMBA_BIN}" run -r "${MAMBA_ROOT_PREFIX}" -n "${ENV_NAME}" python -m pip uninstall -y mmcv mmcv-full mmdet || true

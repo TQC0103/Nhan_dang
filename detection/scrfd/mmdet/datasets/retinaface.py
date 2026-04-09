@@ -14,14 +14,11 @@ from .builder import DATASETS
 from .custom import CustomDataset
 
 try:
-    import pycocotools
-    if not hasattr(pycocotools, '__sphinx_mock__'):  # for doc generation
-        assert pycocotools.__version__ >= '12.0.2'
-except AssertionError:
-    raise AssertionError('Incompatible version of pycocotools is installed. '
-                         'Run pip uninstall pycocotools first. Then run pip '
-                         'install mmpycocotools to install open-mmlab forked '
-                         'pycocotools.')
+    import pycocotools  # noqa: F401
+except ImportError as exc:
+    raise ImportError(
+        'pycocotools is required for RetinaFaceDataset. '
+        'Install it with `pip install pycocotools`.') from exc
 
 @DATASETS.register_module()
 class RetinaFaceDataset(CustomDataset):

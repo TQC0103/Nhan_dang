@@ -67,6 +67,10 @@ pip install scipy Pillow opencv-python onnxruntime-gpu tensorboard
 pip install -v -e .
 ```
 
+The NAS generator now uses the local
+`search_tools/search_space.py` helper, so no separate
+`autotorch` / `ConfigSpace` install is required.
+
 ## 5. Prepare Dataset
 
 The expected layout is:

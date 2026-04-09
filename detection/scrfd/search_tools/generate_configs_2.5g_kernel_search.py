@@ -7,11 +7,18 @@ import io
 import os
 import os.path as osp
 
-import autotorch as at
 import numpy as np
 import torch
 from mmcv import Config
 from mmdet.models import build_detector
+
+try:
+    import autotorch as at
+except ImportError:
+    try:
+        from search_tools import search_space as at
+    except ImportError:
+        import search_space as at
 
 try:
     from mmcv.cnn import get_model_complexity_info

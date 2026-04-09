@@ -26,13 +26,9 @@ pip install mmdet==2.17.0
 
 # Install other dependencies
 pip install -U "pip<24.1" "setuptools<58" "wheel<0.38"
-conda install -y -c conda-forge configspace=0.4.11
 pip install onnxruntime-gpu==1.14.0
 pip install opencv-python==4.5.5.64
 pip install Pillow scipy
-
-# Install autotorch for architecture search
-pip install --no-build-isolation autotorch
 
 echo "=== Setup Complete ==="
 echo "Activate environment: conda activate scrfd"

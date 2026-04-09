@@ -11,7 +11,14 @@ from tqdm import tqdm
 from mmdet.models import build_detector
 
 import torch
-import autotorch as at
+
+try:
+    import autotorch as at
+except ImportError:
+    try:
+        from search_tools import search_space as at
+    except ImportError:
+        import search_space as at
 from mmcv import Config
 
 from mmdet.models import build_detector

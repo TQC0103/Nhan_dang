@@ -111,11 +111,19 @@ bash run_rtx50_env.sh python tools/print_config.py configs/scrfdgen500m/scrfdgen
 Before launching NAS search, verify one candidate trains:
 
 ```bash
-export SCRFD_TRAIN_EXTRA_ARGS="--cfg-options data.workers_per_gpu=4 data.pin_memory=True data.persistent_workers=True data.prefetch_factor=4"
+export SCRFD_TRAIN_EXTRA_ARGS="--cfg-options data.workers_per_gpu=2 data.pin_memory=False data.persistent_workers=False"
 bash run_rtx50_env.sh python tools/train.py configs/scrfdgen500m/scrfdgen500m_0.py --no-validate
 ```
 
 If that works, then move on to candidate generation and search.
+
+For the experimental RTX 50 fallback path, start conservative:
+
+- `data.pin_memory=False`
+- `data.persistent_workers=False`
+- `data.workers_per_gpu=2`
+
+After one-candidate training is stable, you can try increasing workers again.
 
 ## 8. What To Expect
 

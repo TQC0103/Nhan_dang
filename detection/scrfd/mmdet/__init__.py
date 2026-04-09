@@ -57,6 +57,20 @@ def _patch_parallel_stream_compat():
 _patch_parallel_stream_compat()
 
 
+def _patch_torch_sharing_strategy():
+    strategy = os.environ.get('SCRFD_TORCH_SHARING_STRATEGY')
+    if not strategy:
+        return
+    try:
+        import torch
+        torch.multiprocessing.set_sharing_strategy(strategy)
+    except Exception:
+        pass
+
+
+_patch_torch_sharing_strategy()
+
+
 def digit_version(version_str):
     digit_version = []
     for x in version_str.split('.'):

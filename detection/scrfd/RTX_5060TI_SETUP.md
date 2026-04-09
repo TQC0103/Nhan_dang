@@ -55,7 +55,6 @@ nvidia-smi
 nvcc --version
 ```
 
-If `nvcc` is missing, the setup will stop before building MMCV.
 If `nvcc` is missing, the setup now falls back to `mmcv` without compiled ops
 and uses repo-side fallbacks for a first smoke-test.
 

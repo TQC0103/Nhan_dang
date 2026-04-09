@@ -118,7 +118,7 @@ else
 fi
 
 print_step "5/9" "Installing PyTorch ${PYTORCH_VERSION} (CUDA 12.8 wheels)"
-run_in_env python -m pip install -U pip setuptools wheel
+run_in_env python -m pip install -U pip "setuptools<81" wheel
 run_in_env python -m pip install \
   "torch==${PYTORCH_VERSION}" \
   "torchvision==${TORCHVISION_VERSION}" \
@@ -160,7 +160,7 @@ if [[ "${BUILD_MMCV_OPS}" == "1" ]]; then
      export MAX_JOBS='${MAX_JOBS}' && \
      python -m pip install -v -e ."
 else
-  run_in_env python -m pip install "mmcv==${MMCV_VERSION}"
+  run_in_env python -m pip install --no-build-isolation "mmcv==${MMCV_VERSION}"
 fi
 
 print_step "8/9" "Installing local SCRFD package"

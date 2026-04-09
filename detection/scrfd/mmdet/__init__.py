@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import mmcv
 
@@ -28,14 +29,15 @@ def digit_version(version_str):
 
 
 mmcv_minimum_version = '1.1.5'
-mmcv_maximum_version = '1.4.0'
+mmcv_maximum_version = os.environ.get('SCRFD_MMCV_MAX_VERSION', '1.4.0')
 mmcv_version = digit_version(mmcv.__version__)
 
 
 assert (mmcv_version >= digit_version(mmcv_minimum_version)
         and mmcv_version <= digit_version(mmcv_maximum_version)), \
     f'MMCV=={mmcv.__version__} is used but incompatible. ' \
-    f'Please install mmcv>={mmcv_minimum_version}, <={mmcv_maximum_version}.'
+    f'Please install mmcv>={mmcv_minimum_version}, <={mmcv_maximum_version}. ' \
+    f'For the experimental RTX 50 setup, set SCRFD_MMCV_MAX_VERSION=1.7.2.'
 
 __all__ = ['__version__', 'short_version']
 

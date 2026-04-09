@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
 
-GPU=0
-OUTPUT_DIR=wouts
-THR=0.02
-GROUP=scrfdgen2p5g
-PREFIX=$GROUP
+GPU="${1:-0}"
+GROUP="${2:-scrfdgen2.5g}"
+IDX_FROM="${3:-1}"
+IDX_TO="${4:-320}"
+OUTPUT_DIR="${5:-wouts}"
+THR="${6:-0.02}"
+PREFIX="${7:-$GROUP}"
 
-for i in {1..320}
+for ((i=IDX_FROM; i<=IDX_TO; i++))
 do
     TASK="$PREFIX"_"$i"
     echo $TASK

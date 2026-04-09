@@ -189,6 +189,16 @@ checkpoint,work_dirs/scrfd_500m_kd_10g/latest.pth
 ## Phase 3: Kernel Architecture Search
 
 ### Overview
+This kernel NAS keeps the **same two-stage SCRFD search procedure**:
+1. `mode 1`: generate backbone candidates under a FLOPs budget
+2. Train every candidate independently
+3. Evaluate every candidate on WIDERFace
+4. Select the best candidate by **Hard AP**
+5. `mode 2`: search the full detector around that best template
+6. Train/evaluate again and select the final model
+
+The only intended change is the **search space**: kernel sizes are added.
+
 The original SCRFD architecture search (`generate_configs_2.5g.py`) searches over:
 - Block type (BasicBlock/Bottleneck)
 - Channel widths per stage
@@ -228,11 +238,71 @@ python ./tools/test_widerface_enhanced.py \
     configs/scrfdgen500m_kernel_best.py \
     work_dirs/scrfdgen500m_kernel_best/epoch_xxx.pth \
     --out results/kernel_search_best
+
+# Visualize all searched candidates like the original SCRFD workflow
+python search_tools/visualize_search.py \
+    --group configs/scrfdgen500m_kernel \
+    --result-dir wouts \
+    --prefix scrfdgen500m_kernel \
+    --idx-from 0 \
+    --idx-to 64 \
+    --score-key hard \
+    --topk 10
+```
+
+### Exact SCRFD-Style Workflow on 8 GPUs
+
+Backbone search:
+```bash
+cd insightface/detection/scrfd
+
+# Step 1: generate 64 backbone candidates at 0.5 GFLOPs
+mkdir -p configs/scrfdgen500m_kernel
+python search_tools/generate_configs_2.5g_kernel_search.py \
+    --mode 1 \
+    --kernel-search \
+    --group configs/scrfdgen500m_kernel \
+    --template-config configs/scrfdgen500m/scrfdgen500m_0.py \
+    --gflops 0.5 \
+    --num-configs 64
+
+# Step 2: train all candidates, 1 GPU per candidate
+bash search_tools/search_train.sh scrfdgen500m_kernel 8 8 0
+
+# Step 3: evaluate all candidates
+bash search_tools/search_test_parallel.sh scrfdgen500m_kernel 8 8 0 wouts 0.02 scrfdgen500m_kernel
+
+# Step 4: rank by Hard AP
+python search_tools/visualize_search.py \
+    --group configs/scrfdgen500m_kernel \
+    --result-dir wouts \
+    --prefix scrfdgen500m_kernel \
+    --idx-from 0 \
+    --idx-to 64 \
+    --score-key hard \
+    --topk 10
+```
+
+Full-network search around the best backbone candidate:
+```bash
+# Assume the best candidate after mode 1 is scrfdgen500m_kernel_17.py
+mkdir -p configs/scrfdgen500m_kernel_all
+cp configs/scrfdgen500m_kernel/scrfdgen500m_kernel_17.py \
+   configs/scrfdgen500m_kernel_all/scrfdgen500m_kernel_all_0.py
+
+python search_tools/generate_configs_2.5g_kernel_search.py \
+    --mode 2 \
+    --kernel-search \
+    --group configs/scrfdgen500m_kernel_all \
+    --template-config configs/scrfdgen500m_kernel_all/scrfdgen500m_kernel_all_0.py \
+    --gflops 0.5 \
+    --num-configs 64
 ```
 
 ### Files Created
 - `mmdet/models/backbones/mobilenet_v1_ks.py`: MobileNetV1 with searchable stem/first kernel and stage kernels
 - `search_tools/generate_configs_2.5g_kernel_search.py`: Extended search tool with kernel search
+- `search_tools/visualize_search.py`: Plot AP/FLOPs/compute-distribution/kernel-distribution for searched models
 - `configs/scrfdgen500m/scrfdgen500m_0.py`: Template config for 500M kernel search
 
 ---

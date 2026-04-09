@@ -6,6 +6,7 @@ import importlib.util
 import io
 import os
 import os.path as osp
+import time
 
 import numpy as np
 import torch
@@ -37,6 +38,189 @@ def _is_mobilenet_backbone(backbone_cfg):
 
 def _get_mobilenet_neck_in_channels(stage_planes):
     return stage_planes[2:]
+
+
+def _half_shape(shape):
+    return ((shape[0] + 1) // 2, (shape[1] + 1) // 2)
+
+
+def _conv_flops(out_shape, in_channels, out_channels, kernel_size, groups=1):
+    out_h, out_w = out_shape
+    return float(
+        out_h * out_w * out_channels * (in_channels / groups) *
+        kernel_size * kernel_size)
+
+
+def _depthwise_separable_flops(out_shape, in_channels, out_channels, kernel_size):
+    return (
+        _conv_flops(out_shape, in_channels, in_channels, kernel_size, groups=in_channels) +
+        _conv_flops(out_shape, in_channels, out_channels, 1))
+
+
+def _estimate_mobilenet_backbone_flops(block_cfg, input_shape):
+    _, input_h, input_w = input_shape
+    stage_planes = list(block_cfg['stage_planes'])
+    stage_blocks = list(block_cfg['stage_blocks'])
+    stem_kernel_size = int(block_cfg.get('stem_kernel_size', 3))
+    stem_dw_kernel_size = int(block_cfg.get('stem_dw_kernel_size', 3))
+    stage_kernel_sizes = list(block_cfg.get('stage_kernel_sizes', [3] * len(stage_blocks)))
+    if len(stage_kernel_sizes) == 1:
+        stage_kernel_sizes = stage_kernel_sizes * len(stage_blocks)
+
+    stem_shape = _half_shape((input_h, input_w))
+    stem_flops = _conv_flops(stem_shape, 3, stage_planes[0], stem_kernel_size)
+    stem_flops += _depthwise_separable_flops(
+        stem_shape, stage_planes[0], stage_planes[1], stem_dw_kernel_size)
+
+    stage_shapes = []
+    stage_flops = []
+    current_shape = stem_shape
+    for stage_idx, num_blocks in enumerate(stage_blocks):
+        kernel_size = int(stage_kernel_sizes[stage_idx])
+        current_shape = _half_shape(current_shape)
+        stage_shapes.append(current_shape)
+
+        input_channels = stage_planes[stage_idx + 1]
+        output_channels = stage_planes[stage_idx + 2]
+        stage_total = _depthwise_separable_flops(
+            current_shape, input_channels, output_channels, kernel_size)
+        for _ in range(max(0, num_blocks - 1)):
+            stage_total += _depthwise_separable_flops(
+                current_shape, output_channels, output_channels, kernel_size)
+        stage_flops.append(stage_total)
+
+    backbone_stage_flops = np.array([stem_flops] + stage_flops, dtype=np.float64)
+    backbone_total = float(backbone_stage_flops.sum())
+    return backbone_total, backbone_stage_flops, stage_shapes
+
+
+def _estimate_pafpn_flops(neck_cfg, backbone_shapes):
+    in_channels = list(neck_cfg['in_channels'])
+    out_channels = int(neck_cfg['out_channels'])
+    start_level = int(neck_cfg.get('start_level', 0))
+    end_level = int(neck_cfg.get('end_level', -1))
+    num_outs = int(neck_cfg['num_outs'])
+    add_extra_convs = neck_cfg.get('add_extra_convs', False)
+
+    if end_level == -1:
+        backbone_end_level = len(in_channels)
+    else:
+        backbone_end_level = end_level
+
+    used_in_channels = in_channels[start_level:backbone_end_level]
+    used_shapes = backbone_shapes[start_level:backbone_end_level]
+    if len(used_in_channels) != len(used_shapes):
+        raise ValueError('Neck in_channels and backbone shapes do not match')
+
+    total = 0.0
+    for channels, shape in zip(used_in_channels, used_shapes):
+        total += _conv_flops(shape, channels, out_channels, 1)
+    for shape in used_shapes:
+        total += _conv_flops(shape, out_channels, out_channels, 3)
+    for next_shape in used_shapes[1:]:
+        total += _conv_flops(next_shape, out_channels, out_channels, 3)
+    for shape in used_shapes[1:]:
+        total += _conv_flops(shape, out_channels, out_channels, 3)
+
+    output_shapes = list(used_shapes)
+    extra_levels = num_outs - len(output_shapes)
+    if extra_levels > 0:
+        source_shape = output_shapes[-1]
+        extra_source_channels = (
+            used_in_channels[-1] if add_extra_convs == 'on_input' else out_channels)
+        for extra_idx in range(extra_levels):
+            source_shape = _half_shape(source_shape)
+            conv_in_channels = extra_source_channels if extra_idx == 0 else out_channels
+            if add_extra_convs:
+                total += _conv_flops(source_shape, conv_in_channels, out_channels, 3)
+            output_shapes.append(source_shape)
+
+    return total, output_shapes
+
+
+def _estimate_scrfd_head_flops(head_cfg, feat_shapes):
+    in_channels = int(head_cfg['in_channels'])
+    feat_channels_base = int(head_cfg['feat_channels'])
+    stacked_convs = head_cfg.get('stacked_convs', 4)
+    feat_mults = head_cfg.get('feat_mults')
+    cls_reg_share = bool(head_cfg.get('cls_reg_share', False))
+    dw_conv = bool(head_cfg.get('dw_conv', False))
+    use_kps = bool(head_cfg.get('use_kps', False))
+    use_dfl = bool(head_cfg.get('loss_dfl', False))
+    reg_max = int(head_cfg.get('reg_max', 8))
+    num_classes = int(head_cfg['num_classes'])
+
+    anchor_generator = head_cfg['anchor_generator']
+    num_anchors = len(anchor_generator.get('ratios', [1.0])) * len(
+        anchor_generator.get('scales', [1]))
+
+    cls_out_channels = num_classes * num_anchors
+    reg_out_channels = (
+        4 * (reg_max + 1) * num_anchors if use_dfl else 4 * num_anchors)
+    kps_out_channels = 10 * num_anchors
+
+    total = 0.0
+    for feat_idx, shape in enumerate(feat_shapes):
+        current_stacked = (
+            stacked_convs[feat_idx]
+            if isinstance(stacked_convs, (list, tuple))
+            else stacked_convs)
+        feat_mult = (
+            feat_mults[feat_idx]
+            if feat_mults is not None else 1)
+        feat_channels = int(feat_channels_base * feat_mult)
+
+        prev_channels = in_channels
+        for _ in range(int(current_stacked)):
+            if dw_conv:
+                total += _depthwise_separable_flops(
+                    shape, prev_channels, feat_channels, 3)
+            else:
+                total += _conv_flops(shape, prev_channels, feat_channels, 3)
+            prev_channels = feat_channels
+
+        if not cls_reg_share:
+            prev_channels = in_channels
+            for _ in range(int(current_stacked)):
+                if dw_conv:
+                    total += _depthwise_separable_flops(
+                        shape, prev_channels, feat_channels, 3)
+                else:
+                    total += _conv_flops(shape, prev_channels, feat_channels, 3)
+                prev_channels = feat_channels
+
+        total += _conv_flops(shape, feat_channels, cls_out_channels, 3)
+        total += _conv_flops(shape, feat_channels, reg_out_channels, 3)
+        if use_kps:
+            total += _conv_flops(shape, feat_channels, kps_out_channels, 3)
+
+    return total
+
+
+def _supports_fast_prefilter(cfg):
+    model_cfg = cfg['model']
+    backbone_type = model_cfg['backbone'].get('type', '')
+    neck_type = model_cfg['neck'].get('type', '')
+    head_type = model_cfg['bbox_head'].get('type', '')
+    return (
+        'MobileNetV1' in backbone_type and
+        neck_type == 'PAFPN' and
+        head_type == 'SCRFDHead')
+
+
+def _estimate_detector_flops_fast(cfg, input_shape):
+    model_cfg = cfg['model']
+    backbone_cfg = model_cfg['backbone']
+    block_cfg = backbone_cfg['block_cfg']
+
+    backbone_total, backbone_stage_flops, backbone_shapes = (
+        _estimate_mobilenet_backbone_flops(block_cfg, input_shape))
+    neck_total, feat_shapes = _estimate_pafpn_flops(
+        model_cfg['neck'], backbone_shapes)
+    head_total = _estimate_scrfd_head_flops(model_cfg['bbox_head'], feat_shapes)
+
+    total = (backbone_total + neck_total + head_total) / 1e9
+    return total, backbone_stage_flops / 1e9, neck_total / 1e9, head_total / 1e9
 
 
 @at.obj(
@@ -200,6 +384,22 @@ def get_args():
         type=int,
         default=64,
         help='number of configs to generate')
+    parser.add_argument(
+        '--prefilter-eps',
+        type=float,
+        default=None,
+        help='fast prefilter tolerance in GFLOPs ratio space; defaults to a '
+             'wider band than --eps')
+    parser.add_argument(
+        '--disable-fast-prefilter',
+        action='store_true',
+        default=False,
+        help='disable the lightweight FLOPs prefilter before exact FLOPs')
+    parser.add_argument(
+        '--report-every',
+        type=int,
+        default=50,
+        help='print search progress every N attempts')
     return parser.parse_args()
 
 
@@ -299,6 +499,7 @@ def main():
     input_shape = (3, 480, 640)
     det_cfg = Config.fromfile(template_config)
     is_mobilenet = _is_mobilenet_backbone(det_cfg['model']['backbone'])
+    start_time = time.monotonic()
 
     if args.kernel_search:
         if not is_mobilenet:
@@ -328,8 +529,35 @@ def main():
     print('write-index from:', write_index)
 
     template_backbone_ratios = None
+    template_total_scale = 1.0
+    fast_prefilter = False
+    fast_prefilter_eps = (
+        args.prefilter_eps
+        if args.prefilter_eps is not None
+        else max(args.eps * 2.5, 0.05))
+
+    if (not args.disable_fast_prefilter and args.kernel_search and
+            _supports_fast_prefilter(det_cfg)):
+        template_exact_total, template_exact_backbone, _, _ = get_flops(
+            det_cfg, input_shape)
+        template_fast_total, template_fast_backbone, _, _ = (
+            _estimate_detector_flops_fast(det_cfg, input_shape))
+        if template_fast_total > 0:
+            template_total_scale = template_exact_total / template_fast_total
+            fast_prefilter = True
+            print(
+                f'Fast prefilter enabled: eps={fast_prefilter_eps:.4f}, '
+                f'calibration={template_total_scale:.4f}')
+            print(
+                'Template exact/fast GFLOPs:',
+                template_exact_total,
+                template_fast_total)
+
     if args.mode == 2:
-        _, template_backbone_flops, _, _ = get_flops(det_cfg, input_shape)
+        if not fast_prefilter:
+            _, template_backbone_flops, _, _ = get_flops(det_cfg, input_shape)
+        else:
+            template_backbone_flops = template_exact_backbone
         template_backbone_ratios = list(
             map(lambda value: value / template_backbone_flops[0],
                 template_backbone_flops))
@@ -337,26 +565,57 @@ def main():
 
     attempts = 0
     write_count = 0
+    fast_reject_count = 0
+    exact_eval_count = 0
     while write_count < args.num_configs:
         attempts += 1
         det_cfg = Config.fromfile(template_config)
         sampled_config = generator.rand
         det_cfg = sampled_config.merge_cfg(det_cfg)
 
+        if fast_prefilter:
+            fast_total, _, _, _ = _estimate_detector_flops_fast(
+                det_cfg, input_shape)
+            calibrated_fast_total = fast_total * template_total_scale
+            if not is_flops_valid(
+                    calibrated_fast_total, target_gflops, fast_prefilter_eps):
+                fast_reject_count += 1
+                if attempts % args.report_every == 0:
+                    elapsed = max(time.monotonic() - start_time, 1e-6)
+                    print(
+                        'FAST',
+                        f'attempts={attempts}',
+                        f'succ={write_count}',
+                        f'exact={exact_eval_count}',
+                        f'fast_reject={fast_reject_count}',
+                        f'fast_gflops={calibrated_fast_total:.6f}',
+                        f'attempts_per_sec={attempts / elapsed:.2f}',
+                        datetime.datetime.now())
+                continue
+
         try:
+            exact_eval_count += 1
             all_flops, backbone_flops, neck_flops, head_flops = get_flops(
                 det_cfg, input_shape)
         except Exception as exc:
             print(f'Error computing FLOPs for candidate {attempts}: {exc}')
             continue
 
-        if attempts % 10 == 0:
+        if attempts % args.report_every == 0:
+            elapsed = max(time.monotonic() - start_time, 1e-6)
+            accept_rate = write_count / max(attempts, 1)
+            eta_seconds = None
+            if accept_rate > 0:
+                eta_attempts = (args.num_configs - write_count) / accept_rate
+                eta_seconds = eta_attempts / max(attempts / elapsed, 1e-6)
             print(
-                attempts,
-                all_flops,
-                backbone_flops,
-                neck_flops,
-                head_flops,
+                f'attempts={attempts}',
+                f'succ={write_count}',
+                f'exact={exact_eval_count}',
+                f'fast_reject={fast_reject_count}',
+                f'accept_rate={accept_rate:.4f}',
+                f'gflops={all_flops:.6f}',
+                f'eta_sec={eta_seconds:.0f}' if eta_seconds is not None else 'eta_sec=NA',
                 datetime.datetime.now())
 
         if args.mode == 2 and template_backbone_ratios is not None:

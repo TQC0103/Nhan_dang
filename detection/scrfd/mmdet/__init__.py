@@ -16,6 +16,47 @@ if not hasattr(np, 'object'):
     np.object = object
 
 
+def _patch_parallel_stream_compat():
+    torch_get_stream = None
+    try:
+        import torch
+        from torch.nn.parallel import _functions as torch_parallel_functions
+
+        original_torch_get_stream = torch_parallel_functions._get_stream
+
+        def torch_compat_get_stream(device):
+            if isinstance(device, int):
+                device = torch.device('cuda', device)
+            elif isinstance(device, str):
+                device = torch.device(device)
+            return original_torch_get_stream(device)
+
+        torch_parallel_functions._get_stream = torch_compat_get_stream
+        torch_get_stream = torch_compat_get_stream
+    except Exception:
+        pass
+
+    try:
+        import torch
+        from mmcv.parallel import _functions as mmcv_parallel_functions
+
+        def mmcv_compat_get_stream(device):
+            if isinstance(device, int):
+                device = torch.device('cuda', device)
+            elif isinstance(device, str):
+                device = torch.device(device)
+            if torch_get_stream is not None:
+                return torch_get_stream(device)
+            return None
+
+        mmcv_parallel_functions._get_stream = mmcv_compat_get_stream
+    except Exception:
+        pass
+
+
+_patch_parallel_stream_compat()
+
+
 def digit_version(version_str):
     digit_version = []
     for x in version_str.split('.'):

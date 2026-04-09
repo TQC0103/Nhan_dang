@@ -28,6 +28,10 @@ run_in_env() {
   "${MICROMAMBA_BIN}" run -r "${MAMBA_ROOT_PREFIX}" -n "${ENV_NAME}" "$@"
 }
 
+env_exists() {
+  "${MICROMAMBA_BIN}" env list -r "${MAMBA_ROOT_PREFIX}" | awk '{print $1}' | grep -Fxq "${ENV_NAME}"
+}
+
 if [[ ! -d "${SCRFD_DIR}" ]]; then
   echo "SCRFD directory not found: ${SCRFD_DIR}" >&2
   exit 1
@@ -88,9 +92,13 @@ else
 fi
 
 print_step "3/8" "Creating environment ${ENV_NAME}"
-"${MICROMAMBA_BIN}" create -y -r "${MAMBA_ROOT_PREFIX}" -n "${ENV_NAME}" \
-  -c conda-forge -c pytorch \
-  "python=${PYTHON_VERSION}" pip
+if env_exists; then
+  echo "Environment already exists, reusing it: ${ENV_NAME}"
+else
+  "${MICROMAMBA_BIN}" create -y -r "${MAMBA_ROOT_PREFIX}" -n "${ENV_NAME}" \
+    -c conda-forge -c pytorch \
+    "python=${PYTHON_VERSION}" pip
+fi
 
 print_step "4/8" "Installing PyTorch stack"
 "${MICROMAMBA_BIN}" install -y -r "${MAMBA_ROOT_PREFIX}" -n "${ENV_NAME}" \

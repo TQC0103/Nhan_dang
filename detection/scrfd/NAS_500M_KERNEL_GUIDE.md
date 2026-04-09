@@ -89,6 +89,25 @@ detection/scrfd/data/retinaface/
 
 This is the same dataset layout used by the original SCRFD training code.
 
+If your dataset already exists somewhere else on the VPS, use the helper
+script to create the expected layout under `data/retinaface`:
+
+```bash
+bash prepare_retinaface_data.sh \
+  --source-root /path/to/dataset_or_widerface_root \
+  --ann-root /path/to/annotation_root \
+  --force
+```
+
+If your source is already in the prepared SCRFD layout, `--ann-root` can be
+omitted:
+
+```bash
+bash prepare_retinaface_data.sh \
+  --source-root /path/to/retinaface_prepared \
+  --force
+```
+
 ## 6. Sanity Check
 
 Run a few import/config checks before launching the search.

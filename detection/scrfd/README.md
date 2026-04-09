@@ -77,6 +77,11 @@ Please refer to [mmdetection](https://github.com/open-mmlab/mmdetection/blob/mas
                  *.mat
              
    ```
+
+   If your dataset already exists elsewhere, you can prepare this layout with:
+   ```
+   bash prepare_retinaface_data.sh --source-root /path/to/dataset_root --ann-root /path/to/annotation_root --force
+   ```
  
 
 #### Annotation Format 

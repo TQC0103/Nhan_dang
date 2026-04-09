@@ -45,4 +45,5 @@ wget -c "https://1drv.ms/u/s!AswpsDO2toNKqyUKwTiwXv2kaa8o?e=umfepO" -O SCRFD_10G
 echo "=== Download Complete ==="
 echo "IMPORTANT: Manual steps required:"
 echo "1. Download labelv2.txt from Google Drive and place in data/retinaface/train/"
-echo "2. Convert ONNX models to PyTorch checkpoints using tools/scrfd2onnx.py"
+echo "2. Prepare the final SCRFD data layout with prepare_retinaface_data.sh if needed"
+echo "3. Convert ONNX models to PyTorch checkpoints using tools/scrfd2onnx.py"

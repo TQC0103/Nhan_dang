@@ -17,8 +17,14 @@ This directory contains code for three experiments on SCRFD:
 # Install environment
 bash setup_environment.sh
 
-# Download data and pretrained models
+# Optional: download raw data/models
 bash download_data.sh
+
+# Prepare SCRFD data layout from an existing dataset location
+bash prepare_retinaface_data.sh \
+  --source-root /path/to/dataset_or_widerface_root \
+  --ann-root /path/to/annotation_root \
+  --force
 ```
 
 ### Training

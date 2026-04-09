@@ -269,6 +269,10 @@ python search_tools/generate_configs_2.5g_kernel_search.py \
 # Step 2: train all candidates, 1 GPU per candidate
 bash search_tools/search_train.sh scrfdgen500m_kernel 8 8 0
 
+# Optional: run 2 candidates concurrently on each GPU
+# Keeps the SCRFD batch size unchanged, but multiplexes jobs per GPU
+bash search_tools/search_train.sh scrfdgen500m_kernel 8 8 0 2 0
+
 # Step 3: evaluate all candidates
 bash search_tools/search_test_parallel.sh scrfdgen500m_kernel 8 8 0 wouts 0.02 scrfdgen500m_kernel
 

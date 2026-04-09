@@ -163,6 +163,46 @@ gpu1.log
 gpu7.log
 ```
 
+### Run Multiple Candidates On One GPU
+
+The launcher now supports `candidates-per-gpu`.
+
+Arguments:
+
+```text
+bash search_tools/search_train.sh <group> <gpus> <tasks_per_gpu> <offset> <candidates_per_gpu> <use_dist> <port_base>
+```
+
+Defaults:
+
+- `candidates_per_gpu=1`
+- `use_dist=1`
+- `port_base=29100`
+
+Example: run 2 candidates concurrently on each GPU while keeping the default
+SCRFD batch size unchanged:
+
+```bash
+bash search_tools/search_train.sh scrfdgen500m_kernel 8 8 0 2 0
+```
+
+Recommended setting when running multiple candidates on one GPU:
+
+- set `use_dist=0`
+- this uses `tools/train.py` directly instead of `dist_train.sh`
+- it avoids unnecessary distributed-launch overhead for single-GPU jobs
+
+Example layouts:
+
+- `bash search_tools/search_train.sh scrfdgen500m_kernel 8 8 0 1 1`
+  one candidate per GPU, original SCRFD-style launcher
+- `bash search_tools/search_train.sh scrfdgen500m_kernel 8 8 0 2 0`
+  two concurrent candidates per GPU
+- `bash search_tools/search_train.sh scrfdgen500m_kernel 8 8 0 3 0`
+  three concurrent candidates per GPU
+
+Each slot gets interleaved candidate indices, so the work is not duplicated.
+
 Check training progress with:
 
 ```bash

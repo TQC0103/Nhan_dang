@@ -58,6 +58,7 @@ def train_detector(model,
         cfg.data.samples_per_gpu = cfg.data.imgs_per_gpu
 
     data_loaders = [
+        # Make the input pipeline less CPU/I/O bound for lightweight models.
         build_dataloader(
             ds,
             cfg.data.samples_per_gpu,
@@ -65,7 +66,11 @@ def train_detector(model,
             # cfg.gpus will be ignored if distributed
             len(cfg.gpu_ids),
             dist=distributed,
-            seed=cfg.seed) for ds in dataset
+            seed=cfg.seed,
+            pin_memory=cfg.data.get('pin_memory', True),
+            persistent_workers=cfg.data.get(
+                'persistent_workers', cfg.data.workers_per_gpu > 0),
+            prefetch_factor=cfg.data.get('prefetch_factor', 2)) for ds in dataset
     ]
 
     # put model on gpus
@@ -124,7 +129,11 @@ def train_detector(model,
             samples_per_gpu=val_samples_per_gpu,
             workers_per_gpu=cfg.data.workers_per_gpu,
             dist=distributed,
-            shuffle=False)
+            shuffle=False,
+            pin_memory=cfg.data.get('pin_memory', True),
+            persistent_workers=cfg.data.get(
+                'persistent_workers', cfg.data.workers_per_gpu > 0),
+            prefetch_factor=cfg.data.get('prefetch_factor', 2))
         eval_cfg = cfg.get('evaluation', {})
         eval_hook = DistEvalHook if distributed else EvalHook
         runner.register_hook(eval_hook(val_dataloader, **eval_cfg))

@@ -122,15 +122,31 @@ def build_dataloader(dataset,
         worker_init_fn, num_workers=num_workers, rank=rank,
         seed=seed) if seed is not None else None
 
+    pin_memory = kwargs.pop('pin_memory', True)
+    if num_workers > 0:
+        persistent_workers = kwargs.pop('persistent_workers', True)
+        prefetch_factor = kwargs.pop('prefetch_factor', 2)
+    else:
+        persistent_workers = False
+        kwargs.pop('persistent_workers', None)
+        prefetch_factor = None
+        kwargs.pop('prefetch_factor', None)
+
+    loader_kwargs = dict(
+        pin_memory=pin_memory,
+        worker_init_fn=init_fn,
+        **kwargs)
+    if num_workers > 0:
+        loader_kwargs['persistent_workers'] = persistent_workers
+        loader_kwargs['prefetch_factor'] = prefetch_factor
+
     data_loader = DataLoader(
         dataset,
         batch_size=batch_size,
         sampler=sampler,
         num_workers=num_workers,
         collate_fn=partial(collate, samples_per_gpu=samples_per_gpu),
-        pin_memory=False,
-        worker_init_fn=init_fn,
-        **kwargs)
+        **loader_kwargs)
 
     return data_loader
 

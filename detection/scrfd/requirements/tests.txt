@@ -8,5 +8,5 @@ kwarray
 pytest
 ubelt
 xdoctest>=0.10.0
-yapf
+yapf<0.40.2
 scipy

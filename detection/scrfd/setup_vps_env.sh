@@ -121,6 +121,7 @@ run_in_env python -m pip install \
   "numpy<2" \
   "cython<3" \
   matplotlib scipy Pillow tqdm terminaltables \
+  "yapf<0.40.2" \
   tensorboard opencv-python==4.8.1.78 \
   onnxruntime-gpu==1.14.0 "pycocotools>=2.0.6"
 

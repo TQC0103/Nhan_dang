@@ -4,3 +4,4 @@ numpy
 six
 terminaltables
 tqdm
+yapf<0.40.2

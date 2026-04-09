@@ -60,6 +60,7 @@ echo "[4/7] Installing Python build/runtime dependencies"
   "numpy<2" \
   "cython<3" \
   matplotlib scipy Pillow tqdm terminaltables \
+  "yapf<0.40.2" \
   tensorboard gdown opencv-python==4.8.1.78 \
   onnxruntime-gpu==1.14.0 "pycocotools>=2.0.6"
 

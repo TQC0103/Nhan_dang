@@ -5,7 +5,22 @@ import mmcv
 import numpy as np
 import pycocotools.mask as maskUtils
 import torch
-from mmcv.ops.roi_align import roi_align
+try:
+    from mmcv.ops.roi_align import roi_align
+except Exception:
+    from torchvision.ops import roi_align as tv_roi_align
+
+    def roi_align(input, rois, output_size, spatial_scale=1.0, sampling_ratio=0,
+                  pool_mode='avg', aligned=True):
+        if pool_mode != 'avg':
+            raise NotImplementedError('Only avg roi_align fallback is supported.')
+        return tv_roi_align(
+            input,
+            rois,
+            output_size=output_size,
+            spatial_scale=spatial_scale,
+            sampling_ratio=sampling_ratio,
+            aligned=aligned)
 
 
 class BaseInstanceMasks(metaclass=ABCMeta):

@@ -17,6 +17,7 @@ MMCV_GIT_TAG="${SCRFD_MMCV_GIT_TAG:-v1.7.2}"
 MMCV_REPO_URL="${SCRFD_MMCV_REPO_URL:-https://github.com/open-mmlab/mmcv.git}"
 TORCH_CUDA_ARCH_LIST="${SCRFD_TORCH_CUDA_ARCH_LIST:-12.0}"
 MAX_JOBS="${SCRFD_MAX_JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 8)}"
+BUILD_MMCV_OPS="${SCRFD_BUILD_MMCV_OPS:-auto}"
 
 INSTALL_SYSTEM_DEPS="${SCRFD_INSTALL_SYSTEM_DEPS:-1}"
 MAMBA_ROOT_PREFIX="${MAMBA_ROOT_PREFIX:-${HOME}/.local/micromamba}"
@@ -77,13 +78,22 @@ else
 fi
 
 print_step "2/9" "Checking CUDA toolkit"
-if ! command -v nvcc >/dev/null 2>&1; then
-  echo "nvcc not found. Building MMCV ops for RTX 5060 Ti requires a local CUDA toolkit." >&2
-  exit 1
+CUDA_HOME=""
+if command -v nvcc >/dev/null 2>&1; then
+  CUDA_HOME="${CUDA_HOME:-$(cd "$(dirname "$(command -v nvcc)")/.." && pwd)}"
+  export CUDA_HOME
+  nvcc --version
+  if [[ "${BUILD_MMCV_OPS}" == "auto" ]]; then
+    BUILD_MMCV_OPS="1"
+  fi
+else
+  if [[ "${BUILD_MMCV_OPS}" == "1" ]]; then
+    echo "nvcc not found but SCRFD_BUILD_MMCV_OPS=1 was requested." >&2
+    exit 1
+  fi
+  BUILD_MMCV_OPS="0"
+  echo "nvcc not found. Falling back to mmcv without compiled ops."
 fi
-CUDA_HOME="${CUDA_HOME:-$(cd "$(dirname "$(command -v nvcc)")/.." && pwd)}"
-export CUDA_HOME
-nvcc --version
 
 print_step "3/9" "Installing micromamba"
 if [[ ! -x "${MICROMAMBA_BIN}" ]]; then
@@ -133,21 +143,25 @@ run_in_env python -m pip install \
   tensorboard opencv-python-headless==4.10.0.84 \
   "pycocotools>=2.0.6"
 
-print_step "7/9" "Cloning and building MMCV ${MMCV_VERSION} from source"
-if [[ ! -d "${MMCV_SRC_DIR}/.git" ]]; then
-  git clone "${MMCV_REPO_URL}" "${MMCV_SRC_DIR}"
-fi
-git -C "${MMCV_SRC_DIR}" fetch --tags --force origin
-git -C "${MMCV_SRC_DIR}" checkout "${MMCV_GIT_TAG}"
+print_step "7/9" "Installing MMCV ${MMCV_VERSION}"
 run_in_env python -m pip uninstall -y mmcv mmcv-full mmdet || true
-run_in_env bash -lc \
-  "cd '${MMCV_SRC_DIR}' && \
-   export CUDA_HOME='${CUDA_HOME}' && \
-   export MMCV_WITH_OPS=1 && \
-   export FORCE_CUDA=1 && \
-   export TORCH_CUDA_ARCH_LIST='${TORCH_CUDA_ARCH_LIST}' && \
-   export MAX_JOBS='${MAX_JOBS}' && \
-   python -m pip install -v -e ."
+if [[ "${BUILD_MMCV_OPS}" == "1" ]]; then
+  if [[ ! -d "${MMCV_SRC_DIR}/.git" ]]; then
+    git clone "${MMCV_REPO_URL}" "${MMCV_SRC_DIR}"
+  fi
+  git -C "${MMCV_SRC_DIR}" fetch --tags --force origin
+  git -C "${MMCV_SRC_DIR}" checkout "${MMCV_GIT_TAG}"
+  run_in_env bash -lc \
+    "cd '${MMCV_SRC_DIR}' && \
+     export CUDA_HOME='${CUDA_HOME}' && \
+     export MMCV_WITH_OPS=1 && \
+     export FORCE_CUDA=1 && \
+     export TORCH_CUDA_ARCH_LIST='${TORCH_CUDA_ARCH_LIST}' && \
+     export MAX_JOBS='${MAX_JOBS}' && \
+     python -m pip install -v -e ."
+else
+  run_in_env python -m pip install "mmcv==${MMCV_VERSION}"
+fi
 
 print_step "8/9" "Installing local SCRFD package"
 run_in_env python -m pip install -r "${SCRFD_DIR}/requirements/build.txt"
@@ -197,8 +211,9 @@ MMCV source:
 
 Important:
   This setup is experimental. It keeps SCRFD on the MMDetection 2.x path,
-  but runs it with PyTorch ${PYTORCH_VERSION} and MMCV ${MMCV_VERSION} built
-  from source for Blackwell GPUs.
+  but runs it with PyTorch ${PYTORCH_VERSION} and MMCV ${MMCV_VERSION} on
+  a Blackwell GPU path.
+  MMCV ops build enabled: ${BUILD_MMCV_OPS}
 
 Use commands through the helper wrapper so SCRFD sees the experimental MMCV
 compatibility override:

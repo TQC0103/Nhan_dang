@@ -1,5 +1,17 @@
 import torch
-from mmcv.ops.nms import batched_nms
+try:
+    from mmcv.ops.nms import batched_nms
+except Exception:
+    from torchvision.ops import batched_nms as tv_batched_nms
+
+    def batched_nms(boxes, scores, idxs, nms_cfg):
+        if isinstance(nms_cfg, dict):
+            iou_threshold = nms_cfg.get('iou_threshold', nms_cfg.get('iou_thr', 0.5))
+        else:
+            iou_threshold = float(nms_cfg)
+        keep = tv_batched_nms(boxes, scores, idxs, iou_threshold)
+        dets = torch.cat([boxes[keep], scores[keep, None]], dim=1)
+        return dets, keep
 
 from mmdet.core.bbox.iou_calculators import bbox_overlaps
 

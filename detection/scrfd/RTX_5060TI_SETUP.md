@@ -42,8 +42,11 @@ You need:
 
 - an `RTX 5060 Ti`
 - a recent NVIDIA driver
-- a local CUDA toolkit with `nvcc`
 - build tools such as `gcc`, `g++`, `cmake`, `ninja`
+
+Optional but preferred:
+
+- a local CUDA toolkit with `nvcc`
 
 Check:
 
@@ -53,6 +56,8 @@ nvcc --version
 ```
 
 If `nvcc` is missing, the setup will stop before building MMCV.
+If `nvcc` is missing, the setup now falls back to `mmcv` without compiled ops
+and uses repo-side fallbacks for a first smoke-test.
 
 ## 4. Setup
 
@@ -68,7 +73,7 @@ The script will:
 1. create / reuse `scrfd-rtx50`
 2. install PyTorch 2.7.1 CUDA 12.8 wheels
 3. clone `mmcv` source into `.externals/mmcv-1.7.2`
-4. build MMCV ops with `TORCH_CUDA_ARCH_LIST=12.0`
+4. build MMCV ops with `TORCH_CUDA_ARCH_LIST=12.0` when `nvcc` is available
 5. install the local SCRFD package
 6. run import checks
 
@@ -120,6 +125,12 @@ Best case:
 - MMCV 1.7.2 builds cleanly
 - imports pass
 - one-candidate training works
+
+Fallback case:
+
+- if `nvcc` is missing, the script installs plain `mmcv==1.7.2`
+- repo-side fallbacks are used for `nms`, `roi_align`, and `sigmoid_focal_loss`
+- this is enough for an initial SCRFD smoke-test, but not the ideal final setup
 
 Common failure points:
 

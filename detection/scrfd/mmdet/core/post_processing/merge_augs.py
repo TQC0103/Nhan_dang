@@ -1,6 +1,14 @@
 import numpy as np
 import torch
-from mmcv.ops import nms
+try:
+    from mmcv.ops import nms
+except Exception:
+    from torchvision.ops import nms as tv_nms
+
+    def nms(boxes, scores, iou_threshold):
+        keep = tv_nms(boxes, scores, iou_threshold)
+        dets = torch.cat([boxes[keep], scores[keep, None]], dim=1)
+        return dets, keep
 
 from ..bbox import bbox_mapping_back
 

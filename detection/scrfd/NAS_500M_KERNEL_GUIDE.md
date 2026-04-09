@@ -135,6 +135,33 @@ Notes:
   `scrfdgen500m_kernel_63.py` if the folder was empty.
 - The generator only keeps configs whose FLOPs are close to the target.
 
+### Parallel Candidate Generation
+
+Config generation is CPU-bound. It does not use your 8 GPUs directly.
+
+To speed it up on a VPS, use the parallel wrapper, which launches multiple
+generator workers in parallel and merges the unique configs back into the
+target group:
+
+```bash
+python search_tools/parallel_generate.py \
+  --group configs/scrfdgen500m_kernel \
+  --template-config configs/scrfdgen500m/scrfdgen500m_0.py \
+  --mode 1 \
+  --kernel-search \
+  --gflops 0.5 \
+  --num-configs 64 \
+  --workers 8 \
+  --oversample-factor 2.0
+```
+
+Notes:
+
+- `--workers` should follow CPU availability, not GPU count.
+- `--oversample-factor` helps offset duplicate/rejected configs during merge.
+- The final merged configs still use the same naming format, so downstream
+  `search_train.sh` and `search_test_parallel.sh` do not change.
+
 ## 9. Stage 1: Train All Backbone Candidates
 
 This follows the original SCRFD pattern: 1 GPU trains 1 candidate at a time,

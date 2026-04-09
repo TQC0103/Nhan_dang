@@ -6,6 +6,7 @@ import importlib.util
 import io
 import os
 import os.path as osp
+import random
 import time
 
 import numpy as np
@@ -400,6 +401,11 @@ def get_args():
         type=int,
         default=50,
         help='print search progress every N attempts')
+    parser.add_argument(
+        '--seed',
+        type=int,
+        default=None,
+        help='random seed for reproducible candidate generation')
     return parser.parse_args()
 
 
@@ -487,8 +493,14 @@ def _load_original_search_generators():
 
 def main():
     args = get_args()
+    if args.seed is not None:
+        random.seed(args.seed)
+        np.random.seed(args.seed % (2**32))
+        torch.manual_seed(args.seed)
     print(datetime.datetime.now())
     print(f'Kernel search enabled: {args.kernel_search}')
+    if args.seed is not None:
+        print(f'Seed: {args.seed}')
 
     output_group, group_name, template_config = _resolve_template(args)
     target_gflops = _infer_target_gflops(

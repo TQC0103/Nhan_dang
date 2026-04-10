@@ -1,5 +1,6 @@
 import os
 import sys
+import shlex
 
 
 def _thread_env_prefix():
@@ -21,17 +22,18 @@ def train(group, prefix, idx, gpuid, use_dist=True, port_base=29100):
     extra_args = os.environ.get('SCRFD_TRAIN_EXTRA_ARGS', '').strip()
     extra_args = (' ' + extra_args) if extra_args else ''
     thread_env = _thread_env_prefix()
+    python_bin = shlex.quote(sys.executable)
     if use_dist:
         cmd = (
-            "%sCUDA_VISIBLE_DEVICES='%d' PORT=%d "
+            "%sCUDA_VISIBLE_DEVICES='%d' PORT=%d PYTHON_BIN=%s "
             "bash ./tools/dist_train.sh %s 1 --no-validate%s"
-            % (thread_env, gpuid, port_base + idx, config_path, extra_args)
+            % (thread_env, gpuid, port_base + idx, python_bin, config_path, extra_args)
         )
     else:
         cmd = (
             "%sCUDA_VISIBLE_DEVICES='%d' PYTHONPATH=\"$(pwd)\":$PYTHONPATH "
-            "python -u ./tools/train.py %s --no-validate%s"
-            % (thread_env, gpuid, config_path, extra_args)
+            "%s -u ./tools/train.py %s --no-validate%s"
+            % (thread_env, gpuid, python_bin, config_path, extra_args)
         )
     print(cmd)
     os.system(cmd)

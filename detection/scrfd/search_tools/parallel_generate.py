@@ -18,6 +18,35 @@ import sys
 import time
 
 
+def _current_env_name(env):
+    for key in ('SCRFD_ENV_NAME', 'ENV', 'CONDA_DEFAULT_ENV'):
+        value = env.get(key)
+        if value:
+            return value
+    conda_prefix = env.get('CONDA_PREFIX')
+    if conda_prefix:
+        return osp.basename(conda_prefix)
+    return ''
+
+
+def _worker_env():
+    env = os.environ.copy()
+    current_env_name = _current_env_name(env)
+    if current_env_name == 'scrfd-rtx50':
+        env.setdefault('SCRFD_MMCV_MAX_VERSION', '1.7.2')
+        env.setdefault('SCRFD_TORCH_SHARING_STRATEGY', 'file_system')
+    env.setdefault('PYTHONUNBUFFERED', '1')
+    return env
+
+
+def _tail_log(path, max_lines=40):
+    if not osp.exists(path):
+        return []
+    with open(path, 'r', encoding='utf-8', errors='replace') as file:
+        lines = file.readlines()
+    return lines[-max_lines:]
+
+
 def get_args():
     parser = argparse.ArgumentParser(
         description='Parallel wrapper for SCRFD config generation')
@@ -205,6 +234,7 @@ def main():
 
     processes = []
     log_files = []
+    worker_env = _worker_env()
     for worker_idx in range(args.workers):
         worker_group = osp.join(workers_root, f'worker_{worker_idx:02d}')
         os.makedirs(worker_group, exist_ok=True)
@@ -216,6 +246,7 @@ def main():
         process = subprocess.Popen(
             command,
             cwd=scrfd_root,
+            env=worker_env,
             stdout=log_handle,
             stderr=subprocess.STDOUT)
         processes.append((worker_idx, process, log_path))
@@ -239,6 +270,13 @@ def main():
                 f'Worker {worker_idx} failed with code {return_code}. '
                 f'Inspect log: {log_path}',
                 file=sys.stderr)
+            log_tail = ''.join(_tail_log(log_path))
+            if log_tail:
+                print(
+                    f'----- tail of worker {worker_idx} log -----\n'
+                    f'{log_tail}'
+                    f'----- end worker {worker_idx} log -----',
+                    file=sys.stderr)
         raise SystemExit(1)
 
     next_index = _next_group_index(final_group)

@@ -28,6 +28,24 @@ except ImportError:
     raise ImportError('Please upgrade mmcv to >0.6.2')
 
 
+def _configure_runtime_threads():
+    num_threads = os.environ.get('SCRFD_TORCH_NUM_THREADS')
+    interop_threads = os.environ.get('SCRFD_TORCH_INTEROP_THREADS')
+    try:
+        if num_threads:
+            torch.set_num_threads(max(1, int(num_threads)))
+    except Exception:
+        pass
+    try:
+        if interop_threads:
+            torch.set_num_interop_threads(max(1, int(interop_threads)))
+    except Exception:
+        pass
+
+
+_configure_runtime_threads()
+
+
 def _round_channels(value):
     return max(8, int(np.round(value)) // 8 * 8)
 

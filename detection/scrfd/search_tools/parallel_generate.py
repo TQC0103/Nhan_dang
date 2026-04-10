@@ -29,12 +29,24 @@ def _current_env_name(env):
     return ''
 
 
-def _worker_env():
+def _worker_env(args):
     env = os.environ.copy()
     current_env_name = _current_env_name(env)
     if current_env_name == 'scrfd-rtx50':
         env.setdefault('SCRFD_MMCV_MAX_VERSION', '1.7.2')
         env.setdefault('SCRFD_TORCH_SHARING_STRATEGY', 'file_system')
+    cpu_count = os.cpu_count() or 1
+    worker_threads = args.worker_threads
+    if worker_threads <= 0:
+        worker_threads = max(1, cpu_count // max(args.workers, 1))
+    worker_threads = max(1, worker_threads)
+    env.setdefault('OMP_NUM_THREADS', str(worker_threads))
+    env.setdefault('MKL_NUM_THREADS', str(worker_threads))
+    env.setdefault('OPENBLAS_NUM_THREADS', str(worker_threads))
+    env.setdefault('NUMEXPR_NUM_THREADS', str(worker_threads))
+    env.setdefault('SCRFD_TORCH_NUM_THREADS', str(worker_threads))
+    env.setdefault('SCRFD_TORCH_INTEROP_THREADS', '1')
+    env.setdefault('CUDA_VISIBLE_DEVICES', '')
     env.setdefault('PYTHONUNBUFFERED', '1')
     return env
 
@@ -125,6 +137,11 @@ def get_args():
         action='store_true',
         default=False,
         help='keep temporary worker directories after merging')
+    parser.add_argument(
+        '--worker-threads',
+        type=int,
+        default=0,
+        help='CPU threads per worker. 0 means auto floor(cpu_count/workers)')
     return parser.parse_args()
 
 
@@ -234,7 +251,12 @@ def main():
 
     processes = []
     log_files = []
-    worker_env = _worker_env()
+    worker_env = _worker_env(args)
+    print(
+        'Worker runtime:',
+        f"OMP_NUM_THREADS={worker_env.get('OMP_NUM_THREADS')}",
+        f"SCRFD_TORCH_NUM_THREADS={worker_env.get('SCRFD_TORCH_NUM_THREADS')}",
+        f"CUDA_VISIBLE_DEVICES={worker_env.get('CUDA_VISIBLE_DEVICES')!r}")
     for worker_idx in range(args.workers):
         worker_group = osp.join(workers_root, f'worker_{worker_idx:02d}')
         os.makedirs(worker_group, exist_ok=True)

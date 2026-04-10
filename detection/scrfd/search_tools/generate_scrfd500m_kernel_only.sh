@@ -16,7 +16,24 @@ fi
 
 mkdir -p "${GROUP}"
 
-python search_tools/parallel_generate.py \
+PYTHON_CMD=()
+if [[ -n "${PYTHON_BIN:-}" ]]; then
+  PYTHON_CMD=("${PYTHON_BIN}")
+elif command -v python >/dev/null 2>&1; then
+  PYTHON_CMD=("python")
+elif command -v python3 >/dev/null 2>&1; then
+  PYTHON_CMD=("python3")
+elif [[ -n "${MM:-}" && -n "${ROOT:-}" && -n "${ENV:-}" ]]; then
+  PYTHON_CMD=("${MM}" "run" "-r" "${ROOT}" "-n" "${ENV}" "python")
+elif command -v micromamba >/dev/null 2>&1 && [[ -n "${MAMBA_ROOT_PREFIX:-}" && -n "${SCRFD_ENV_NAME:-}" ]]; then
+  PYTHON_CMD=("micromamba" "run" "-r" "${MAMBA_ROOT_PREFIX}" "-n" "${SCRFD_ENV_NAME}" "python")
+else
+  echo "Could not find a usable Python interpreter." >&2
+  echo "Set PYTHON_BIN=python3 or export MM/ROOT/ENV for micromamba-based runs." >&2
+  exit 1
+fi
+
+"${PYTHON_CMD[@]}" search_tools/parallel_generate.py \
   --group "${GROUP}" \
   --template-config "${TEMPLATE}" \
   --mode 1 \

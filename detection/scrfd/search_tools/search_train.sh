@@ -10,6 +10,14 @@ CANDIDATES_PER_GPU="${5:-1}"
 USE_DIST="${6:-1}"
 PORT_BASE="${7:-29100}"
 
+CURRENT_ENV_NAME="${SCRFD_ENV_NAME:-${ENV:-${CONDA_DEFAULT_ENV:-}}}"
+if [[ -z "${SCRFD_MMCV_MAX_VERSION:-}" && "${CURRENT_ENV_NAME}" == "scrfd-rtx50" ]]; then
+  export SCRFD_MMCV_MAX_VERSION=1.7.2
+fi
+if [[ -z "${SCRFD_TORCH_SHARING_STRATEGY:-}" && "${CURRENT_ENV_NAME}" == "scrfd-rtx50" ]]; then
+  export SCRFD_TORCH_SHARING_STRATEGY=file_system
+fi
+
 PYTHON_CMD=()
 if [[ -n "${PYTHON_BIN:-}" ]]; then
   PYTHON_CMD=("${PYTHON_BIN}")

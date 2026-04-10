@@ -314,6 +314,35 @@ python search_tools/generate_configs_2.5g_kernel_search.py \
     --num-configs 64
 ```
 
+### Kernel-Only Search From The Searched SCRFD 500M
+
+If you want to keep the searched SCRFD 500M architecture and only search
+kernels, use:
+
+```bash
+bash search_tools/generate_scrfd500m_kernel_only.sh 16
+```
+
+```bash
+bash search_tools/generate_scrfd500m_kernel_only.sh 32
+```
+
+Equivalent explicit command:
+
+```bash
+python search_tools/parallel_generate.py \
+    --group configs/scrfd500m_kernel_only \
+    --template-config configs/scrfdgen500m/scrfd500m_kernel_seed.py \
+    --mode 1 \
+    --kernel-search \
+    --kernel-only \
+    --gflops 0.5 \
+    --num-configs 16 \
+    --workers 8 \
+    --oversample-factor 2.0 \
+    --keep-workdir
+```
+
 ### Files Created
 - `mmdet/models/backbones/mobilenet_v1_ks.py`: MobileNetV1 with searchable stem/first kernel and stage kernels
 - `search_tools/generate_configs_2.5g_kernel_search.py`: Extended search tool with kernel search

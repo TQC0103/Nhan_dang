@@ -62,6 +62,11 @@ def get_args():
         default=False,
         help='enable MobileNet kernel search')
     parser.add_argument(
+        '--kernel-only',
+        action='store_true',
+        default=False,
+        help='only search kernels around the template design')
+    parser.add_argument(
         '--eps',
         type=float,
         default=2e-2,
@@ -145,6 +150,8 @@ def _build_worker_command(args, worker_group, worker_num_configs, worker_seed):
         command.extend(['--gflops', str(args.gflops)])
     if args.kernel_search:
         command.append('--kernel-search')
+    if args.kernel_only:
+        command.append('--kernel-only')
     if args.prefilter_eps is not None:
         command.extend(['--prefilter-eps', str(args.prefilter_eps)])
     if args.disable_fast_prefilter:

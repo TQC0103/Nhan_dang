@@ -225,6 +225,41 @@ def _estimate_detector_flops_fast(cfg, input_shape):
 
 
 @at.obj(
+    stem_kernel_size=at.Choice(3, 5, 7),
+    stem_dw_kernel_size=at.Choice(3, 5, 7),
+    stage_kernel_sizes=at.List(
+        at.Choice(3, 5, 7),
+        at.Choice(3, 5, 7),
+        at.Choice(3, 5, 7),
+        at.Choice(3, 5, 7),
+    ),
+)
+class GenConfigMobileNetKernelOnlySearch:
+    """Keep the searched SCRFD-500M design and only search kernels."""
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    def merge_cfg(self, det_cfg):
+        block_cfg = dict(det_cfg['model']['backbone']['block_cfg'])
+        stage_planes = list(block_cfg['stage_planes'])
+
+        block_cfg.update(
+            stem_kernel_size=int(self.stem_kernel_size),
+            stem_dw_kernel_size=int(self.stem_dw_kernel_size),
+            stage_kernel_sizes=list(self.stage_kernel_sizes),
+        )
+
+        det_cfg['model']['backbone']['type'] = 'MobileNetV1KS'
+        det_cfg['model']['backbone']['block_cfg'] = block_cfg
+        det_cfg['model']['backbone'].pop('base_channels', None)
+        det_cfg['model']['neck']['in_channels'] = _get_mobilenet_neck_in_channels(
+            stage_planes)
+        return det_cfg
+
+
+@at.obj(
     stem_channels=at.Int(8, 64),
     plane_ratios=at.List(
         at.Real(1.0, 4.0),
@@ -376,6 +411,12 @@ def get_args():
         default=False,
         help='enable MobileNet kernel search')
     parser.add_argument(
+        '--kernel-only',
+        action='store_true',
+        default=False,
+        help='only search kernels while keeping the template architecture '
+             'otherwise unchanged')
+    parser.add_argument(
         '--eps',
         type=float,
         default=2e-2,
@@ -519,7 +560,9 @@ def main():
                 'Kernel search in this script is implemented for MobileNetV1 '
                 'templates only. Use configs/scrfdgen500m/scrfdgen500m_0.py '
                 'or another MobileNet template.')
-        if args.mode == 1:
+        if args.kernel_only:
+            generator = GenConfigMobileNetKernelOnlySearch()
+        elif args.mode == 1:
             generator = GenConfigMobileNetBackboneKernelSearch()
         elif args.mode == 2:
             generator = GenConfigMobileNetAllKernelSearch()
@@ -565,7 +608,7 @@ def main():
                 template_exact_total,
                 template_fast_total)
 
-    if args.mode == 2:
+    if args.mode == 2 and not args.kernel_only:
         if not fast_prefilter:
             _, template_backbone_flops, _, _ = get_flops(det_cfg, input_shape)
         else:

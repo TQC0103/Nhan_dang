@@ -140,6 +140,53 @@ The original SCRFD-style dimensions are still searched:
 - stage depths / blocks
 - in `mode 2`, neck/head widths and head depth
 
+## 7A. Kernel-Only Search From The Searched SCRFD 500M
+
+If you want to start from the searched `SCRFD 500M` architecture itself and
+only search additional kernels, use:
+
+- template: `configs/scrfdgen500m/scrfd500m_kernel_seed.py`
+- generator flag: `--kernel-only`
+
+Recommended quick runs:
+
+```bash
+bash search_tools/generate_scrfd500m_kernel_only.sh 16
+```
+
+```bash
+bash search_tools/generate_scrfd500m_kernel_only.sh 32
+```
+
+This keeps:
+
+- backbone width / stage planes
+- backbone depth / stage blocks
+- neck width
+- head width / stack depth
+
+and only searches:
+
+- `stem_kernel_size`
+- `stem_dw_kernel_size`
+- `stage_kernel_sizes`
+
+Explicit command:
+
+```bash
+python search_tools/parallel_generate.py \
+  --group configs/scrfd500m_kernel_only \
+  --template-config configs/scrfdgen500m/scrfd500m_kernel_seed.py \
+  --mode 1 \
+  --kernel-search \
+  --kernel-only \
+  --gflops 0.5 \
+  --num-configs 16 \
+  --workers 8 \
+  --oversample-factor 2.0 \
+  --keep-workdir
+```
+
 ## 8. Stage 1: Backbone Search
 
 Generate 64 backbone candidates at the 0.5 GFLOPs budget.

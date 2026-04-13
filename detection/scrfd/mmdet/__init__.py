@@ -24,11 +24,49 @@ def _patch_parallel_stream_compat():
 
         original_torch_get_stream = torch_parallel_functions._get_stream
 
-        def torch_compat_get_stream(device):
+        def _stream_device_candidates(device):
+            candidates = [device]
             if isinstance(device, int):
-                device = torch.device('cuda', device)
+                candidates.extend([
+                    torch.device('cuda', device),
+                    f'cuda:{device}',
+                ])
             elif isinstance(device, str):
-                device = torch.device(device)
+                try:
+                    parsed = torch.device(device)
+                except Exception:
+                    parsed = None
+                if parsed is not None:
+                    candidates.append(parsed)
+                    if parsed.type == 'cuda':
+                        if parsed.index is not None:
+                            candidates.append(parsed.index)
+                        elif torch.cuda.is_available():
+                            candidates.append(torch.cuda.current_device())
+            elif isinstance(device, torch.device) and device.type == 'cuda':
+                if device.index is not None:
+                    candidates.extend([
+                        device.index,
+                        f'cuda:{device.index}',
+                    ])
+                elif torch.cuda.is_available():
+                    candidates.append(torch.cuda.current_device())
+
+            unique_candidates = []
+            for candidate in candidates:
+                if candidate not in unique_candidates:
+                    unique_candidates.append(candidate)
+            return unique_candidates
+
+        def torch_compat_get_stream(device):
+            last_error = None
+            for candidate in _stream_device_candidates(device):
+                try:
+                    return original_torch_get_stream(candidate)
+                except Exception as error:
+                    last_error = error
+            if last_error is not None:
+                raise last_error
             return original_torch_get_stream(device)
 
         torch_parallel_functions._get_stream = torch_compat_get_stream
@@ -41,10 +79,6 @@ def _patch_parallel_stream_compat():
         from mmcv.parallel import _functions as mmcv_parallel_functions
 
         def mmcv_compat_get_stream(device):
-            if isinstance(device, int):
-                device = torch.device('cuda', device)
-            elif isinstance(device, str):
-                device = torch.device(device)
             if torch_get_stream is not None:
                 return torch_get_stream(device)
             return None

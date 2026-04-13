@@ -130,3 +130,37 @@ Chạy từng bước riêng:
 !bash colab/run_quick_search.sh test
 !bash colab/run_quick_search.sh viz
 ```
+
+## 10. Sinh Config Nhanh Kiểu SCRFD Gốc
+
+Nếu bạn chỉ cần sinh vài config để test nhanh, không cần FLOPs filtering và không cần candidate search đầy đủ, dùng:
+
+```bash
+%cd /content/insightface/detection/scrfd
+!bash colab/generate_quick_configs.sh
+```
+
+Mặc định script này:
+
+- dùng template gốc `configs/scrfdgen2.5g/scrfdgen2.5g_0.py`
+- sinh `4` config
+- dùng search space kiểu SCRFD gốc
+- không chạy FLOPs check
+
+Ví dụ đổi sang mode 2 và sinh nhiều hơn:
+
+```bash
+%cd /content/insightface/detection/scrfd
+!SCRFD_QUICK_GEN_MODE=2 SCRFD_QUICK_GEN_NUM_CONFIGS=8 \
+  bash colab/generate_quick_configs.sh
+```
+
+Ví dụ đổi template và group đầu ra:
+
+```bash
+%cd /content/insightface/detection/scrfd
+!SCRFD_QUICK_GEN_TEMPLATE=configs/scrfdgen2.5g/scrfdgen2.5g_0.py \
+  SCRFD_QUICK_GEN_GROUP=configs/my_quick_test \
+  SCRFD_QUICK_GEN_NUM_CONFIGS=3 \
+  bash colab/generate_quick_configs.sh
+```

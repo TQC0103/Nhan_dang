@@ -54,7 +54,21 @@ print_step() {
 }
 
 run_in_env() {
-  bash "${RUN_IN_ENV}" "$@"
+  if [[ -f "${RUN_IN_ENV}" ]]; then
+    bash "${RUN_IN_ENV}" "$@"
+    return
+  fi
+
+  local env_name="${SCRFD_COLAB_ENV:-scrfd-colab}"
+  local mamba_root_prefix="${MAMBA_ROOT_PREFIX:-/content/micromamba}"
+  local micromamba_bin="${MICROMAMBA_BIN:-/content/bin/micromamba}"
+
+  if [[ ! -x "${micromamba_bin}" ]]; then
+    echo "Missing helper runner and micromamba binary: ${RUN_IN_ENV} / ${micromamba_bin}" >&2
+    exit 1
+  fi
+
+  "${micromamba_bin}" run -r "${mamba_root_prefix}" -n "${env_name}" "$@"
 }
 
 require_data() {
@@ -186,11 +200,6 @@ EOF
 }
 
 main() {
-  if [[ ! -x "${RUN_IN_ENV}" ]]; then
-    echo "Missing helper runner: ${RUN_IN_ENV}" >&2
-    exit 1
-  fi
-
   cd "${SCRFD_DIR}"
 
   case "${ACTION}" in

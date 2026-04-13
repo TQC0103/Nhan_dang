@@ -50,9 +50,8 @@ GROUP_NAME="${SCRFD_COLAB_SEARCH_GROUP:-${DEFAULT_GROUP_NAME}}"
 GROUP_DIR="configs/${GROUP_NAME}"
 TEMPLATE_CONFIG="${SCRFD_COLAB_TEMPLATE:-${DEFAULT_TEMPLATE}}"
 GEN_MODE="${GEN_MODE:-${DEFAULT_GEN_MODE}}"
+LOG_DIR="${SCRFD_COLAB_LOG_DIR:-colab_logs/${GROUP_NAME}}"
 STEP_POINT=$(( SEARCH_EPOCHS > 1 ? SEARCH_EPOCHS - 1 : 1 ))
-
-TRAIN_EXTRA_ARGS="total_epochs=${SEARCH_EPOCHS} checkpoint_config.interval=1 evaluation.interval=1 data.samples_per_gpu=${SAMPLES_PER_GPU} data.workers_per_gpu=${WORKERS_PER_GPU} optimizer.lr=${OPTIMIZER_LR} lr_config.warmup_iters=10 lr_config.step=[${STEP_POINT}] log_config.interval=20"
 
 print_step() {
   echo
@@ -103,12 +102,22 @@ clean_run() {
   rm -rf "${GROUP_DIR}"
   rm -rf "${OUTPUT_DIR}/${GROUP_NAME}"
   rm -rf "${OUTPUT_DIR}/${GROUP_NAME}_viz"
+  rm -rf "${LOG_DIR}"
   shopt -s nullglob
   local work_dirs=(work_dirs/"${GROUP_NAME}"_*)
   if (( ${#work_dirs[@]} > 0 )); then
     rm -rf "${work_dirs[@]}"
   fi
   shopt -u nullglob
+}
+
+tail_log() {
+  local log_file="$1"
+  if [[ -f "${log_file}" ]]; then
+    echo
+    echo "Last lines from ${log_file}:"
+    tail -n 80 "${log_file}" || true
+  fi
 }
 
 generate_candidates() {
@@ -125,26 +134,93 @@ generate_candidates() {
 train_candidates() {
   print_step "train" "Training ${NUM_CONFIGS} candidates on 1 GPU"
   require_data
-  run_in_env env \
-    SCRFD_LIMIT_HOST_THREADS=1 \
-    OMP_NUM_THREADS=1 \
-    MKL_NUM_THREADS=1 \
-    OPENBLAS_NUM_THREADS=1 \
-    NUMEXPR_NUM_THREADS=1 \
-    SCRFD_TRAIN_EXTRA_ARGS="${TRAIN_EXTRA_ARGS}" \
-    bash search_tools/search_train.sh "${GROUP_NAME}" 1 "${NUM_CONFIGS}" 0 1 0
+  mkdir -p "${LOG_DIR}"
+
+  for ((idx=0; idx<NUM_CONFIGS; idx++)); do
+    local candidate="${GROUP_NAME}_${idx}"
+    local config="${GROUP_DIR}/${candidate}.py"
+    local work_dir="work_dirs/${candidate}"
+    local log_file="${LOG_DIR}/${candidate}.train.log"
+
+    if [[ ! -f "${config}" ]]; then
+      echo "Missing config: ${SCRFD_DIR}/${config}" >&2
+      exit 1
+    fi
+
+    print_step "train:${idx}" "Training ${candidate}"
+    if ! run_in_env env \
+      SCRFD_LIMIT_HOST_THREADS=1 \
+      OMP_NUM_THREADS=1 \
+      MKL_NUM_THREADS=1 \
+      OPENBLAS_NUM_THREADS=1 \
+      NUMEXPR_NUM_THREADS=1 \
+      python -u tools/train.py "${config}" \
+        --work-dir "${work_dir}" \
+        --no-validate \
+        --cfg-options \
+          "total_epochs=${SEARCH_EPOCHS}" \
+          "checkpoint_config.interval=1" \
+          "evaluation.interval=1" \
+          "data.samples_per_gpu=${SAMPLES_PER_GPU}" \
+          "data.workers_per_gpu=${WORKERS_PER_GPU}" \
+          "optimizer.lr=${OPTIMIZER_LR}" \
+          "lr_config.warmup_iters=10" \
+          "lr_config.step=[${STEP_POINT}]" \
+          "log_config.interval=20" \
+        > "${log_file}" 2>&1; then
+      echo "Training failed for ${candidate}" >&2
+      tail_log "${log_file}"
+      exit 1
+    fi
+
+    if [[ ! -f "${work_dir}/latest.pth" ]]; then
+      echo "Training finished but checkpoint missing: ${SCRFD_DIR}/${work_dir}/latest.pth" >&2
+      tail_log "${log_file}"
+      exit 1
+    fi
+  done
 }
 
 test_candidates() {
   print_step "test" "Evaluating ${NUM_CONFIGS} candidates on WIDERFace"
   require_data
-  run_in_env env \
-    SCRFD_LIMIT_HOST_THREADS=1 \
-    OMP_NUM_THREADS=1 \
-    MKL_NUM_THREADS=1 \
-    OPENBLAS_NUM_THREADS=1 \
-    NUMEXPR_NUM_THREADS=1 \
-    bash search_tools/search_test_parallel.sh "${GROUP_NAME}" 1 "${NUM_CONFIGS}" 0 "${OUTPUT_DIR}" "${TEST_THR}" "${GROUP_NAME}"
+  mkdir -p "${LOG_DIR}"
+
+  for ((idx=0; idx<NUM_CONFIGS; idx++)); do
+    local candidate="${GROUP_NAME}_${idx}"
+    local config="${GROUP_DIR}/${candidate}.py"
+    local checkpoint="work_dirs/${candidate}/latest.pth"
+    local out_dir="${OUTPUT_DIR}/${GROUP_NAME}/${candidate}"
+    local log_file="${LOG_DIR}/${candidate}.test.log"
+
+    if [[ ! -f "${checkpoint}" ]]; then
+      echo "Missing checkpoint for test: ${SCRFD_DIR}/${checkpoint}" >&2
+      exit 1
+    fi
+
+    print_step "test:${idx}" "Testing ${candidate}"
+    if ! run_in_env env \
+      SCRFD_LIMIT_HOST_THREADS=1 \
+      OMP_NUM_THREADS=1 \
+      MKL_NUM_THREADS=1 \
+      OPENBLAS_NUM_THREADS=1 \
+      NUMEXPR_NUM_THREADS=1 \
+      python -u tools/test_widerface.py "${config}" "${checkpoint}" \
+        --mode 0 \
+        --thr "${TEST_THR}" \
+        --out "${out_dir}" \
+        > "${log_file}" 2>&1; then
+      echo "Evaluation failed for ${candidate}" >&2
+      tail_log "${log_file}"
+      exit 1
+    fi
+
+    if [[ ! -f "${out_dir}/aps" ]]; then
+      echo "Evaluation finished but aps file missing: ${SCRFD_DIR}/${out_dir}/aps" >&2
+      tail_log "${log_file}"
+      exit 1
+    fi
+  done
 }
 
 visualize_search() {

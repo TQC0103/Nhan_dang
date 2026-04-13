@@ -166,3 +166,38 @@ Ví dụ đổi template và group đầu ra:
   SCRFD_QUICK_GEN_NUM_CONFIGS=3 \
   bash colab/generate_quick_configs.sh
 ```
+
+## 11. Export Env Từ Colab Sang Kaggle Offline
+
+Nếu repo của bạn đã được upload riêng thành Kaggle Dataset, thì chỉ cần export 1 file env:
+
+- `scrfd-colab.tar.gz`
+
+Tạo bundle trên Colab:
+
+```bash
+%cd /content/insightface/detection/scrfd
+!bash colab/export_env_bundle.sh
+```
+
+File chính sẽ nằm ở:
+
+```bash
+/content/scrfd_env_bundle/scrfd-colab.tar.gz
+```
+
+Trên Kaggle, repo và env là 2 dataset riêng:
+
+```bash
+%cd /kaggle/working
+!bash /kaggle/input/<repo-dataset>/detection/scrfd/colab/unpack_env_bundle.sh \
+  /kaggle/input/<env-dataset>/scrfd-colab.tar.gz \
+  /kaggle/working/envs/scrfd-colab
+```
+
+Sau đó dùng Python trong env đã pack:
+
+```bash
+!/kaggle/working/envs/scrfd-colab/bin/python /kaggle/input/<repo-dataset>/detection/scrfd/tools/print_config.py \
+  /kaggle/input/<repo-dataset>/detection/scrfd/configs/scrfd/scrfd_500m.py
+```

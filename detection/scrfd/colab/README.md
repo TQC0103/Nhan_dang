@@ -23,11 +23,26 @@ Nếu bạn dùng fork riêng:
 !git clone <YOUR_FORK_URL> insightface
 ```
 
-## 3. Setup môi trường
+## 3. Setup môi trường và dataset mặc định
 
 ```bash
 %cd /content/insightface
 !bash detection/scrfd/colab/setup_colab_env.sh /content/insightface
+```
+
+Lệnh trên mặc định sẽ:
+
+- tạo env `micromamba`
+- cài dependency cho SCRFD
+- tải WIDERFace + annotation bundle
+- chuẩn bị layout `detection/scrfd/data/retinaface`
+
+Nếu bạn muốn tắt phần dataset:
+
+```bash
+%cd /content/insightface
+!SCRFD_PREPARE_RETINAFACE=0 SCRFD_DOWNLOAD_RETINAFACE=0 \
+  bash detection/scrfd/colab/setup_colab_env.sh /content/insightface
 ```
 
 ## 4. Chạy lệnh trong env

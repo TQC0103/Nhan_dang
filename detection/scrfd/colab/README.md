@@ -95,7 +95,7 @@ Ví dụ với teacher SCRFD 10G:
 
 Script quick search mặc định dùng 1 GPU Colab để:
 
-- sinh một số candidate nhỏ
+- sinh một số config nhỏ bằng generator nhanh kiểu SCRFD gốc
 - train nhanh từng candidate
 - test WIDERFace
 - visualize và chọn best candidate
@@ -109,15 +109,17 @@ Chạy mặc định:
 
 Mặc định hiện tại:
 
-- `SCRFD_COLAB_SEARCH_KIND=kernel_only`
+- `SCRFD_COLAB_SEARCH_KIND=backbone`
+- `SCRFD_COLAB_GEN_MODE=1`
+- template `configs/scrfdgen2.5g/scrfdgen2.5g_0.py`
 - `SCRFD_COLAB_NUM_CONFIGS=4`
 - `SCRFD_COLAB_SEARCH_EPOCHS=2`
 
-Ví dụ đổi sang backbone search và tăng số candidate:
+Ví dụ đổi sang mode 2 và tăng số config:
 
 ```bash
 %cd /content/insightface/detection/scrfd
-!SCRFD_COLAB_SEARCH_KIND=backbone SCRFD_COLAB_NUM_CONFIGS=8 SCRFD_COLAB_SEARCH_EPOCHS=4 \
+!SCRFD_COLAB_SEARCH_KIND=all SCRFD_COLAB_GEN_MODE=2 SCRFD_COLAB_NUM_CONFIGS=8 SCRFD_COLAB_SEARCH_EPOCHS=4 \
   bash colab/run_quick_search.sh all
 ```
 

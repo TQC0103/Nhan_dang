@@ -9,12 +9,11 @@ REPO_ROOT="$(cd "${SCRFD_DIR}/../.." && pwd)"
 RUN_IN_ENV="${SCRIPT_DIR}/run_in_env.sh"
 ACTION="${1:-all}"
 
-SEARCH_KIND="${SCRFD_COLAB_SEARCH_KIND:-kernel_only}"
+SEARCH_KIND="${SCRFD_COLAB_SEARCH_KIND:-backbone}"
 NUM_CONFIGS="${SCRFD_COLAB_NUM_CONFIGS:-4}"
 SEARCH_EPOCHS="${SCRFD_COLAB_SEARCH_EPOCHS:-2}"
-GEN_WORKERS="${SCRFD_COLAB_GEN_WORKERS:-2}"
-OVERSAMPLE_FACTOR="${SCRFD_COLAB_OVERSAMPLE_FACTOR:-2.0}"
-GFLOPS="${SCRFD_COLAB_GFLOPS:-0.5}"
+GEN_MODE="${SCRFD_COLAB_GEN_MODE:-}"
+GEN_SEED="${SCRFD_COLAB_GEN_SEED:-3407}"
 OUTPUT_DIR="${SCRFD_COLAB_OUTPUT_DIR:-wouts}"
 TOPK="${SCRFD_COLAB_TOPK:-4}"
 TEST_THR="${SCRFD_COLAB_TEST_THR:-0.02}"
@@ -24,19 +23,25 @@ OPTIMIZER_LR="${SCRFD_COLAB_LR:-0.005}"
 CLEAN_RUN="${SCRFD_COLAB_CLEAN:-1}"
 
 case "${SEARCH_KIND}" in
-  kernel_only)
-    DEFAULT_GROUP_NAME="scrfd500m_colab_kernel_demo"
-    DEFAULT_TEMPLATE="configs/scrfdgen500m/scrfd500m_kernel_seed.py"
-    GENERATE_FLAGS=(--mode 1 --kernel-search --kernel-only)
-    ;;
   backbone)
-    DEFAULT_GROUP_NAME="scrfdgen500m_colab_demo"
-    DEFAULT_TEMPLATE="configs/scrfdgen500m/scrfdgen500m_0.py"
-    GENERATE_FLAGS=(--mode 1 --kernel-search)
+    DEFAULT_GROUP_NAME="scrfdgen2.5g_colab_quick_demo"
+    DEFAULT_TEMPLATE="configs/scrfdgen2.5g/scrfdgen2.5g_0.py"
+    DEFAULT_GEN_MODE="1"
+    ;;
+  all)
+    DEFAULT_GROUP_NAME="scrfdgen2.5g_colab_quick_all_demo"
+    DEFAULT_TEMPLATE="configs/scrfdgen2.5g/scrfdgen2.5g_0.py"
+    DEFAULT_GEN_MODE="2"
+    ;;
+  kernel_only)
+    DEFAULT_GROUP_NAME="scrfdgen2.5g_colab_quick_demo"
+    DEFAULT_TEMPLATE="configs/scrfdgen2.5g/scrfdgen2.5g_0.py"
+    DEFAULT_GEN_MODE="1"
+    echo "SCRFD_COLAB_SEARCH_KIND=kernel_only is mapped to original SCRFD quick generation mode 1." >&2
     ;;
   *)
     echo "Unsupported SCRFD_COLAB_SEARCH_KIND: ${SEARCH_KIND}" >&2
-    echo "Use 'kernel_only' or 'backbone'." >&2
+    echo "Use 'backbone' or 'all'." >&2
     exit 1
     ;;
 esac
@@ -44,6 +49,7 @@ esac
 GROUP_NAME="${SCRFD_COLAB_SEARCH_GROUP:-${DEFAULT_GROUP_NAME}}"
 GROUP_DIR="configs/${GROUP_NAME}"
 TEMPLATE_CONFIG="${SCRFD_COLAB_TEMPLATE:-${DEFAULT_TEMPLATE}}"
+GEN_MODE="${GEN_MODE:-${DEFAULT_GEN_MODE}}"
 STEP_POINT=$(( SEARCH_EPOCHS > 1 ? SEARCH_EPOCHS - 1 : 1 ))
 
 TRAIN_EXTRA_ARGS="total_epochs=${SEARCH_EPOCHS} checkpoint_config.interval=1 evaluation.interval=1 data.samples_per_gpu=${SAMPLES_PER_GPU} data.workers_per_gpu=${WORKERS_PER_GPU} optimizer.lr=${OPTIMIZER_LR} lr_config.warmup_iters=10 lr_config.step=[${STEP_POINT}] log_config.interval=20"
@@ -106,16 +112,14 @@ clean_run() {
 }
 
 generate_candidates() {
-  print_step "generate" "Generating ${NUM_CONFIGS} candidates for ${GROUP_NAME}"
+  print_step "generate" "Generating ${NUM_CONFIGS} quick configs for ${GROUP_NAME}"
   mkdir -p "${GROUP_DIR}"
-  run_in_env python search_tools/parallel_generate.py \
+  run_in_env python search_tools/generate_configs_quick.py \
     --group "${GROUP_DIR}" \
     --template-config "${TEMPLATE_CONFIG}" \
+    --mode "${GEN_MODE}" \
     --num-configs "${NUM_CONFIGS}" \
-    --workers "${GEN_WORKERS}" \
-    --oversample-factor "${OVERSAMPLE_FACTOR}" \
-    --gflops "${GFLOPS}" \
-    "${GENERATE_FLAGS[@]}"
+    --seed "${GEN_SEED}"
 }
 
 train_candidates() {

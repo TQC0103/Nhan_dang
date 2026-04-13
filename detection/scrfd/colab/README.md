@@ -90,3 +90,43 @@ Ví dụ với teacher SCRFD 10G:
 - Nếu Colab cấp CPU runtime, setup vẫn chạy được nhưng train sẽ rất chậm.
 - Nếu bạn mount Drive và làm việc trực tiếp trong `/content/drive/...`, I/O sẽ chậm hơn so với `/content`.
 - Với các file lớn như dataset/checkpoint, nên copy từ Drive sang `/content` trước khi train.
+
+## 9. Quick Candidate Search Trên Colab
+
+Script quick search mặc định dùng 1 GPU Colab để:
+
+- sinh một số candidate nhỏ
+- train nhanh từng candidate
+- test WIDERFace
+- visualize và chọn best candidate
+
+Chạy mặc định:
+
+```bash
+%cd /content/insightface/detection/scrfd
+!bash colab/run_quick_search.sh all
+```
+
+Mặc định hiện tại:
+
+- `SCRFD_COLAB_SEARCH_KIND=kernel_only`
+- `SCRFD_COLAB_NUM_CONFIGS=4`
+- `SCRFD_COLAB_SEARCH_EPOCHS=2`
+
+Ví dụ đổi sang backbone search và tăng số candidate:
+
+```bash
+%cd /content/insightface/detection/scrfd
+!SCRFD_COLAB_SEARCH_KIND=backbone SCRFD_COLAB_NUM_CONFIGS=8 SCRFD_COLAB_SEARCH_EPOCHS=4 \
+  bash colab/run_quick_search.sh all
+```
+
+Chạy từng bước riêng:
+
+```bash
+%cd /content/insightface/detection/scrfd
+!bash colab/run_quick_search.sh generate
+!bash colab/run_quick_search.sh train
+!bash colab/run_quick_search.sh test
+!bash colab/run_quick_search.sh viz
+```

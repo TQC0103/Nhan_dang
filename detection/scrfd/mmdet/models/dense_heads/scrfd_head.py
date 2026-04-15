@@ -10,6 +10,12 @@ from mmdet.core import (anchor_inside_flags, bbox2distance, bbox_overlaps,
                         build_assigner, build_sampler, distance2bbox, distance2kps, kps2distance,
                         images_to_levels, multi_apply, multiclass_nms,
                         reduce_mean, unmap)
+from mmdet.core.sample_redistribution import (
+    bins_to_hist,
+    compute_face_size_bins,
+    get_redistribution_state,
+    normalize_redistribution_cfg,
+)
 from ..builder import HEADS, build_loss
 from .anchor_head import AnchorHead
 from .base_dense_head import BaseDenseHead
@@ -131,8 +137,14 @@ class SCRFDHead(AnchorHead):
         super(SCRFDHead, self).__init__(num_classes, in_channels, **kwargs)
 
         self.sampling = False
+        self.redistribution_cfg = normalize_redistribution_cfg(
+            self.train_cfg.get('redistribution_cfg', None) if self.train_cfg else None)
+        self.redistribution_state = get_redistribution_state(self.redistribution_cfg)
         if self.train_cfg:
-            self.assigner = build_assigner(self.train_cfg.assigner)
+            assigner_cfg = self.train_cfg.assigner.copy()
+            if 'redistribution_cfg' not in assigner_cfg:
+                assigner_cfg['redistribution_cfg'] = self.redistribution_cfg
+            self.assigner = build_assigner(assigner_cfg)
             # SSD sampling=False so use PseudoSampler
             sampler_cfg = dict(type='PseudoSampler')
             self.sampler = build_sampler(sampler_cfg, context=self)
@@ -422,8 +434,49 @@ class SCRFDHead(AnchorHead):
         anchors_cy = (anchors[:, 3] + anchors[:, 1]) / 2
         return torch.stack([anchors_cx, anchors_cy], dim=-1)
 
+    def _get_num_sr_bins(self):
+        return len(self.redistribution_cfg['ADAPTIVE_SR_BIN_EDGES']) - 1
+
+    def _log_jsar_stats(self, assign_result):
+        before_hist = assign_result.get_extra_property('jsar_before_hist')
+        after_hist = assign_result.get_extra_property('jsar_after_hist')
+        if before_hist is not None and after_hist is not None:
+            self.redistribution_state.note_jsar_stats(before_hist, after_hist)
+
+    def _log_level_bin_losses(self,
+                              cls_score,
+                              labels,
+                              score,
+                              label_weights,
+                              pos_bin_labels,
+                              pos_decode_bbox_pred,
+                              pos_decode_bbox_targets,
+                              weight_targets):
+        num_bins = self._get_num_sr_bins()
+        cls_loss_bins = [0.0 for _ in range(num_bins)]
+        box_loss_bins = [0.0 for _ in range(num_bins)]
+        for bin_idx in range(num_bins):
+            bin_mask = pos_bin_labels == bin_idx
+            if bin_mask.any():
+                cls_loss_bins[bin_idx] = float(
+                    self.loss_cls(
+                        cls_score[bin_mask],
+                        (labels[bin_mask], score[bin_mask]),
+                        weight=label_weights[bin_mask],
+                        avg_factor=1.0,
+                    ).detach().item())
+                box_loss_bins[bin_idx] = float(
+                    self.loss_bbox(
+                        pos_decode_bbox_pred[bin_mask],
+                        pos_decode_bbox_targets[bin_mask],
+                        weight=weight_targets[bin_mask],
+                        avg_factor=1.0,
+                    ).detach().item())
+        self.redistribution_state.note_loss_bins(cls_loss_bins, box_loss_bins)
+
     def loss_single(self, anchors, cls_score, bbox_pred, kps_pred, labels, label_weights,
-                    bbox_targets, kps_targets, kps_weights, stride, num_total_samples):
+                    bbox_targets, kps_targets, kps_weights, sample_bin_labels,
+                    sample_pos_weights, stride, num_total_samples):
         """Compute loss of a single scale level.
 
         Args:
@@ -461,6 +514,8 @@ class SCRFDHead(AnchorHead):
         bbox_targets = bbox_targets.reshape(-1, 4)
         labels = labels.reshape(-1)
         label_weights = label_weights.reshape(-1)
+        sample_bin_labels = sample_bin_labels.reshape(-1)
+        sample_pos_weights = sample_pos_weights.reshape(-1)
 
         if self.use_kps:
             kps_pred = kps_pred.permute(0, 2, 3,
@@ -474,15 +529,18 @@ class SCRFDHead(AnchorHead):
         pos_inds = ((labels >= 0)
                     & (labels < bg_class_ind)).nonzero().squeeze(1)
         score = label_weights.new_zeros(labels.shape)
+        self.redistribution_state.note_pos_bins(sample_bin_labels[pos_inds], stride[0])
 
         if len(pos_inds) > 0:
             pos_bbox_targets = bbox_targets[pos_inds]
             pos_bbox_pred = bbox_pred[pos_inds]
             pos_anchors = anchors[pos_inds]
             pos_anchor_centers = self.anchor_center(pos_anchors) / stride[0]
+            pos_bin_labels = sample_bin_labels[pos_inds]
 
             weight_targets = cls_score.detach().sigmoid()
             weight_targets = weight_targets.max(dim=1)[0][pos_inds]
+            weight_targets = weight_targets * sample_pos_weights[pos_inds]
             pos_decode_bbox_targets = pos_bbox_targets / stride[0]
 
 
@@ -523,6 +581,17 @@ class SCRFDHead(AnchorHead):
                     is_aligned=True)
             else:
                 score[pos_inds] = 1.0
+
+            self._log_level_bin_losses(
+                cls_score[pos_inds],
+                labels[pos_inds],
+                score[pos_inds],
+                label_weights[pos_inds],
+                pos_bin_labels,
+                pos_decode_bbox_pred,
+                pos_decode_bbox_targets,
+                weight_targets,
+            )
 
             # regression loss
             loss_bbox = self.loss_bbox(
@@ -601,6 +670,8 @@ class SCRFDHead(AnchorHead):
         assert len(featmap_sizes) == self.anchor_generator.num_levels
 
         device = cls_scores[0].device
+        self.redistribution_state.note_batch()
+        self.redistribution_state.note_gt_boxes(gt_bboxes)
         anchor_list, valid_flag_list = self.get_anchors(
             featmap_sizes, img_metas, device=device)
         label_channels = self.cls_out_channels if self.use_sigmoid_cls else 1
@@ -618,7 +689,9 @@ class SCRFDHead(AnchorHead):
             return None
 
         (anchor_list, labels_list, label_weights_list, bbox_targets_list,
-         bbox_weights_list, keypoints_targets_list, keypoints_weights_list, num_total_pos, num_total_neg) = cls_reg_targets
+         bbox_weights_list, keypoints_targets_list, keypoints_weights_list,
+         sample_bin_labels_list, sample_pos_weights_list,
+         num_total_pos, num_total_neg) = cls_reg_targets
 
         num_total_samples = reduce_mean(
             torch.tensor(num_total_pos, dtype=torch.float,
@@ -637,6 +710,8 @@ class SCRFDHead(AnchorHead):
                 bbox_targets_list,
                 keypoints_targets_list,
                 keypoints_weights_list,
+                sample_bin_labels_list,
+                sample_pos_weights_list,
                 self.anchor_generator.strides,
                 num_total_samples=num_total_samples)
 
@@ -876,7 +951,8 @@ class SCRFDHead(AnchorHead):
             gt_keypointss_list = [None for _ in range(num_imgs)]
         #print('QQQ:', num_imgs, gt_bboxes_list[0].shape)
         (all_anchors, all_labels, all_label_weights, all_bbox_targets,
-         all_bbox_weights, all_keypoints_targets, all_keypoints_weights, 
+         all_bbox_weights, all_keypoints_targets, all_keypoints_weights,
+         all_sample_bin_labels, all_sample_pos_weights,
          pos_inds_list, neg_inds_list) = multi_apply(
              self._get_target_single,
              anchor_list,
@@ -908,8 +984,13 @@ class SCRFDHead(AnchorHead):
                                              num_level_anchors)
         keypoints_weights_list = images_to_levels(all_keypoints_weights,
                                              num_level_anchors)
+        sample_bin_labels_list = images_to_levels(all_sample_bin_labels,
+                                             num_level_anchors)
+        sample_pos_weights_list = images_to_levels(all_sample_pos_weights,
+                                             num_level_anchors)
         return (anchors_list, labels_list, label_weights_list,
                 bbox_targets_list, bbox_weights_list, keypoints_targets_list, keypoints_weights_list,
+                sample_bin_labels_list, sample_pos_weights_list,
                 num_total_pos,
                 num_total_neg)
 
@@ -965,7 +1046,7 @@ class SCRFDHead(AnchorHead):
                                            img_meta['img_shape'][:2],
                                            self.train_cfg.allowed_border)
         if not inside_flags.any():
-            return (None, ) * 7
+            return (None, ) * 10
         # assign gt and sample anchors
         anchors = flat_anchors[inside_flags, :]
 
@@ -982,12 +1063,15 @@ class SCRFDHead(AnchorHead):
 
         sampling_result = self.sampler.sample(assign_result, anchors,
                                               gt_bboxes)
+        self._log_jsar_stats(assign_result)
 
         num_valid_anchors = anchors.shape[0]
         bbox_targets = torch.zeros_like(anchors)
         bbox_weights = torch.zeros_like(anchors)
         kps_targets = anchors.new_zeros(size=(anchors.shape[0], self.NK*2))
         kps_weights = anchors.new_zeros(size=(anchors.shape[0], self.NK*2))
+        sample_bin_labels = anchors.new_full((anchors.shape[0], ), -1, dtype=torch.long)
+        sample_pos_weights = anchors.new_ones(anchors.shape[0], dtype=torch.float)
         labels = anchors.new_full((num_valid_anchors, ),
                                   self.num_classes,
                                   dtype=torch.long)
@@ -999,6 +1083,14 @@ class SCRFDHead(AnchorHead):
             pos_bbox_targets = sampling_result.pos_gt_bboxes
             bbox_targets[pos_inds, :] = pos_bbox_targets
             bbox_weights[pos_inds, :] = 1.0
+            gt_size_bins = assign_result.get_extra_property('gt_size_bins')
+            if gt_size_bins is None:
+                gt_size_bins = compute_face_size_bins(
+                    gt_bboxes, self.redistribution_cfg['ADAPTIVE_SR_BIN_EDGES'])
+            sample_bin_labels[pos_inds] = gt_size_bins[sampling_result.pos_assigned_gt_inds]
+            soft_weights = assign_result.get_extra_property('jsar_soft_weights')
+            if soft_weights is not None:
+                sample_pos_weights[pos_inds] = soft_weights[pos_inds].to(sample_pos_weights.dtype)
             if self.use_kps:
                 pos_assigned_gt_inds = sampling_result.pos_assigned_gt_inds
                 #print('BBB', anchors.shape, gt_bboxes.shape, gt_keypointss.shape, pos_inds.shape, bbox_targets.shape, pos_bbox_targets.shape)
@@ -1013,9 +1105,9 @@ class SCRFDHead(AnchorHead):
                 labels[pos_inds] = gt_labels[
                     sampling_result.pos_assigned_gt_inds]
             if self.train_cfg.pos_weight <= 0:
-                label_weights[pos_inds] = 1.0
+                label_weights[pos_inds] = sample_pos_weights[pos_inds]
             else:
-                label_weights[pos_inds] = self.train_cfg.pos_weight
+                label_weights[pos_inds] = self.train_cfg.pos_weight * sample_pos_weights[pos_inds]
         if len(neg_inds) > 0:
             label_weights[neg_inds] = 1.0
 
@@ -1029,12 +1121,16 @@ class SCRFDHead(AnchorHead):
                                   inside_flags)
             bbox_targets = unmap(bbox_targets, num_total_anchors, inside_flags)
             bbox_weights = unmap(bbox_weights, num_total_anchors, inside_flags)
+            sample_bin_labels = unmap(
+                sample_bin_labels, num_total_anchors, inside_flags, fill=-1)
+            sample_pos_weights = unmap(
+                sample_pos_weights, num_total_anchors, inside_flags, fill=1.0)
             if self.use_kps:
                 kps_targets = unmap(kps_targets, num_total_anchors, inside_flags)
                 kps_weights = unmap(kps_weights, num_total_anchors, inside_flags)
 
         return (anchors, labels, label_weights, bbox_targets, bbox_weights,
-                kps_targets, kps_weights,
+                kps_targets, kps_weights, sample_bin_labels, sample_pos_weights,
                 pos_inds, neg_inds)
 
     def get_num_level_anchors_inside(self, num_level_anchors, inside_flags):

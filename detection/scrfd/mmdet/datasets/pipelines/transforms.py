@@ -820,15 +820,27 @@ class RandomSquareCrop(object):
         `gt_bboxes_ignore` to `gt_labels_ignore` and `gt_masks_ignore`.
     """
 
-    def __init__(self, crop_ratio_range=None, crop_choice=None, bbox_clip_border=True):
+    def __init__(self,
+                 crop_ratio_range=None,
+                 crop_choice=None,
+                 bbox_clip_border=True,
+                 adaptive_sr=None):
 
         self.crop_ratio_range = crop_ratio_range
         self.crop_choice = crop_choice
         self.bbox_clip_border = bbox_clip_border
+        self.adaptive_sr = adaptive_sr
+        self.adaptive_scale_reader = None
 
         assert (self.crop_ratio_range is None) ^ (self.crop_choice is None)
         if self.crop_ratio_range is not None:
             self.crop_ratio_min, self.crop_ratio_max = self.crop_ratio_range
+        if self.crop_choice is not None and adaptive_sr is not None:
+            from mmdet.core.sample_redistribution import AdaptiveScalePolicyReader
+            self.adaptive_scale_reader = AdaptiveScalePolicyReader(
+                redistribution_cfg=adaptive_sr,
+                fallback_candidates=self.crop_choice,
+            )
 
         self.bbox2label = {
             'gt_bboxes': 'gt_labels',
@@ -876,7 +888,10 @@ class RandomSquareCrop(object):
                     scale = np.random.uniform(self.crop_ratio_min,
                                               self.crop_ratio_max)
                 elif self.crop_choice is not None:
-                    scale = np.random.choice(self.crop_choice)
+                    if self.adaptive_scale_reader is not None:
+                        scale = self.adaptive_scale_reader.sample()
+                    else:
+                        scale = np.random.choice(self.crop_choice)
             else:
                 #scale = min(scale*1.2, max_scale)
                 scale = scale*1.2

@@ -222,6 +222,18 @@ is_gdrive_quota_page() {
   grep -qi 'Google Drive - Quota exceeded\|Too many users have viewed or downloaded this file recently\|you can.t view or download this file at this time' "${path}" 2>/dev/null
 }
 
+is_valid_label_file() {
+  local path="$1"
+  [[ -f "${path}" ]] || return 1
+  if is_html_file "${path}" || is_gdrive_quota_page "${path}"; then
+    return 1
+  fi
+  if [[ ! -s "${path}" ]]; then
+    return 1
+  fi
+  return 0
+}
+
 extract_tar_archive() {
   local archive_path="$1"
   local dest_dir="$2"
@@ -391,28 +403,44 @@ find_val_images() {
 find_train_label() {
   local root="$1"
   local found=""
-  found="$(find_first_existing "${root}" \
-    train/labelv2.txt \
-    labelv2.txt \
-    retinaface/train/labelv2.txt || true)"
-  if [[ -n "${found}" ]]; then
-    printf '%s\n' "${found}"
-    return 0
-  fi
-  find "${root}" -maxdepth 5 -type f -path '*/train/labelv2.txt' 2>/dev/null | head -n 1
+  local candidate=""
+  while IFS= read -r candidate; do
+    [[ -n "${candidate}" ]] || continue
+    if is_valid_label_file "${candidate}"; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done < <(
+    {
+      find_first_existing "${root}" \
+        train/labelv2.txt \
+        labelv2.txt \
+        retinaface/train/labelv2.txt || true
+      find "${root}" -maxdepth 7 -type f -path '*/train/labelv2.txt' 2>/dev/null || true
+    } | awk '!seen[$0]++'
+  )
+  return 1
 }
 
 find_val_label() {
   local root="$1"
   local found=""
-  found="$(find_first_existing "${root}" \
-    val/labelv2.txt \
-    retinaface/val/labelv2.txt || true)"
-  if [[ -n "${found}" ]]; then
-    printf '%s\n' "${found}"
-    return 0
-  fi
-  find "${root}" -maxdepth 5 -type f -path '*/val/labelv2.txt' 2>/dev/null | head -n 1
+  local candidate=""
+  while IFS= read -r candidate; do
+    [[ -n "${candidate}" ]] || continue
+    if is_valid_label_file "${candidate}"; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done < <(
+    {
+      find_first_existing "${root}" \
+        val/labelv2.txt \
+        retinaface/val/labelv2.txt || true
+      find "${root}" -maxdepth 7 -type f -path '*/val/labelv2.txt' 2>/dev/null || true
+    } | awk '!seen[$0]++'
+  )
+  return 1
 }
 
 find_gt_dir() {
@@ -447,6 +475,11 @@ replace_target() {
   else
     cp -a "${src}" "${dst}"
   fi
+}
+
+count_files() {
+  local target="$1"
+  find -L "${target}" -type f | wc -l | tr -d ' '
 }
 
 while [[ $# -gt 0 ]]; do
@@ -594,6 +627,7 @@ if [[ "${DOWNLOAD_ANNOTATIONS}" == "1" ]]; then
   mkdir -p "${ANN_DL_ROOT}"
   ANN_EXTRACT_ROOT="${ANN_DL_ROOT}/extracted"
   ANN_MIRROR_ROOT="${ANN_DL_ROOT}/mirror"
+  rm -rf "${ANN_EXTRACT_ROOT}" "${ANN_MIRROR_ROOT}"
   if [[ -n "${ANNOTATION_ARCHIVE}" ]]; then
     ANN_ARCHIVE="$(cd "$(dirname "${ANNOTATION_ARCHIVE}")" && pwd)/$(basename "${ANNOTATION_ARCHIVE}")"
     [[ -f "${ANN_ARCHIVE}" ]] || die "Annotation archive not found: ${ANN_ARCHIVE}"
@@ -679,6 +713,8 @@ GT_DIR="$(cd "${GT_DIR}" && pwd)"
 [[ -f "${TRAIN_LABEL}" ]] || die "Train label file not found: ${TRAIN_LABEL}"
 [[ -f "${VAL_LABEL}" ]] || die "Val label file not found: ${VAL_LABEL}"
 [[ -d "${GT_DIR}" ]] || die "Validation gt directory not found: ${GT_DIR}"
+is_valid_label_file "${TRAIN_LABEL}" || die "Train label file is invalid or contains HTML error content: ${TRAIN_LABEL}"
+is_valid_label_file "${VAL_LABEL}" || die "Val label file is invalid or contains HTML error content: ${VAL_LABEL}"
 
 mkdir -p "${DEST_ROOT}/train" "${DEST_ROOT}/val"
 
@@ -688,9 +724,9 @@ replace_target "${VAL_IMAGES}" "${DEST_ROOT}/val/images"
 replace_target "${VAL_LABEL}" "${DEST_ROOT}/val/labelv2.txt"
 replace_target "${GT_DIR}" "${DEST_ROOT}/val/gt"
 
-TRAIN_IMAGE_COUNT="$(find "${DEST_ROOT}/train/images" -type f | wc -l | tr -d ' ')"
-VAL_IMAGE_COUNT="$(find "${DEST_ROOT}/val/images" -type f | wc -l | tr -d ' ')"
-GT_COUNT="$(find "${DEST_ROOT}/val/gt" -type f | wc -l | tr -d ' ')"
+TRAIN_IMAGE_COUNT="$(count_files "${DEST_ROOT}/train/images")"
+VAL_IMAGE_COUNT="$(count_files "${DEST_ROOT}/val/images")"
+GT_COUNT="$(count_files "${DEST_ROOT}/val/gt")"
 
 echo
 echo "Prepared SCRFD retinaface dataset layout."

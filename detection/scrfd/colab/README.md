@@ -171,7 +171,7 @@ Ví dụ đổi template và group đầu ra:
 
 Nếu repo của bạn đã được upload riêng thành Kaggle Dataset, thì chỉ cần export 1 file env:
 
-- `scrfd-colab.tar.gz`
+- `scrfd-colab.zip`
 
 Tạo bundle trên Colab:
 
@@ -183,7 +183,7 @@ Tạo bundle trên Colab:
 File chính sẽ nằm ở:
 
 ```bash
-/content/scrfd_env_bundle/scrfd-colab.tar.gz
+/content/scrfd_env_bundle/scrfd-colab.zip
 ```
 
 Trên Kaggle, repo và env là 2 dataset riêng:
@@ -191,7 +191,7 @@ Trên Kaggle, repo và env là 2 dataset riêng:
 ```bash
 %cd /kaggle/working
 !bash /kaggle/input/<repo-dataset>/detection/scrfd/colab/unpack_env_bundle.sh \
-  /kaggle/input/<env-dataset>/scrfd-colab.tar.gz \
+  /kaggle/input/<env-dataset>/scrfd-colab.zip \
   /kaggle/working/envs/scrfd-colab
 ```
 

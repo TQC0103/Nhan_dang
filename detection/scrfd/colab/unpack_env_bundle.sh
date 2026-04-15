@@ -12,11 +12,12 @@ DATASET_TARGET="${SCRFD_UNPACK_DATASET_TARGET:-/kaggle/working}"
 usage() {
   cat <<EOF
 Usage:
-  bash $0 <env_archive.tar.gz> [target_prefix] [repo_archive.tar.gz] [dataset_archive.tar.gz]
+  bash $0 <env_archive> [target_prefix] [repo_archive.tar.gz] [dataset_archive.tar.gz]
 
 Examples:
-  bash $0 /kaggle/input/mybundle/scrfd-colab.tar.gz
-  bash $0 /kaggle/input/mybundle/scrfd-colab.tar.gz /kaggle/working/envs/scrfd-colab /kaggle/input/mybundle/scrfd-colab-repo.tar.gz
+  bash $0 /kaggle/input/mybundle/scrfd-colab.zip
+  bash $0 /kaggle/input/mybundle/scrfd-colab.envpack
+  bash $0 /kaggle/input/mybundle/scrfd-colab.zip /kaggle/working/envs/scrfd-colab /kaggle/input/mybundle/scrfd-colab-repo.tar.gz
 EOF
 }
 
@@ -31,7 +32,15 @@ if [[ ! -f "${ENV_ARCHIVE}" ]]; then
 fi
 
 mkdir -p "${TARGET_PREFIX}"
-tar -xzf "${ENV_ARCHIVE}" -C "${TARGET_PREFIX}"
+if unzip -tqq "${ENV_ARCHIVE}" >/dev/null 2>&1; then
+  unzip -q "${ENV_ARCHIVE}" -d "${TARGET_PREFIX}"
+elif tar -tzf "${ENV_ARCHIVE}" >/dev/null 2>&1; then
+  tar -xzf "${ENV_ARCHIVE}" -C "${TARGET_PREFIX}"
+else
+  echo "Unsupported or corrupted environment archive: ${ENV_ARCHIVE}" >&2
+  echo "Provide a conda-pack zip/tar.gz archive, even if you renamed the file extension." >&2
+  exit 1
+fi
 
 if [[ -x "${TARGET_PREFIX}/bin/conda-unpack" ]]; then
   "${TARGET_PREFIX}/bin/conda-unpack"

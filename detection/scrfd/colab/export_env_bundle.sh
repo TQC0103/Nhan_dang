@@ -14,7 +14,22 @@ ENV_PREFIX="${SCRFD_EXPORT_ENV_PREFIX:-${MAMBA_ROOT_PREFIX}/envs/${ENV_NAME}}"
 
 OUTPUT_DIR="${SCRFD_EXPORT_OUTPUT_DIR:-${WORKSPACE_ROOT}/scrfd_env_bundle}"
 BUNDLE_NAME="${SCRFD_EXPORT_BUNDLE_NAME:-${ENV_NAME}}"
-ENV_ARCHIVE="${OUTPUT_DIR}/${BUNDLE_NAME}.tar.gz"
+ARCHIVE_FORMAT="${SCRFD_EXPORT_ARCHIVE_FORMAT:-zip}"
+
+case "${ARCHIVE_FORMAT}" in
+  zip)
+    ENV_ARCHIVE="${OUTPUT_DIR}/${BUNDLE_NAME}.zip"
+    ;;
+  tar.gz|tgz)
+    ENV_ARCHIVE="${OUTPUT_DIR}/${BUNDLE_NAME}.tar.gz"
+    ARCHIVE_FORMAT="tar.gz"
+    ;;
+  *)
+    echo "Unsupported SCRFD_EXPORT_ARCHIVE_FORMAT: ${ARCHIVE_FORMAT}" >&2
+    echo "Use 'zip' or 'tar.gz'." >&2
+    exit 1
+    ;;
+esac
 
 FORCE_NONEDITABLE="${SCRFD_EXPORT_FORCE_NONEDITABLE:-1}"
 INSTALL_CONDA_PACK="${SCRFD_EXPORT_INSTALL_CONDA_PACK:-1}"
@@ -63,7 +78,7 @@ fi
 
 print_step "3/3" "Packing environment"
 rm -f "${ENV_ARCHIVE}"
-run_in_env conda-pack -p "${ENV_PREFIX}" -o "${ENV_ARCHIVE}" --ignore-missing-files
+run_in_env conda-pack -p "${ENV_PREFIX}" -o "${ENV_ARCHIVE}" --format "${ARCHIVE_FORMAT}" --ignore-missing-files
 
 cat <<EOF
 
@@ -75,7 +90,8 @@ Main artifact:
 Use this file as your offline Kaggle environment bundle.
 
 Notes:
-  - This script only exports the packed environment tarball.
+  - This script only exports the packed environment archive.
+  - Default format is .zip because it is usually more portable for Kaggle uploads than tarballs with Unix symlinks.
   - Your repo can be uploaded separately as a Kaggle Dataset.
   - The export reinstalls local SCRFD/MMDet as a non-editable package before packing,
     so the bundle does not depend on the original Colab path.

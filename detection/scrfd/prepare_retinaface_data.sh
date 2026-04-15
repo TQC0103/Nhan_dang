@@ -21,6 +21,11 @@ WIDER_TRAIN_URL="${WIDER_TRAIN_URL:-https://data.brainchip.com/dataset-mirror/wi
 WIDER_VAL_URL="${WIDER_VAL_URL:-https://data.brainchip.com/dataset-mirror/widerface/WIDER_val.zip}"
 WIDER_SPLIT_URL="${WIDER_SPLIT_URL:-https://data.brainchip.com/dataset-mirror/widerface/wider_face_split.zip}"
 ANNOTATION_GDRIVE_ID="${ANNOTATION_GDRIVE_ID:-1UW3KoApOhusyqSHX96yEDRYiNkd3Iv3Z}"
+ANNOTATION_URL="${ANNOTATION_URL:-}"
+ANNOTATION_ARCHIVE=""
+ANNOTATION_MIRROR_REPOS="${ANNOTATION_MIRROR_REPOS:-https://github.com/ShiqiYu/libfacedetection.train.git https://gitcode.com/gh_mirrors/li/libfacedetection.train.git}"
+ANNOTATION_MIRROR_BRANCH="${ANNOTATION_MIRROR_BRANCH:-master}"
+ANNOTATION_MIRROR_SUBDIR="${ANNOTATION_MIRROR_SUBDIR:-data/widerface/labelv2}"
 
 usage() {
   cat <<EOF
@@ -57,6 +62,15 @@ Options:
   --wider-split-url <u>  Override wider_face_split.zip URL.
   --annotation-gdrive-id <id>
                          Override the Google Drive file id for SCRFD annotation bundle.
+  --annotation-url <url> Override the annotation bundle URL and skip Google Drive.
+  --annotation-archive <path>
+                         Use a local annotation archive instead of downloading.
+  --annotation-mirror-repos "<repo1> <repo2>"
+                         Space-separated git repositories used as automatic fallback.
+  --annotation-mirror-branch <branch>
+                         Branch for mirror repository fallback. Default: ${ANNOTATION_MIRROR_BRANCH}
+  --annotation-mirror-subdir <path>
+                         Subdirectory inside mirror repo that contains SCRFD labels.
   --force                Replace existing destination entries
   -h, --help             Show this help
 
@@ -143,6 +157,106 @@ download_gdrive_file() {
     die "Need wget or curl to download Google Drive files"
   fi
   rm -f "${cookie_file}"
+}
+
+is_html_file() {
+  local path="$1"
+  [[ -f "${path}" ]] || return 1
+  if command -v file >/dev/null 2>&1; then
+    if file "${path}" 2>/dev/null | grep -qi 'HTML'; then
+      return 0
+    fi
+  fi
+  head -c 512 "${path}" 2>/dev/null | grep -qi '<!DOCTYPE html\|<html'
+}
+
+is_gdrive_quota_page() {
+  local path="$1"
+  [[ -f "${path}" ]] || return 1
+  grep -qi 'Google Drive - Quota exceeded\|Too many users have viewed or downloaded this file recently\|you can.t view or download this file at this time' "${path}" 2>/dev/null
+}
+
+extract_tar_archive() {
+  local archive_path="$1"
+  local dest_dir="$2"
+  require_command tar
+  mkdir -p "${dest_dir}"
+  tar -xf "${archive_path}" -C "${dest_dir}"
+}
+
+extract_annotation_archive() {
+  local archive_path="$1"
+  local dest_dir="$2"
+  if unzip -tqq "${archive_path}" >/dev/null 2>&1; then
+    extract_zip "${archive_path}" "${dest_dir}"
+    return 0
+  fi
+  if tar -tf "${archive_path}" >/dev/null 2>&1; then
+    extract_tar_archive "${archive_path}" "${dest_dir}"
+    return 0
+  fi
+  if command -v file >/dev/null 2>&1; then
+    if file "${archive_path}" 2>/dev/null | grep -qi 'Zip archive'; then
+      extract_zip "${archive_path}" "${dest_dir}"
+      return 0
+    fi
+    if file "${archive_path}" 2>/dev/null | grep -qi 'tar archive'; then
+      extract_tar_archive "${archive_path}" "${dest_dir}"
+      return 0
+    fi
+  fi
+  return 1
+}
+
+prepare_annotation_mirror_repo() {
+  local repo_url="$1"
+  local branch="$2"
+  local subdir="$3"
+  local repo_root="$4"
+  local sparse_ok=0
+  require_command git
+  rm -rf "${repo_root}"
+  mkdir -p "$(dirname "${repo_root}")"
+  if git clone --depth 1 --filter=blob:none --sparse -b "${branch}" "${repo_url}" "${repo_root}" >/dev/null 2>&1; then
+    sparse_ok=1
+  elif git clone --depth 1 -b "${branch}" "${repo_url}" "${repo_root}" >/dev/null 2>&1; then
+    sparse_ok=0
+  else
+    rm -rf "${repo_root}"
+    return 1
+  fi
+  if [[ "${sparse_ok}" == "1" ]]; then
+    if ! git -C "${repo_root}" sparse-checkout set "${subdir}" >/dev/null 2>&1; then
+      rm -rf "${repo_root}"
+      return 1
+    fi
+  fi
+  [[ -d "${repo_root}/${subdir}" ]] || {
+    rm -rf "${repo_root}"
+    return 1
+  }
+  printf '%s\n' "${repo_root}/${subdir}"
+}
+
+fetch_annotation_mirror_root() {
+  local dest_root="$1"
+  local repo_url=""
+  local repo_idx=0
+  local repo_root=""
+  for repo_url in ${ANNOTATION_MIRROR_REPOS}; do
+    repo_idx=$((repo_idx + 1))
+    repo_root="${dest_root}/repo_${repo_idx}"
+    echo "Trying annotation mirror: ${repo_url}" >&2
+    if prepare_annotation_mirror_repo \
+      "${repo_url}" \
+      "${ANNOTATION_MIRROR_BRANCH}" \
+      "${ANNOTATION_MIRROR_SUBDIR}" \
+      "${repo_root}"; then
+      printf '%s\n' "${repo_root}/${ANNOTATION_MIRROR_SUBDIR}"
+      return 0
+    fi
+  done
+  return 1
 }
 
 extract_zip() {
@@ -326,6 +440,26 @@ while [[ $# -gt 0 ]]; do
       ANNOTATION_GDRIVE_ID="$2"
       shift 2
       ;;
+    --annotation-url)
+      ANNOTATION_URL="$2"
+      shift 2
+      ;;
+    --annotation-archive)
+      ANNOTATION_ARCHIVE="$2"
+      shift 2
+      ;;
+    --annotation-mirror-repos)
+      ANNOTATION_MIRROR_REPOS="$2"
+      shift 2
+      ;;
+    --annotation-mirror-branch)
+      ANNOTATION_MIRROR_BRANCH="$2"
+      shift 2
+      ;;
+    --annotation-mirror-subdir)
+      ANNOTATION_MIRROR_SUBDIR="$2"
+      shift 2
+      ;;
     --force)
       FORCE=1
       shift
@@ -345,6 +479,10 @@ DEST_ROOT="$(mkdir -p "$(dirname "${DEST_ROOT}")" && cd "$(dirname "${DEST_ROOT}
 
 if [[ "${DOWNLOAD_ALL}" == "1" ]]; then
   DOWNLOAD_WIDERFACE=1
+  DOWNLOAD_ANNOTATIONS=1
+fi
+
+if [[ -n "${ANNOTATION_ARCHIVE}" || -n "${ANNOTATION_URL}" ]]; then
   DOWNLOAD_ANNOTATIONS=1
 fi
 
@@ -379,19 +517,51 @@ fi
 if [[ "${DOWNLOAD_ANNOTATIONS}" == "1" ]]; then
   ANN_DL_ROOT="${DOWNLOAD_ROOT}/annotations"
   mkdir -p "${ANN_DL_ROOT}"
-  ANN_ARCHIVE="${ANN_DL_ROOT}/scrfd_annotations_download"
-  echo "Downloading SCRFD annotation bundle into ${ANN_DL_ROOT}"
-  download_gdrive_file "${ANNOTATION_GDRIVE_ID}" "${ANN_ARCHIVE}"
-  if unzip -tqq "${ANN_ARCHIVE}" >/dev/null 2>&1; then
-    extract_zip "${ANN_ARCHIVE}" "${ANN_DL_ROOT}/extracted"
-    ANN_ROOT="${ANN_DL_ROOT}/extracted"
-  elif command -v file >/dev/null 2>&1 && file "${ANN_ARCHIVE}" 2>/dev/null | grep -qi 'Zip archive'; then
-    extract_zip "${ANN_ARCHIVE}" "${ANN_DL_ROOT}/extracted"
-    ANN_ROOT="${ANN_DL_ROOT}/extracted"
+  ANN_EXTRACT_ROOT="${ANN_DL_ROOT}/extracted"
+  ANN_MIRROR_ROOT="${ANN_DL_ROOT}/mirror"
+  if [[ -n "${ANNOTATION_ARCHIVE}" ]]; then
+    ANN_ARCHIVE="$(cd "$(dirname "${ANNOTATION_ARCHIVE}")" && pwd)/$(basename "${ANNOTATION_ARCHIVE}")"
+    [[ -f "${ANN_ARCHIVE}" ]] || die "Annotation archive not found: ${ANN_ARCHIVE}"
+    echo "Using local SCRFD annotation archive: ${ANN_ARCHIVE}"
   else
-    mkdir -p "${ANN_DL_ROOT}/extracted/train"
-    cp -f "${ANN_ARCHIVE}" "${ANN_DL_ROOT}/extracted/train/labelv2.txt"
-    ANN_ROOT="${ANN_DL_ROOT}/extracted"
+    ANN_ARCHIVE="${ANN_DL_ROOT}/scrfd_annotations_download"
+    if [[ -n "${ANNOTATION_URL}" ]]; then
+      echo "Downloading SCRFD annotation bundle from custom URL into ${ANN_DL_ROOT}"
+      download_file "${ANNOTATION_URL}" "${ANN_ARCHIVE}"
+    else
+      echo "Downloading SCRFD annotation bundle from Google Drive into ${ANN_DL_ROOT}"
+      download_gdrive_file "${ANNOTATION_GDRIVE_ID}" "${ANN_ARCHIVE}"
+    fi
+  fi
+
+  if is_gdrive_quota_page "${ANN_ARCHIVE}"; then
+    echo "Google Drive quota exceeded for SCRFD annotations. Falling back to annotation mirror repositories."
+    rm -f "${ANN_ARCHIVE}"
+    if ANN_ROOT="$(fetch_annotation_mirror_root "${ANN_MIRROR_ROOT}")"; then
+      echo "Using annotation mirror root: ${ANN_ROOT}"
+    else
+      die "Google Drive quota exceeded and all annotation mirrors failed. Use --annotation-archive <local_bundle>, --annotation-url <mirror_url>, or provide --ann-root/--train-label/--val-label/--gt-dir manually."
+    fi
+  fi
+
+  if [[ -z "${ANN_ROOT}" ]]; then
+    if is_html_file "${ANN_ARCHIVE}"; then
+      echo "Downloaded annotation file is HTML, not an archive. Falling back to annotation mirror repositories."
+      if ANN_ROOT="$(fetch_annotation_mirror_root "${ANN_MIRROR_ROOT}")"; then
+        echo "Using annotation mirror root: ${ANN_ROOT}"
+      else
+        die "Downloaded annotation file is HTML and annotation mirror fallback failed. Use --annotation-archive <local_bundle>, --annotation-url <mirror_url>, or provide --ann-root manually."
+      fi
+    elif extract_annotation_archive "${ANN_ARCHIVE}" "${ANN_EXTRACT_ROOT}"; then
+      ANN_ROOT="${ANN_EXTRACT_ROOT}"
+    else
+      echo "Unsupported annotation bundle format: ${ANN_ARCHIVE}. Falling back to annotation mirror repositories."
+      if ANN_ROOT="$(fetch_annotation_mirror_root "${ANN_MIRROR_ROOT}")"; then
+        echo "Using annotation mirror root: ${ANN_ROOT}"
+      else
+        die "Unsupported annotation bundle format: ${ANN_ARCHIVE}, and annotation mirror fallback failed. Expected a zip/tar archive with train/labelv2.txt, val/labelv2.txt, and val/gt."
+      fi
+    fi
   fi
 fi
 

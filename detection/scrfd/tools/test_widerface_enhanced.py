@@ -23,6 +23,7 @@ import numpy as np
 import csv
 import json
 import warnings
+import time
 from collections import OrderedDict
 
 import mmcv
@@ -234,7 +235,7 @@ def main():
     results_summary = {
         'config': args.config,
         'checkpoint': args.checkpoint,
-        'timestamp': mmcv.timestamp(),
+        'timestamp': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
         'easy_AP': float(aps[0]),
         'medium_AP': float(aps[1]),
         'hard_AP': float(aps[2]),

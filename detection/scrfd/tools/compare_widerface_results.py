@@ -2,6 +2,22 @@ import argparse
 import csv
 import json
 import os
+import os.path as osp
+
+
+def load_aps_summary(aps_path):
+    with open(aps_path, 'r', encoding='utf-8') as infile:
+        raw = infile.readline().strip()
+    values = [float(item) for item in raw.split(',') if item.strip()]
+    if len(values) != 3:
+        raise ValueError('Expected 3 comma-separated AP values in {}'.format(aps_path))
+    return {
+        'easy_AP': values[0],
+        'medium_AP': values[1],
+        'hard_AP': values[2],
+        'mAP': sum(values) / 3.0,
+        'source': aps_path,
+    }
 
 
 METRICS = ('easy_AP', 'medium_AP', 'hard_AP', 'mAP')
@@ -9,16 +25,32 @@ METRICS = ('easy_AP', 'medium_AP', 'hard_AP', 'mAP')
 
 def resolve_summary_path(path):
     if os.path.isdir(path):
-        candidate = os.path.join(path, 'results_summary.json')
-        if os.path.exists(candidate):
-            return candidate
+        json_candidate = os.path.join(path, 'results_summary.json')
+        if os.path.exists(json_candidate):
+            return json_candidate
+        aps_candidate = os.path.join(path, 'aps')
+        if os.path.exists(aps_candidate):
+            return aps_candidate
     return path
 
 
 def load_summary(path):
     summary_path = resolve_summary_path(path)
     if not os.path.exists(summary_path):
-        raise FileNotFoundError('Missing results summary: {}'.format(summary_path))
+        expected_json = osp.join(path, 'results_summary.json') if os.path.isdir(path) else summary_path
+        expected_aps = osp.join(path, 'aps') if os.path.isdir(path) else ''
+        raise FileNotFoundError(
+            'Missing comparison input: {}. Expected results_summary.json or aps{}'
+            .format(
+                summary_path,
+                ' under {}'.format(path) if expected_aps else '',
+            ))
+    if osp.isdir(summary_path):
+        raise IsADirectoryError(
+            '{} is a directory. Point to results_summary.json / aps, or pass the directory that contains them.'
+            .format(summary_path))
+    if osp.basename(summary_path) == 'aps':
+        return load_aps_summary(summary_path), summary_path
     with open(summary_path, 'r', encoding='utf-8') as infile:
         return json.load(infile), summary_path
 

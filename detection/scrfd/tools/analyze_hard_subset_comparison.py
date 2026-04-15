@@ -33,6 +33,22 @@ def resolve_prediction_dir(path):
     predictions_dir = osp.join(path, 'predictions')
     if osp.isdir(predictions_dir):
         return predictions_dir
+    if osp.isdir(path):
+        child_dirs = [osp.join(path, name) for name in os.listdir(path)]
+        child_dirs = [item for item in child_dirs if osp.isdir(item)]
+        if child_dirs:
+            for child_dir in child_dirs[:5]:
+                try:
+                    child_files = os.listdir(child_dir)
+                except OSError:
+                    continue
+                if any(file_name.endswith('.txt') for file_name in child_files):
+                    return path
+        raise FileNotFoundError(
+            'Prediction directory not found under {}. '
+            'This analysis needs per-image prediction txt files. '
+            'Re-run evaluation with --save-preds, or pass the predictions directory directly.'
+            .format(path))
     return path
 
 

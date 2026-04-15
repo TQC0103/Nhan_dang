@@ -24,6 +24,7 @@ ANNOTATION_GDRIVE_ID="${ANNOTATION_GDRIVE_ID:-1UW3KoApOhusyqSHX96yEDRYiNkd3Iv3Z}
 ANNOTATION_URL="${ANNOTATION_URL:-}"
 ANNOTATION_ARCHIVE=""
 ANNOTATION_MIRROR_REPOS="${ANNOTATION_MIRROR_REPOS:-https://github.com/ShiqiYu/libfacedetection.train.git https://gitcode.com/gh_mirrors/li/libfacedetection.train.git}"
+ANNOTATION_MIRROR_ARCHIVES="${ANNOTATION_MIRROR_ARCHIVES:-https://codeload.github.com/ShiqiYu/libfacedetection.train/zip/refs/heads/master}"
 ANNOTATION_MIRROR_BRANCH="${ANNOTATION_MIRROR_BRANCH:-master}"
 ANNOTATION_MIRROR_SUBDIR="${ANNOTATION_MIRROR_SUBDIR:-data/widerface/labelv2}"
 
@@ -67,6 +68,8 @@ Options:
                          Use a local annotation archive instead of downloading.
   --annotation-mirror-repos "<repo1> <repo2>"
                          Space-separated git repositories used as automatic fallback.
+  --annotation-mirror-archives "<url1> <url2>"
+                         Space-separated archive URLs used before git mirrors.
   --annotation-mirror-branch <branch>
                          Branch for mirror repository fallback. Default: ${ANNOTATION_MIRROR_BRANCH}
   --annotation-mirror-subdir <path>
@@ -104,14 +107,48 @@ require_command() {
   command -v "${cmd}" >/dev/null 2>&1 || die "Required command not found: ${cmd}"
 }
 
+is_msys_windows() {
+  case "${OSTYPE:-}" in
+    msys*|cygwin*|mingw*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+download_to_temp_then_move() {
+  local downloader="$1"
+  local source="$2"
+  local output="$3"
+  local temp_dir="${TMPDIR:-/tmp}"
+  local temp_file=""
+  mkdir -p "$(dirname "${output}")" "${temp_dir}"
+  temp_file="$(mktemp "${temp_dir}/scrfd_download_XXXXXX")"
+  if [[ "${downloader}" == "curl" ]]; then
+    curl -L "${source}" -o "${temp_file}"
+  elif [[ "${downloader}" == "wget" ]]; then
+    wget -c "${source}" -O "${temp_file}"
+  else
+    rm -f "${temp_file}"
+    die "Unsupported downloader: ${downloader}"
+  fi
+  mv -f "${temp_file}" "${output}"
+}
+
 download_file() {
   local url="$1"
   local output="$2"
   mkdir -p "$(dirname "${output}")"
   if command -v wget >/dev/null 2>&1; then
-    wget -c "${url}" -O "${output}"
+    if is_msys_windows; then
+      download_to_temp_then_move "wget" "${url}" "${output}"
+    else
+      wget -c "${url}" -O "${output}"
+    fi
   elif command -v curl >/dev/null 2>&1; then
-    curl -L "${url}" -o "${output}"
+    if is_msys_windows; then
+      download_to_temp_then_move "curl" "${url}" "${output}"
+    else
+      curl -L "${url}" -o "${output}"
+    fi
   else
     die "Need wget or curl to download files"
   fi
@@ -122,8 +159,14 @@ download_gdrive_file() {
   local output="$2"
   local cookie_file=""
   local confirm=""
+  local temp_output=""
   mkdir -p "$(dirname "${output}")"
   cookie_file="$(mktemp)"
+  if is_msys_windows; then
+    temp_output="$(mktemp "${TMPDIR:-/tmp}/scrfd_gdrive_XXXXXX")"
+  else
+    temp_output="${output}"
+  fi
   if command -v wget >/dev/null 2>&1; then
     confirm="$(
       wget --quiet \
@@ -135,9 +178,9 @@ download_gdrive_file() {
     if [[ -n "${confirm}" ]]; then
       wget --load-cookies "${cookie_file}" \
         "https://drive.google.com/uc?export=download&confirm=${confirm}&id=${file_id}" \
-        -O "${output}"
+        -O "${temp_output}"
     else
-      wget "https://drive.google.com/uc?export=download&id=${file_id}" -O "${output}"
+      wget "https://drive.google.com/uc?export=download&id=${file_id}" -O "${temp_output}"
     fi
   elif command -v curl >/dev/null 2>&1; then
     curl -c "${cookie_file}" -L \
@@ -147,9 +190,9 @@ download_gdrive_file() {
     if [[ -n "${confirm}" ]]; then
       curl -L -b "${cookie_file}" \
         "https://drive.google.com/uc?export=download&confirm=${confirm}&id=${file_id}" \
-        -o "${output}"
+        -o "${temp_output}"
     else
-      curl -L "https://drive.google.com/uc?export=download&id=${file_id}" -o "${output}"
+      curl -L "https://drive.google.com/uc?export=download&id=${file_id}" -o "${temp_output}"
     fi
     rm -f /tmp/gdrive_probe.html
   else
@@ -157,6 +200,9 @@ download_gdrive_file() {
     die "Need wget or curl to download Google Drive files"
   fi
   rm -f "${cookie_file}"
+  if [[ "${temp_output}" != "${output}" ]]; then
+    mv -f "${temp_output}" "${output}"
+  fi
 }
 
 is_html_file() {
@@ -240,9 +286,34 @@ prepare_annotation_mirror_repo() {
 
 fetch_annotation_mirror_root() {
   local dest_root="$1"
+  local archive_url=""
+  local archive_idx=0
+  local archive_path=""
+  local archive_extract_root=""
   local repo_url=""
   local repo_idx=0
   local repo_root=""
+  for archive_url in ${ANNOTATION_MIRROR_ARCHIVES}; do
+    archive_idx=$((archive_idx + 1))
+    archive_path="${dest_root}/archive_${archive_idx}"
+    archive_extract_root="${dest_root}/archive_${archive_idx}_extracted"
+    rm -rf "${archive_extract_root}"
+    mkdir -p "${dest_root}"
+    echo "Trying annotation mirror archive: ${archive_url}" >&2
+    if download_file "${archive_url}" "${archive_path}" >/dev/null 2>&1 \
+      && extract_annotation_archive "${archive_path}" "${archive_extract_root}" >/dev/null 2>&1; then
+      if [[ -d "${archive_extract_root}/${ANNOTATION_MIRROR_SUBDIR}" ]]; then
+        printf '%s\n' "${archive_extract_root}/${ANNOTATION_MIRROR_SUBDIR}"
+        return 0
+      fi
+      local located_root=""
+      located_root="$(find "${archive_extract_root}" -maxdepth 6 -type d -path "*/${ANNOTATION_MIRROR_SUBDIR}" 2>/dev/null | head -n 1)"
+      if [[ -n "${located_root}" ]]; then
+        printf '%s\n' "${located_root}"
+        return 0
+      fi
+    fi
+  done
   for repo_url in ${ANNOTATION_MIRROR_REPOS}; do
     repo_idx=$((repo_idx + 1))
     repo_root="${dest_root}/repo_${repo_idx}"
@@ -450,6 +521,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --annotation-mirror-repos)
       ANNOTATION_MIRROR_REPOS="$2"
+      shift 2
+      ;;
+    --annotation-mirror-archives)
+      ANNOTATION_MIRROR_ARCHIVES="$2"
       shift 2
       ;;
     --annotation-mirror-branch)

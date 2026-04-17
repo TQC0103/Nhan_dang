@@ -224,6 +224,7 @@ class AdaptiveRedistributionRuntime(object):
         self._last_difficulty = np.zeros((self.num_bins, ), dtype=np.float64)
         self.state_dir = None
         self.scale_state_path = None
+        self.scale_history_path = None
         self.epoch_log_dir = None
         self._epoch_stats = self._empty_epoch_stats()
 
@@ -249,6 +250,7 @@ class AdaptiveRedistributionRuntime(object):
         with self._lock:
             self.state_dir = state_dir
             self.scale_state_path = os.path.join(state_dir, 'current_scale_probs.json')
+            self.scale_history_path = os.path.join(state_dir, 'scale_prob_history.jsonl')
             self.epoch_log_dir = os.path.join(state_dir, 'epoch_logs')
             os.makedirs(self.epoch_log_dir, exist_ok=True)
             os.environ[get_state_dir_env_name(self.cfg['STATE_KEY'])] = state_dir
@@ -397,6 +399,13 @@ class AdaptiveRedistributionRuntime(object):
         with open(path, 'w', encoding='utf-8') as outfile:
             json.dump(payload, outfile, indent=2, sort_keys=True)
 
+    def _append_jsonl(self, path, payload):
+        if not path:
+            return
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'a', encoding='utf-8') as outfile:
+            outfile.write(json.dumps(payload, sort_keys=True) + '\n')
+
     def _write_scale_state_locked(self):
         if not self.scale_state_path:
             return
@@ -411,18 +420,28 @@ class AdaptiveRedistributionRuntime(object):
             },
         )
 
-    def flush_epoch(self, epoch, iteration, logger=None):
+    def record_scale_history(self, payload):
+        if not self.scale_history_path:
+            return
+        self._append_jsonl(self.scale_history_path, payload)
+
+    def flush_epoch(self, epoch, iteration, logger=None, record_history=True):
         with self._lock:
             self.current_epoch = int(epoch)
             self.current_iter = int(iteration)
             self._write_scale_state_locked()
             snapshot = self.snapshot()
+            snapshot['state_key'] = self.cfg['STATE_KEY']
+            snapshot['scheduler'] = 'adaptive_sr'
+            snapshot['record_type'] = 'epoch_end'
             if self.epoch_log_dir:
                 self._write_json(
                     os.path.join(self.epoch_log_dir, 'epoch_{:03d}.json'.format(int(epoch))),
                     snapshot,
                 )
                 self._write_json(os.path.join(self.state_dir, 'latest_summary.json'), snapshot)
+            if record_history:
+                self.record_scale_history(snapshot)
         if logger and (self.cfg['ADAPTIVE_SR_LOGGING'] or self.cfg['JSAR_LOGGING']):
             logger.info(
                 'Adaptive SR epoch %d | gt=%s pos=%s jsar_before=%s jsar_after=%s scale_probs=%s',
@@ -452,7 +471,11 @@ class AdaptiveRedistributionHook(Hook):
     def before_run(self, runner):
         state = get_redistribution_state(self.redistribution_cfg)
         state.attach_work_dir(runner.work_dir)
-        state.flush_epoch(runner.epoch + 1, runner.iter + 1, logger=runner.logger)
+        state.flush_epoch(
+            runner.epoch + 1,
+            runner.iter + 1,
+            logger=runner.logger,
+            record_history=False)
 
     def before_train_epoch(self, runner):
         get_redistribution_state(self.redistribution_cfg).start_epoch(runner.epoch + 1)

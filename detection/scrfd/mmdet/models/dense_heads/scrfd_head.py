@@ -161,6 +161,25 @@ class SCRFDHead(AnchorHead):
         self.gtgroup_count = {}
         for stride in self.anchor_generator.strides:
             self.pos_count[stride[0]] = 0
+        self.reset_sr_epoch_stats()
+
+    def reset_sr_epoch_stats(self):
+        self._sr_epoch_stats = dict(
+            pos_counts={
+                int(stride[0]): 0.0
+                for stride in self.anchor_generator.strides
+            },
+            loss_sums={
+                int(stride[0]): 0.0
+                for stride in self.anchor_generator.strides
+            },
+            iters=0)
+
+    def get_sr_epoch_stats(self):
+        return dict(
+            pos_counts=dict(self._sr_epoch_stats['pos_counts']),
+            loss_sums=dict(self._sr_epoch_stats['loss_sums']),
+            iters=int(self._sr_epoch_stats['iters']))
 
     def _get_conv_module(self, in_channel, out_channel):
         if not self.dw_conv:
@@ -730,6 +749,22 @@ class SCRFDHead(AnchorHead):
         if self.use_dfl:
             losses_dfl = list(map(lambda x: x / avg_factor, losses_dfl))
             losses['loss_dfl'] = losses_dfl
+        with torch.no_grad():
+            bg_class_ind = self.num_classes
+            stride_keys = [int(stride[0]) for stride in self.anchor_generator.strides]
+            for idx, stride_key in enumerate(stride_keys):
+                labels = labels_list[idx]
+                pos_mask = (labels >= 0) & (labels < bg_class_ind)
+                total_loss = float(losses_cls[idx].detach().item())
+                total_loss += float(losses_bbox[idx].detach().item())
+                if self.use_dfl:
+                    total_loss += float(losses_dfl[idx].detach().item())
+                if self.use_kps:
+                    total_loss += float(losses_kps[idx].detach().item())
+                self._sr_epoch_stats['pos_counts'][stride_key] += float(
+                    pos_mask.sum().item())
+                self._sr_epoch_stats['loss_sums'][stride_key] += total_loss
+            self._sr_epoch_stats['iters'] += 1
         return losses
 
     @force_fp32(apply_to=('cls_scores', 'bbox_preds', 'kps_preds'))

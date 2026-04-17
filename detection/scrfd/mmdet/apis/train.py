@@ -7,6 +7,7 @@ from mmcv.runner import (HOOKS, DistSamplerSeedHook, EpochBasedRunner,
                          Fp16OptimizerHook, OptimizerHook, build_optimizer)
 from mmcv.utils import build_from_cfg
 from mmdet.core.sample_redistribution import AdaptiveRedistributionHook  # noqa:F401
+from mmdet.core.online_scheduler_handoff import OnlineSchedulerHandoffHook  # noqa:F401
 
 from mmdet.core import DistEvalHook, EvalHook
 from mmdet.datasets import (build_dataloader, build_dataset,

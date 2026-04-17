@@ -206,6 +206,90 @@ run_one_experiment() {
   fi
 }
 
+queue_pids=()
+queue_names=()
+
+run_gpu_queue() {
+  local phase="$1"
+  local gpu="$2"
+  shift 2
+  local queue_name="gpu${gpu}_${phase}"
+  (
+    local entry=""
+    for entry in "$@"; do
+      IFS='|' read -r name config batch_size workers manual_lr extra_options <<< "${entry}"
+      echo "[${phase}] queue=${queue_name} experiment=${name} gpu=${gpu}"
+      case "${phase}" in
+        train)
+          run_one_experiment "${name}" "${config}" "${gpu}" "${batch_size}" "${workers}" "${manual_lr}" "${extra_options}"
+          ;;
+        *)
+          echo "Unsupported phase: ${phase}" >&2
+          exit 1
+          ;;
+      esac
+    done
+  ) &
+  queue_pids+=("$!")
+  queue_names+=("${queue_name}")
+}
+
+wait_for_queues() {
+  local idx=0
+  for idx in "${!queue_pids[@]}"; do
+    local pid="${queue_pids[$idx]}"
+    local name="${queue_names[$idx]}"
+    if ! wait "${pid}"; then
+      echo "Queue failed: ${name} (pid=${pid})" >&2
+      exit 1
+    fi
+  done
+  queue_pids=()
+  queue_names=()
+}
+
+collect_unique_gpus() {
+  local values=("$@")
+  local seen=""
+  local gpu=""
+  local output=()
+  for gpu in "${values[@]}"; do
+    if [[ " ${seen} " == *" ${gpu} "* ]]; then
+      continue
+    fi
+    seen="${seen} ${gpu}"
+    output+=("${gpu}")
+  done
+  printf '%s\n' "${output[@]}"
+}
+
+run_parallel_queues() {
+  local queue_label="$1"
+  shift
+  local gpu=""
+  local entries=("$@")
+  mapfile -t unique_gpus < <(collect_unique_gpus \
+    "${BASELINE_GPU}" \
+    "${OSH_GPU}" \
+    "${ASR_JSAR_GPU}" \
+    "${COMBO_GPU}")
+  local gpu_entries=()
+  local entry=""
+  for gpu in "${unique_gpus[@]}"; do
+    gpu_entries=()
+    for entry in "${entries[@]}"; do
+      IFS='|' read -r _name _config _exp_gpu _batch _workers _lr _extra <<< "${entry}"
+      if [[ "${_exp_gpu}" == "${gpu}" ]]; then
+        gpu_entries+=("$(printf '%s|%s|%s|%s|%s|%s\n' "${_name}" "${_config}" "${_batch}" "${_workers}" "${_lr}" "${_extra}")")
+      fi
+    done
+    if (( ${#gpu_entries[@]} > 0 )); then
+      run_gpu_queue "${queue_label}" "${gpu}" "${gpu_entries[@]}"
+    fi
+  done
+  wait_for_queues
+}
+
 mkdir -p "${WORK_ROOT}" "${RESULT_ROOT}" "${LOG_DIR}" "${COMPARE_RESULT_DIR}"
 cd "${REPO_ROOT}"
 
@@ -214,41 +298,43 @@ require_config "ASR_JSAR_CONFIG" "${ASR_JSAR_CONFIG}"
 require_config "OSH_CONFIG" "${OSH_CONFIG}"
 require_config "COMBO_CONFIG" "${COMBO_CONFIG}"
 
-run_one_experiment \
-  "baseline" \
-  "${BASELINE_CONFIG}" \
-  "${BASELINE_GPU}" \
-  "${BASELINE_BATCH_SIZE_PER_GPU}" \
-  "${BASELINE_WORKERS_PER_GPU}" \
-  "${BASELINE_LR}" \
-  "${BASELINE_EXTRA_CFG_OPTIONS}"
+phase_entries=(
+  "$(printf '%s|%s|%s|%s|%s|%s|%s\n' \
+    "baseline" \
+    "${BASELINE_CONFIG}" \
+    "${BASELINE_GPU}" \
+    "${BASELINE_BATCH_SIZE_PER_GPU}" \
+    "${BASELINE_WORKERS_PER_GPU}" \
+    "${BASELINE_LR}" \
+    "${BASELINE_EXTRA_CFG_OPTIONS}")"
+  "$(printf '%s|%s|%s|%s|%s|%s|%s\n' \
+    "online_scheduler_handoff" \
+    "${OSH_CONFIG}" \
+    "${OSH_GPU}" \
+    "${OSH_BATCH_SIZE_PER_GPU}" \
+    "${OSH_WORKERS_PER_GPU}" \
+    "${OSH_LR}" \
+    "${OSH_EXTRA_CFG_OPTIONS}")"
+  "$(printf '%s|%s|%s|%s|%s|%s|%s\n' \
+    "asr_jsar" \
+    "${ASR_JSAR_CONFIG}" \
+    "${ASR_JSAR_GPU}" \
+    "${ASR_JSAR_BATCH_SIZE_PER_GPU}" \
+    "${ASR_JSAR_WORKERS_PER_GPU}" \
+    "${ASR_JSAR_LR}" \
+    "${ASR_JSAR_EXTRA_CFG_OPTIONS}")"
+  "$(printf '%s|%s|%s|%s|%s|%s|%s\n' \
+    "online_scheduler_handoff_asr_jsar" \
+    "${COMBO_CONFIG}" \
+    "${COMBO_GPU}" \
+    "${COMBO_BATCH_SIZE_PER_GPU}" \
+    "${COMBO_WORKERS_PER_GPU}" \
+    "${COMBO_LR}" \
+    "${COMBO_EXTRA_CFG_OPTIONS}")"
+)
 
-run_one_experiment \
-  "online_scheduler_handoff" \
-  "${OSH_CONFIG}" \
-  "${OSH_GPU}" \
-  "${OSH_BATCH_SIZE_PER_GPU}" \
-  "${OSH_WORKERS_PER_GPU}" \
-  "${OSH_LR}" \
-  "${OSH_EXTRA_CFG_OPTIONS}"
-
-run_one_experiment \
-  "asr_jsar" \
-  "${ASR_JSAR_CONFIG}" \
-  "${ASR_JSAR_GPU}" \
-  "${ASR_JSAR_BATCH_SIZE_PER_GPU}" \
-  "${ASR_JSAR_WORKERS_PER_GPU}" \
-  "${ASR_JSAR_LR}" \
-  "${ASR_JSAR_EXTRA_CFG_OPTIONS}"
-
-run_one_experiment \
-  "online_scheduler_handoff_asr_jsar" \
-  "${COMBO_CONFIG}" \
-  "${COMBO_GPU}" \
-  "${COMBO_BATCH_SIZE_PER_GPU}" \
-  "${COMBO_WORKERS_PER_GPU}" \
-  "${COMBO_LR}" \
-  "${COMBO_EXTRA_CFG_OPTIONS}"
+echo "[queue] running experiments in parallel across GPU queues"
+run_parallel_queues train "${phase_entries[@]}"
 
 if [[ "${SKIP_COMPARE}" != "1" ]]; then
   echo "[compare] building ablation report"

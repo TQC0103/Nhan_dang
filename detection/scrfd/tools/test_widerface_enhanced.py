@@ -58,6 +58,10 @@ def parse_args():
     parser.add_argument('--debug', action='store_true', help='debug mode')
     parser.add_argument('--thr', type=float, default=0.02, help='score threshold')
     parser.add_argument('--mode', type=int, default=0, help='test mode')
+    parser.add_argument(
+        '--device',
+        default='auto',
+        help='Device to run inference on. Use "auto", "cpu", or "cuda:0".')
     parser.add_argument('--local_rank', type=int, default=0)
     args = parser.parse_args()
     args.config = args.config_option or args.config
@@ -103,6 +107,24 @@ def save_results_csv(results, output_file):
                         len(boxes),
                         box[0], box[1], box[2], box[3], box[4]
                     ])
+
+
+def resolve_device(device_arg):
+    if device_arg == 'auto':
+        return torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    return torch.device(device_arg)
+
+
+def unwrap_cpu_data(data):
+    if isinstance(data.get('img_metas'), list):
+        data['img_metas'] = data['img_metas'][0].data[0]
+    if isinstance(data.get('img'), list):
+        first = data['img'][0]
+        if torch.is_tensor(first):
+            data['img'] = first
+        elif hasattr(first, 'data'):
+            data['img'] = first.data[0]
+    return data
 
 
 def main():
@@ -178,7 +200,12 @@ def main():
     else:
         model.CLASSES = dataset.CLASSES
 
-    model = MMDataParallel(model, device_ids=[0])
+    device = resolve_device(args.device)
+    if device.type == 'cuda':
+        model = model.to(device)
+        model = MMDataParallel(model, device_ids=[device.index if device.index is not None else 0])
+    else:
+        model = model.cpu()
     model.eval()
 
     # Create output directory
@@ -190,11 +217,16 @@ def main():
 
     for i, data in enumerate(data_loader):
         with torch.no_grad():
-            result = model(return_loss=False, rescale=True, **data)
+            if device.type == 'cuda':
+                result = model(return_loss=False, rescale=True, **data)
+                img_metas = data['img_metas'][0].data[0][0]
+            else:
+                data = unwrap_cpu_data(data)
+                result = model(return_loss=False, rescale=True, **data)
+                img_metas = data['img_metas'][0]
 
         assert len(result) == 1
         result = result[0][0]
-        img_metas = data['img_metas'][0].data[0][0]
         filepath = img_metas['ori_filename']
         det_scale = img_metas['scale_factor'][0]
         ori_shape = img_metas['ori_shape']

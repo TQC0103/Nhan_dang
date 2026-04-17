@@ -1,17 +1,22 @@
 import argparse
+import ast
 import csv
 import glob
 import json
 import math
 import os
 import os.path as osp
+import runpy
 
 import numpy as np
 
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from mmcv import Config
+try:
+    from mmcv import Config  # type: ignore
+except ImportError:  # pragma: no cover - optional fallback for offline analysis
+    Config = None
 
 from scale_prob_history_utils import average_scale_probs, load_scale_prob_records, normalize_probs
 
@@ -79,11 +84,61 @@ def parse_args():
 
 
 def load_config(config_path):
-    cfg = Config.fromfile(config_path)
-    if cfg.get('custom_imports', None):
-        from mmcv.utils import import_modules_from_strings
-        import_modules_from_strings(**cfg['custom_imports'])
-    return cfg
+    if Config is not None:
+        cfg = Config.fromfile(config_path)
+        if cfg.get('custom_imports', None):
+            from mmcv.utils import import_modules_from_strings
+            import_modules_from_strings(**cfg['custom_imports'])
+        return cfg
+    return load_python_config_fallback(config_path)
+
+
+def read_base_refs(config_path):
+    with open(config_path, 'r', encoding='utf-8') as infile:
+        source = infile.read()
+    tree = ast.parse(source, filename=config_path)
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Name) and target.id == '_base_':
+                return ast.literal_eval(node.value)
+    return None
+
+
+def normalize_base_list(base_refs):
+    if base_refs is None:
+        return []
+    if isinstance(base_refs, (list, tuple)):
+        return list(base_refs)
+    return [base_refs]
+
+
+def merge_namespaces(dst, src):
+    for key, value in src.items():
+        if key.startswith('__') and key.endswith('__'):
+            continue
+        dst[key] = value
+    return dst
+
+
+def load_python_config_fallback(config_path):
+    config_path = osp.abspath(config_path)
+    namespace = {}
+    for base_ref in normalize_base_list(read_base_refs(config_path)):
+        base_path = base_ref if osp.isabs(base_ref) else osp.normpath(osp.join(osp.dirname(config_path), base_ref))
+        base_ns = load_python_config_fallback(base_path)
+        merge_namespaces(namespace, base_ns)
+    current_ns = runpy.run_path(config_path, init_globals=dict(namespace))
+    merge_namespaces(namespace, current_ns)
+    namespace['_filename'] = config_path
+    return namespace
+
+
+def get_cfg_value(cfg, key, default=None):
+    if isinstance(cfg, dict):
+        return cfg.get(key, default)
+    return getattr(cfg, key, default)
 
 
 def find_random_square_crop(pipeline):
@@ -95,7 +150,16 @@ def find_random_square_crop(pipeline):
 
 
 def get_pipeline_crop_policy(cfg):
-    pipeline = cfg.data.train.pipeline if 'data' in cfg and 'train' in cfg.data else cfg.train_pipeline
+    data_cfg = get_cfg_value(cfg, 'data', None)
+    if data_cfg is not None:
+        train_cfg = get_cfg_value(data_cfg, 'train', None)
+        pipeline = get_cfg_value(train_cfg, 'pipeline', None) if train_cfg is not None else None
+    else:
+        pipeline = None
+    if pipeline is None:
+        pipeline = get_cfg_value(cfg, 'train_pipeline', None)
+    if pipeline is None:
+        raise ValueError('Could not find train pipeline in config.')
     crop_cfg = find_random_square_crop(pipeline)
     crop_choice = [float(x) for x in crop_cfg['crop_choice']]
     crop_weights = crop_cfg.get('crop_choice_weights', None)
@@ -103,7 +167,7 @@ def get_pipeline_crop_policy(cfg):
         crop_weights = [1.0 / len(crop_choice) for _ in crop_choice]
     else:
         crop_weights = normalize_probs(crop_weights)
-    redistribution_cfg = crop_cfg.get('adaptive_sr', cfg.get('redistribution_cfg', None))
+    redistribution_cfg = crop_cfg.get('adaptive_sr', get_cfg_value(cfg, 'redistribution_cfg', None))
     warmup_epochs = 0
     if redistribution_cfg is not None:
         warmup_epochs = int(redistribution_cfg.get('ADAPTIVE_SR_WARMUP_EPOCHS', 0))

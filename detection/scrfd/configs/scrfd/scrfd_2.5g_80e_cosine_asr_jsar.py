@@ -1,6 +1,7 @@
 _base_ = ['./scrfd_2.5g_80e_asr_jsar.py']
 
 lr_config = dict(
+    _delete_=True,
     policy='CosineAnnealing',
     warmup='linear',
     warmup_iters=1500,

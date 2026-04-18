@@ -1,12 +1,26 @@
 import argparse
 import csv
+import importlib.util
 import json
 import os
 import os.path as osp
+import sys
 
 import numpy as np
 
-from mmdet.core.evaluation.widerface import get_preds, get_widerface_gts
+SCRFD_ROOT = osp.abspath(osp.join(osp.dirname(__file__), '..'))
+if SCRFD_ROOT not in sys.path:
+    sys.path.insert(0, SCRFD_ROOT)
+
+WIDERFACE_PATH = osp.join(SCRFD_ROOT, 'mmdet', 'core', 'evaluation', 'widerface.py')
+WIDERFACE_SPEC = importlib.util.spec_from_file_location('scrfd_widerface_eval', WIDERFACE_PATH)
+if WIDERFACE_SPEC is None or WIDERFACE_SPEC.loader is None:
+    raise ImportError('Could not load widerface.py from {}'.format(WIDERFACE_PATH))
+WIDERFACE_MODULE = importlib.util.module_from_spec(WIDERFACE_SPEC)
+WIDERFACE_SPEC.loader.exec_module(WIDERFACE_MODULE)
+
+get_preds = WIDERFACE_MODULE.get_preds
+get_widerface_gts = WIDERFACE_MODULE.get_widerface_gts
 
 
 DEFAULT_SIZE_BINS = [0.0, 8.0, 16.0, 32.0, 64.0, 128.0, 1e8]
@@ -30,10 +44,36 @@ def parse_args():
 
 
 def resolve_prediction_dir(path):
+    def looks_like_prediction_root(candidate):
+        if not osp.isdir(candidate):
+            return False
+        for child_name in os.listdir(candidate):
+            child_dir = osp.join(candidate, child_name)
+            if not osp.isdir(child_dir):
+                continue
+            try:
+                child_files = os.listdir(child_dir)
+            except OSError:
+                continue
+            if any(file_name.endswith('.txt') for file_name in child_files):
+                return True
+        return False
+
     predictions_dir = osp.join(path, 'predictions')
+    nested_predictions_dir = osp.join(predictions_dir, 'predictions')
+    if looks_like_prediction_root(nested_predictions_dir):
+        return nested_predictions_dir
     if osp.isdir(predictions_dir):
+        nested_predictions_dir = osp.join(path, 'predictions')
+        if looks_like_prediction_root(nested_predictions_dir):
+            return nested_predictions_dir
         return predictions_dir
     if osp.isdir(path):
+        nested_predictions_dir = osp.join(path, 'predictions')
+        if looks_like_prediction_root(nested_predictions_dir):
+            return nested_predictions_dir
+        if looks_like_prediction_root(path):
+            return path
         child_dirs = [osp.join(path, name) for name in os.listdir(path)]
         child_dirs = [item for item in child_dirs if osp.isdir(item)]
         if child_dirs:

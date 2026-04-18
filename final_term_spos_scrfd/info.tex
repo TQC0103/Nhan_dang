@@ -1,0 +1,60 @@
+\chapter*{Thông tin chung}
+\addcontentsline{toc}{chapter}{Thông tin chung}
+
+\noindent
+\begin{tabular}{@{}l l@{}}
+  \textbf{Tên môn học:} & Nhận dạng \\
+  \textbf{Mã môn học:} & CSC14006 \\
+  \textbf{Lớp:} & 23KHMT \\
+  \textbf{Học kỳ:} & 2 \\
+  \textbf{Năm học:} & 2025--2026 \\
+  \textbf{Mã nguồn:} & \url{https://github.com/TQC0103/Nhan_dang} \\[4pt]
+  \textbf{Giảng viên:} & Thầy Võ Thanh Lâm \\
+  & Thầy Lê Hoàng Thái \\
+  & Thầy Nguyễn Thanh Tình \\[6pt]
+  \textbf{Sinh viên:} & 23127333 Trương Quốc Cường \\
+  & 23127011 Lê Anh Duy \\
+  & 23127199 Trần Gia Huy \\
+\end{tabular}
+
+\section*{Thông tin đề tài}
+\phantomsection
+\addcontentsline{toc}{section}{Thông tin đề tài}
+
+\begin{itemize}
+  \item \textbf{Chủ đề:} Tái hiện quy trình \textit{Sample and Computation Redistribution for Efficient Face Detection} bằng một Supernet SPOS-NAS gọn nhẹ trong miền 2.5 GFLOPs.
+  \item \textbf{Bài báo nền tảng:} \textit{Sample and Computation Redistribution for Efficient Face Detection} của Jia Guo, Jiankang Deng, Alexandros Lattas và Stefanos Zafeiriou, công bố tại ICLR 2022. \cite{guo2022scrfd}
+  \item \textbf{Dữ liệu:} WIDER FACE, gồm 12\,876 ảnh train và 3\,222 ảnh validation. \cite{yang2016widerface}
+  \item \textbf{Mục tiêu cuối kì:} xây dựng pipeline NAS có thể huấn luyện trong ngân sách 6 giờ trên Kaggle T4, đánh giá hơn 1\,000 kiến trúc hợp lệ, và rút ra quy luật phân bổ tính toán phù hợp cho detector khuôn mặt nhỏ.
+  \item \textbf{Phạm vi:} ưu tiên tái hiện nguyên lý SCRFD trong điều kiện tài nguyên hạn chế; dùng proxy heatmap task thay vì huấn luyện detector đầy đủ nhiều trăm epoch; đánh giá bằng proxy validation loss thay cho AP cuối cùng.
+  \item \textbf{Đầu ra chính:} báo cáo kỹ thuật LaTeX, slide thuyết trình cuối kì và một kiến trúc ứng viên tốt nhất thỏa ràng buộc 2.5 GFLOPs.
+\end{itemize}
+
+\clearpage
+\section*{Phân công thực hiện}
+\phantomsection
+\addcontentsline{toc}{section}{Phân công thực hiện}
+
+\begingroup
+\renewcommand{\arraystretch}{1.20}
+\small
+\begin{longtable}{@{}>{\RaggedRight\arraybackslash}p{0.22\textwidth}>{\RaggedRight\arraybackslash}p{0.74\textwidth}@{}}
+\toprule
+\textbf{Thành viên} & \textbf{Nội dung phụ trách} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Thành viên} & \textbf{Nội dung phụ trách} \\
+\midrule
+\endhead
+Trương Quốc Cường &
+Thiết kế cấu trúc báo cáo cuối kì, tổng hợp phần động lực bài toán, cấu hình thực nghiệm và tổ chức lại template LaTeX; kiểm tra pipeline compile và hoàn thiện slide. \\
+\midrule
+Lê Anh Duy &
+Phân tích Supernet, không gian tìm kiếm SPOS-NAS, cơ chế Sample Redistribution và các kết quả NAS chính; tổng hợp bảng, biểu đồ và diễn giải kỹ thuật. \\
+\midrule
+Trần Gia Huy &
+Phân tích ablation V1--V2, thảo luận về Funnel Principle, BatchNorm recalibration, hạn chế của proxy loss và đề xuất hướng phát triển tiếp theo. \\
+\bottomrule
+\end{longtable}
+\endgroup

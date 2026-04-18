@@ -1,0 +1,181 @@
+% !TEX TS-program = xelatex
+% !TEX encoding = UTF-8 Unicode
+\documentclass[10pt,a4paper]{report}
+
+\usepackage[a4paper,left=0.75in,right=0.75in,top=1in,bottom=1in]{geometry}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[utf8]{inputenc}
+  \usepackage[T1]{fontenc}
+  \usepackage{lmodern}
+\else
+  \usepackage{fontspec}
+  \IfFileExists{LibertinusSerif-Regular.otf}{%
+    \setmainfont{LibertinusSerif-Regular.otf}[%
+      BoldFont=LibertinusSerif-Bold.otf,%
+      ItalicFont=LibertinusSerif-Italic.otf,%
+      BoldItalicFont=LibertinusSerif-BoldItalic.otf%
+    ]
+    \setsansfont{LibertinusSans-Regular.otf}[%
+      BoldFont=LibertinusSans-Bold.otf,%
+      ItalicFont=LibertinusSans-Italic.otf,%
+      BoldItalicFont=LibertinusSans-BoldItalic.otf%
+    ]
+    \setmonofont{LibertinusMono-Regular.otf}
+  }{%
+    \setmainfont{Latin Modern Roman}
+    \setsansfont{Latin Modern Sans}
+    \setmonofont{Latin Modern Mono}
+  }
+\fi
+
+\usepackage{microtype}
+\usepackage{etoolbox}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{ragged2e}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\DeclareMathSizes{13}{12}{9}{6}
+\usepackage{tikz}
+\usetikzlibrary{calc,matrix,arrows.meta,shapes.geometric}
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+\usepackage{textcomp}
+\usepackage{xparse}
+\usepackage{titlesec}
+
+\renewcommand{\contentsname}{Mục lục}
+\renewcommand{\listfigurename}{Danh mục hình}
+\renewcommand{\listtablename}{Danh mục bảng}
+\renewcommand{\figurename}{Hình}
+\renewcommand{\tablename}{Bảng}
+\renewcommand{\chaptername}{Chương}
+
+\usepackage[backend=biber,style=ieee]{biblatex}
+\addbibresource{references.bib}
+\setcounter{biburlnumpenalty}{100}
+\setcounter{biburlucpenalty}{100}
+\setcounter{biburllcpenalty}{100}
+
+\newif\ifhascites
+\hascitesfalse
+\AtBeginDocument{%
+  \pretocmd{\cite}{\global\hascitestrue}{}{}%
+  \pretocmd{\parencite}{\global\hascitestrue}{}{}%
+  \pretocmd{\textcite}{\global\hascitestrue}{}{}%
+  \pretocmd{\footcite}{\global\hascitestrue}{}{}%
+  \pretocmd{\autocite}{\global\hascitestrue}{}{}%
+}
+
+\graphicspath{{figures/}{assets/}}
+
+\renewcommand{\thechapter}{\Roman{chapter}}
+\renewcommand{\thesection}{\arabic{section}}
+\renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
+\renewcommand{\thesubsubsection}{\thesubsection.\arabic{subsubsection}}
+\renewcommand{\theparagraph}{\thesubsubsection.\arabic{paragraph}}
+\renewcommand{\thesubparagraph}{\alph{subparagraph}}
+\setcounter{secnumdepth}{5}
+\setcounter{tocdepth}{1}
+
+\makeatletter
+\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
+  {1.0ex \@plus .2ex \@minus .2ex}%
+  {0.6ex \@plus .2ex}%
+  {\normalfont\bfseries\fontsize{10pt}{12.5pt}\selectfont}}
+\renewcommand\subparagraph{\@startsection{subparagraph}{5}{\z@}%
+  {1.0ex \@plus .2ex \@minus .2ex}%
+  {0.6ex \@plus .2ex}%
+  {\normalfont\bfseries\fontsize{10pt}{12.5pt}\selectfont}}
+\makeatother
+
+\let\origchapter\chapter
+\RenewDocumentCommand{\chapter}{s o m}{%
+  \IfBooleanTF{#1}{%
+    \IfNoValueTF{#2}{\origchapter*{#3}}{\origchapter*[#2]{#3}}%
+  }{%
+    \IfNoValueTF{#2}{\origchapter{\MakeUppercase{#3}}}{\origchapter[#2]{\MakeUppercase{#3}}}%
+  }%
+}
+
+\makeatletter
+\renewcommand\tableofcontents{%
+  \chapter*{\contentsname}%
+  \@starttoc{toc}%
+}
+\renewcommand\listoffigures{%
+  \chapter*{\listfigurename}%
+  \@starttoc{lof}%
+}
+\renewcommand\listoftables{%
+  \chapter*{\listtablename}%
+  \@starttoc{lot}%
+}
+\makeatother
+
+\titleformat{\section}
+  {\normalfont\bfseries\fontsize{15pt}{18pt}\selectfont}
+  {\thesection}{1em}{}
+
+\setlist[itemize,1]{label=\textbullet,leftmargin=*,labelsep=0.5em}
+\setlist[itemize,2]{label=\textopenbullet,leftmargin=*,labelsep=0.5em}
+\providecommand{\ListStartPar}{\par}
+\setlist[description]{style=nextline,afterlabel=\ListStartPar}
+\BeforeBeginEnvironment{itemize}{\par}
+\setstretch{1.15}
+\raggedbottom
+
+\newcommand{\codefile}[1]{\texttt{\detokenize{#1}}}
+
+\title{Báo cáo cuối kì môn Nhận dạng}
+\author{}
+\date{18/04/2026}
+
+\begin{document}
+\input{cover.tex}
+\clearpage
+
+\fontsize{10pt}{12.5pt}\selectfont
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\input{preface.tex}
+\clearpage
+\input{info.tex}
+\clearpage
+
+\tableofcontents
+\clearpage
+\listoffigures
+\addcontentsline{toc}{chapter}{Danh mục hình}
+\clearpage
+\input{used_images.tex}
+\clearpage
+\listoftables
+\addcontentsline{toc}{chapter}{Danh mục bảng}
+\clearpage
+\chapter*{Thuật ngữ và chữ viết tắt}
+\addcontentsline{toc}{chapter}{Thuật ngữ và chữ viết tắt}
+\input{Glossary.tex}
+\clearpage
+
+\input{report_content.tex}
+\clearpage
+\chapter*{Tài liệu tham khảo}
+\addcontentsline{toc}{chapter}{Tài liệu tham khảo}
+\ifhascites
+  \printbibliography[heading=none]
+\else
+  \noindent Không có trích dẫn nào trong nội dung, nên danh mục tài liệu tham khảo đang rỗng.
+\fi
+
+\end{document}

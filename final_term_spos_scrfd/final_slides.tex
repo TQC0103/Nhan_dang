@@ -1,0 +1,301 @@
+% !TEX TS-program = xelatex
+% !TEX encoding = UTF-8 Unicode
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{default}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{caption}[numbered]
+
+\setbeamerfont{title}{size=\Large}
+\setbeamerfont{author}{size=\large}
+\setbeamerfont{institute}{size=\large}
+\setbeamerfont{date}{size=\large}
+
+\AtBeginSection[]{%
+  \begin{frame}[plain,noframenumbering]
+    \vfill
+    \centering
+    \begin{minipage}{0.9\textwidth}
+      \centering
+      {\usebeamercolor[fg]{structure}\bfseries\LARGE\insertsectionhead\par}
+    \end{minipage}
+    \vfill
+  \end{frame}
+}
+
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[utf8]{inputenc}
+  \usepackage[T1]{fontenc}
+  \usepackage{lmodern}
+\else
+  \usepackage{fontspec}
+  \setmainfont{Latin Modern Roman}
+  \setsansfont{Latin Modern Sans}
+  \setmonofont{Latin Modern Mono}
+\fi
+
+\usepackage{microtype}
+\usepackage{etoolbox}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{xurl}
+\usepackage{tikz}
+\usetikzlibrary{positioning, fit, arrows.meta, shapes.geometric, backgrounds, calc}
+\hypersetup{hidelinks}
+
+\usepackage[backend=biber,style=ieee]{biblatex}
+\addbibresource{references.bib}
+\setcounter{biburlnumpenalty}{100}
+\setcounter{biburlucpenalty}{100}
+\setcounter{biburllcpenalty}{100}
+
+\graphicspath{{figures/}{assets/}}
+
+\newif\ifhascites
+\hascitesfalse
+\AtBeginDocument{%
+  \pretocmd{\cite}{\global\hascitestrue}{}{}%
+  \pretocmd{\parencite}{\global\hascitestrue}{}{}%
+  \pretocmd{\textcite}{\global\hascitestrue}{}{}%
+  \pretocmd{\footcite}{\global\hascitestrue}{}{}%
+  \pretocmd{\autocite}{\global\hascitestrue}{}{}%
+}
+
+\title[Final -- Nhận dạng]{Báo cáo cuối kì: Tái hiện nguyên lý SCRFD bằng SPOS-NAS\\trong miền 2.5 GFLOPs}
+\author[Nhóm 23KHMT]{23127333 Trương Quốc Cường \and 23127011 Lê Anh Duy \and 23127199 Trần Gia Huy}
+\institute[HCMUS]{CSC14006 -- Nhận dạng\\Trường ĐH Khoa học Tự nhiên, ĐHQG-HCM}
+\date[18/04/2026]{TP. Hồ Chí Minh, ngày 18 tháng 4 năm 2026}
+\titlegraphic{\includegraphics[width=0.16\textwidth]{assets/HCMUS.png}}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Mục lục}
+  \tableofcontents
+\end{frame}
+
+\section{Bài toán}
+
+\begin{frame}{Động lực của đề tài}
+  \begin{itemize}
+    \setlength{\itemsep}{6pt}
+    \item Detector khuôn mặt nhỏ thường bị giới hạn bởi chi phí tính toán nếu chỉ tăng độ sâu hoặc độ rộng mạng một cách đồng đều.
+    \item SCRFD chỉ ra rằng điều quan trọng không chỉ là tổng FLOPs, mà là \textbf{cách phân bổ FLOPs} giữa các stage \(C_2\) đến \(C_5\). \cite{guo2022scrfd}
+    \item Mục tiêu của nhóm là tái hiện nguyên lý đó bằng một pipeline NAS đủ gọn để chạy trong 1 phiên Kaggle T4 6 giờ.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Vì sao chọn miền 2.5 GFLOPs}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.53\textwidth}
+    \begin{itemize}
+      \setlength{\itemsep}{5pt}
+      \item Phù hợp triển khai biên và vẫn còn đủ năng lực cho khuôn mặt nhỏ.
+      \item Là miền đủ nhạy để thấy rõ tác động của \textbf{Computation Redistribution}.
+      \item Giúp giới hạn không gian tìm kiếm và kiểm soát thời gian huấn luyện.
+    \end{itemize}
+    \column{0.47\textwidth}
+    \begin{block}{Mục tiêu cuối kì}
+      Xây dựng SPOS Supernet, đánh giá 1\,000 kiến trúc hợp lệ, và rút ra quy luật phân bổ kênh/độ sâu tốt nhất cho detector trong ràng buộc 2.5 GFLOPs.
+    \end{block}
+  \end{columns}
+\end{frame}
+
+\section{Phương pháp}
+
+\begin{frame}{Không gian tìm kiếm của Supernet}
+  \small
+  \begin{tabular}{@{}ccccc@{}}
+    \toprule
+    Stage & Stride & Feature map & Channels & Depth \\
+    \midrule
+    \(C_2\) & 4  & \(160 \times 160\) & 8--120 & 1--4 \\
+    \(C_3\) & 8  & \(80 \times 80\)   & 8--120 & 1--4 \\
+    \(C_4\) & 16 & \(40 \times 40\)   & 8--120 & 1--4 \\
+    \(C_5\) & 32 & \(20 \times 20\)   & 8--120 & 1--4 \\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{8pt}
+  \begin{itemize}
+    \setlength{\itemsep}{4pt}
+    \item 60 lựa chọn mỗi stage, tổng cộng \(60^4 = 12.96\) triệu cấu hình lý thuyết.
+    \item Sau khi lọc theo \(\leq 2.5\) GFLOPs còn 2\,670\,925 cấu hình hợp lệ.
+    \item Backbone đi kèm neck kiểu PAFPN và một proxy head sinh heatmap.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{V1 sang V2: vì sao Dynamic Weight Slicing quan trọng}
+  \small
+  \begin{tabular}{@{}p{0.26\textwidth}p{0.28\textwidth}p{0.32\textwidth}@{}}
+    \toprule
+    Khía cạnh & V1 & V2 \\
+    \midrule
+    Xử lý lệch kênh & Zero-padding & Cắt trực tiếp trọng số \\
+    Gradient cho subnet nhỏ & Bị pha loãng & Tập trung vào kênh hoạt động \\
+    Tốc độ hội tụ & Chậm hơn & Nhanh hơn \\
+    Mốc Val Loss \(<0.70\) & Epoch 17--18 & Khoảng epoch 12 \\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{8pt}
+  \begin{block}{Ý chính}
+    V2 giúp việc chia sẻ trọng số trở nên công bằng hơn giữa subnet lớn và subnet nhỏ, nên NAS đáng tin hơn và huấn luyện cũng ổn định hơn.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Proxy task và Sample Redistribution}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.52\textwidth}
+    \begin{itemize}
+      \setlength{\itemsep}{5pt}
+      \item Thay detector đầy đủ bằng proxy heatmap task trên \(P_3, P_4, P_5\).
+      \item Dùng focal-style BCE with logits để xử lý mất cân bằng giữa mặt và nền. \cite{lin2017focal}
+      \item Mục tiêu: xếp hạng nhanh kiến trúc thay vì đo AP thật ngay từ đầu.
+    \end{itemize}
+    \column{0.48\textwidth}
+    \begin{block}{Sample Redistribution}
+      Ưu tiên ảnh có mặt nhỏ (\(< 32\) px) để tăng áp lực học lên \(C_2\) và \(C_3\), đúng theo trực giác của SCRFD. \cite{yang2016widerface}
+    \end{block}
+  \end{columns}
+\end{frame}
+
+\section{Thực nghiệm}
+
+\begin{frame}{Thiết lập huấn luyện}
+  \small
+  \begin{tabular}{@{}p{0.32\textwidth}p{0.16\textwidth}p{0.38\textwidth}@{}}
+    \toprule
+    Tham số & Giá trị & Ghi chú \\
+    \midrule
+    GPU & Kaggle T4 16 GB & ngân sách 6 giờ \\
+    Epochs & 35 & vừa đủ cho train + NAS \\
+    Batch size hiệu dụng & 64 & nhờ AMP \\
+    Optimizer & AdamW & ổn định cho proxy task \\
+    Scheduler & Cosine annealing & giảm mượt cuối kỳ \\
+    Gradient clipping & 2.0 & chặn spike khi đổi subnet \\
+    Số kiến trúc NAS & 1\,000 & khoảng 90 phút \\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{6pt}
+  AMP + clipping + BN recalibration là ba chi tiết thực thi quan trọng nhất để pipeline chạy ổn định.
+\end{frame}
+
+\begin{frame}{Hội tụ của Supernet}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.9\linewidth,height=0.7\textheight,keepaspectratio]{fig1_training_curve.png}
+  \end{figure}
+  \vspace{-4pt}
+  \small Best validation loss đạt \textbf{0.6519} ở epoch 18.
+\end{frame}
+
+\section{Kết quả NAS}
+
+\begin{frame}{Kết quả leaderboard}
+  \small
+  \begin{tabular}{@{}cccc@{}}
+    \toprule
+    Rank & Arch ID & Cấu hình nổi bật & Val Loss \\
+    \midrule
+    1 & 980 & \(C_2=(48,3), C_3=(32,1)\) & \textbf{0.6521} \\
+    2 & 116 & \(C_2=(48,3), C_3=(64,3)\) & 0.6558 \\
+    3 & 837 & \(C_2=(48,3), C_3=(80,1)\) & 0.6585 \\
+    4 & 766 & \(C_2=(48,3), C_3=(32,1)\) & 0.6619 \\
+    5 & 514 & \(C_2=(48,3), C_3=(56,4)\) & 0.6627 \\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{8pt}
+  \begin{itemize}
+    \setlength{\itemsep}{4pt}
+    \item 8/10 kiến trúc đứng đầu cùng có \(C_2 = (48,3)\).
+    \item NAS không chỉ tìm ra một kiến trúc tốt, mà còn phát hiện một \textbf{mẫu phân bổ tính toán ổn định}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Phân bố điểm số của 1\,000 kiến trúc}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.97\linewidth,height=0.74\textheight,keepaspectratio]{fig2_nas_leaderboard.png}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Kiểm chứng Funnel Principle}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.54\textwidth}
+    \small
+    \begin{tabular}{@{}cccc@{}}
+      \toprule
+      Stage & Top-100 & Bottom-100 & \(\Delta\) \\
+      \midrule
+      \(C_2\) & 50.7 & 52.3 & -1.6 \\
+      \(C_3\) & 53.3 & 63.4 & \textbf{-10.1} \\
+      \(C_4\) & 74.4 & 76.6 & -2.2 \\
+      \(C_5\) & 64.5 & 70.1 & \textbf{-5.6} \\
+      \bottomrule
+    \end{tabular}
+
+    \vspace{8pt}
+    Top winners có xu hướng \textbf{hẹp hơn ở \(C_3\) và \(C_5\)}, tức là rút FLOPs khỏi tầng sâu để phục vụ tầng đầu.
+    \column{0.46\textwidth}
+    \includegraphics[width=\linewidth,height=0.62\textheight,keepaspectratio]{fig3_funnel_analysis.png}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Hồ sơ top-5 và phân bố \(C_2/C_5\)}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.5\textwidth}
+    \includegraphics[width=\linewidth,height=0.62\textheight,keepaspectratio]{fig4_top5_profiles.png}
+    \column{0.5\textwidth}
+    \includegraphics[width=\linewidth,height=0.62\textheight,keepaspectratio]{fig5_c2_c5_distributions.png}
+  \end{columns}
+
+  \vspace{6pt}
+  \small Cấu hình thắng cuộc thống nhất mạnh ở \(C_2\), nhưng vẫn linh hoạt ở các stage sâu hơn.
+\end{frame}
+
+\section{Kết luận}
+
+\begin{frame}{Kết luận chính}
+  \begin{enumerate}
+    \setlength{\itemsep}{6pt}
+    \item SPOS-NAS khả thi trong ngân sách 6 giờ nếu dùng proxy heatmap task.
+    \item Dynamic Weight Slicing giúp huấn luyện công bằng hơn và tăng tốc hội tụ khoảng 30\%.
+    \item Kết quả NAS xác nhận giả thuyết Funnel của SCRFD trong miền 2.5 GFLOPs.
+    \item Sample Redistribution định hình rõ nghiệm tốt ở stage đầu, đặc biệt là \(C_2=(48,3)\).
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{Hướng phát triển}
+  \begin{itemize}
+    \setlength{\itemsep}{6pt}
+    \item Huấn luyện end-to-end Arch \#980 với head SCRFD đầy đủ để đo AP thật.
+    \item Mở rộng NAS từ 1\,000 lên 10\,000 kiến trúc để tăng độ tin cậy thống kê.
+    \item Thử BN-free Supernet hoặc GroupNorm để giảm phụ thuộc vào recalibration.
+    \item Xuất ONNX và đo latency trên Jetson Nano / Raspberry Pi để kiểm chứng giá trị triển khai.
+  \end{itemize}
+\end{frame}
+
+\ifhascites
+\begin{frame}[allowframebreaks]{Tài liệu tham khảo}
+  \tiny
+  \printbibliography[heading=none]
+\end{frame}
+\fi
+
+\begin{frame}
+  \centering
+  {\LARGE Cảm ơn thầy và các bạn đã lắng nghe}
+\end{frame}
+
+\end{document}

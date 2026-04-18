@@ -1,0 +1,28 @@
+{
+  "baseline_name": "SCRFD-2.5G PaperSR12 Cosine Baseline 80e",
+  "baseline_summary": "E:\\tmp\\ab2\\experiments\\baseline\\results\\results_summary.json",
+  "improved_name": "SCRFD-2.5G PaperSR12 Cosine ASR+JSAR 80e",
+  "improved_summary": "E:\\tmp\\ab2\\experiments\\asr_jsar\\results\\results_summary.json",
+  "metrics": {
+    "easy_AP": {
+      "baseline": 0.9015501420955749,
+      "delta": -0.01707509118422268,
+      "improved": 0.8844750509113523
+    },
+    "hard_AP": {
+      "baseline": 0.707276856550157,
+      "delta": 0.03839596845746995,
+      "improved": 0.745672825007627
+    },
+    "mAP": {
+      "baseline": 0.8310152973606458,
+      "delta": 0.0030412041833226544,
+      "improved": 0.8340565015439685
+    },
+    "medium_AP": {
+      "baseline": 0.8842188934362056,
+      "delta": -0.012197264723279533,
+      "improved": 0.8720216287129261
+    }
+  }
+}

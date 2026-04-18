@@ -1,0 +1,11 @@
+{
+  "config": "configs/scrfd/scrfd_2.5g_80e_cosine_asr_jsar_paper_sr12.py",
+  "checkpoint": "work_dirs/compare_2.5g_paper_sr12_cosine/asr_jsar/latest.pth",
+  "timestamp": "2026-04-18 15:20:08",
+  "easy_AP": 0.8844750509113523,
+  "medium_AP": 0.8720216287129261,
+  "hard_AP": 0.745672825007627,
+  "mAP": 0.8340565015439685,
+  "score_threshold": 0.02,
+  "test_mode": 0
+}

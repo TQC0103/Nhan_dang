@@ -1,0 +1,33 @@
+{
+  "latest_epoch": 80,
+  "latest_iteration": 32241,
+  "latest_scale_probs": [
+    0.04666920051221482,
+    0.05913784348209368,
+    0.08522026620623264,
+    0.11191345495983171,
+    0.12783247377086884,
+    0.12021101686863181,
+    0.12287931677652053,
+    0.11502373811520898,
+    0.11436132593586408,
+    0.09675136337253297
+  ],
+  "num_epoch_records": 80,
+  "num_records": 80,
+  "record_type": "epoch_end",
+  "resolved_source": "E:\\GHuy\\Study\\Nh\u1eadn d\u1ea1ng\\SCRFD\\analysis_artifacts_bundle\\experiments\\asr_jsar\\work_dir\\adaptive_sr\\scale_prob_history.jsonl",
+  "scale_candidates": [
+    0.35,
+    0.45,
+    0.6,
+    0.8,
+    1.0,
+    1.2,
+    1.4,
+    1.6,
+    1.8,
+    2.0
+  ],
+  "scheduler": "adaptive_sr"
+}

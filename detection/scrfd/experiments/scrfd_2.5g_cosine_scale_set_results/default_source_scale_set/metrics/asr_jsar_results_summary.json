@@ -1,0 +1,11 @@
+{
+  "config": "configs/scrfd/scrfd_2.5g_80e_cosine_asr_jsar.py",
+  "checkpoint": "work_dirs/ablation_2.5g_cosine/asr_jsar/latest.pth",
+  "timestamp": "2026-04-17 12:40:31",
+  "easy_AP": 0.9039408360471057,
+  "medium_AP": 0.892464117026236,
+  "hard_AP": 0.76897626200619,
+  "mAP": 0.8551270716931771,
+  "score_threshold": 0.02,
+  "test_mode": 0
+}

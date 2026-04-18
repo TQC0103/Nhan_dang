@@ -1,0 +1,28 @@
+{
+  "baseline_name": "SCRFD-2.5G Cosine Baseline 80e",
+  "baseline_summary": "analysis_artifacts_bundle/experiments/baseline/results\\results_summary.json",
+  "improved_name": "SCRFD-2.5G Cosine ASR+JSAR 80e",
+  "improved_summary": "analysis_artifacts_bundle/experiments/asr_jsar/results\\results_summary.json",
+  "metrics": {
+    "easy_AP": {
+      "baseline": 0.913986761986248,
+      "delta": -0.01004592593914222,
+      "improved": 0.9039408360471057
+    },
+    "hard_AP": {
+      "baseline": 0.7249351526473802,
+      "delta": 0.04404110935880978,
+      "improved": 0.76897626200619
+    },
+    "mAP": {
+      "baseline": 0.8452620492376193,
+      "delta": 0.00986502245555787,
+      "improved": 0.8551270716931771
+    },
+    "medium_AP": {
+      "baseline": 0.89686423307923,
+      "delta": -0.004400116052994063,
+      "improved": 0.892464117026236
+    }
+  }
+}

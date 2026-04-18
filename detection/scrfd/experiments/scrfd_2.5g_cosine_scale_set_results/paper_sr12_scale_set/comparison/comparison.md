@@ -1,0 +1,8 @@
+# WIDERFace Comparison
+
+| Metric | SCRFD-2.5G PaperSR12 Cosine Baseline 80e | SCRFD-2.5G PaperSR12 Cosine ASR+JSAR 80e | Delta |
+| --- | ---: | ---: | ---: |
+| easy_AP | 0.9016 | 0.8845 | -0.0171 |
+| medium_AP | 0.8842 | 0.8720 | -0.0122 |
+| hard_AP | 0.7073 | 0.7457 | +0.0384 |
+| mAP | 0.8310 | 0.8341 | +0.0030 |

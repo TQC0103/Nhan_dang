@@ -118,7 +118,7 @@ else
 fi
 
 print_step "5/9" "Installing PyTorch ${PYTORCH_VERSION} (CUDA 12.8 wheels)"
-run_in_env python -m pip install -U pip "setuptools<81" wheel
+run_in_env python -m pip install -U pip "setuptools<81" wheel packaging
 run_in_env python -m pip install \
   "torch==${PYTORCH_VERSION}" \
   "torchvision==${TORCHVISION_VERSION}" \
@@ -158,14 +158,14 @@ if [[ "${BUILD_MMCV_OPS}" == "1" ]]; then
      export FORCE_CUDA=1 && \
      export TORCH_CUDA_ARCH_LIST='${TORCH_CUDA_ARCH_LIST}' && \
      export MAX_JOBS='${MAX_JOBS}' && \
-     python -m pip install -v -e ."
+     python -m pip install -v --no-build-isolation -e ."
 else
   run_in_env python -m pip install --no-build-isolation "mmcv==${MMCV_VERSION}"
 fi
 
 print_step "8/9" "Installing local SCRFD package"
 run_in_env python -m pip install -r "${SCRFD_DIR}/requirements/build.txt"
-run_in_env env SCRFD_MMCV_MAX_VERSION=1.7.2 python -m pip install -v -e "${SCRFD_DIR}"
+run_in_env env SCRFD_MMCV_MAX_VERSION=1.7.2 python -m pip install -v --no-build-isolation -e "${SCRFD_DIR}"
 
 print_step "9/9" "Running sanity checks"
 if command -v nvidia-smi >/dev/null 2>&1; then

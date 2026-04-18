@@ -1,5 +1,7 @@
 # SCRFD 2.5G Cosine Scale-Set Results
 
+- [ANALYSIS_REPORT.md](ANALYSIS_REPORT.md): Báo cáo phân tích vì sao ASR+JSAR tốt hơn baseline và vì sao paper SR12 scale set cho kết quả kém hơn trong setting này.
+
 ## Runs
 
 | Run | Baseline config | ASR+JSAR config |

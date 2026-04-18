@@ -5,8 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 RUNNER="${SCRIPT_DIR}/run_in_env.sh"
 
-if [[ -x "${RUNNER}" ]]; then
-  PYRUN=("${RUNNER}" python)
+if [[ -f "${RUNNER}" ]]; then
+  PYRUN=(bash "${RUNNER}" python)
 else
   PYRUN=(python)
 fi
@@ -47,6 +47,14 @@ run_python_on_gpu() {
   local gpu_id="$1"
   shift
   CUDA_VISIBLE_DEVICES="${gpu_id}" "${PYRUN[@]}" "$@"
+}
+
+detect_gpu_count() {
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    nvidia-smi -L 2>/dev/null | grep -c '^GPU '
+    return 0
+  fi
+  echo 0
 }
 
 append_cfg_option() {
@@ -124,9 +132,27 @@ mkdir -p \
 
 cd "${REPO_ROOT}"
 
+GPU_COUNT="$(detect_gpu_count)"
+SINGLE_GPU_MODE=0
+
+if [[ "${GPU_COUNT}" =~ ^[0-9]+$ ]] && (( GPU_COUNT > 0 )); then
+  if (( BASELINE_GPU >= GPU_COUNT )); then
+    echo "BASELINE_GPU=${BASELINE_GPU} is out of range. Detected GPU count: ${GPU_COUNT}" >&2
+    exit 1
+  fi
+  if (( IMPROVED_GPU >= GPU_COUNT )); then
+    echo "IMPROVED_GPU=${IMPROVED_GPU} is out of range for detected GPU count ${GPU_COUNT}. Falling back to GPU ${BASELINE_GPU}." >&2
+    IMPROVED_GPU="${BASELINE_GPU}"
+  fi
+fi
+
 if [[ "${BASELINE_GPU}" == "${IMPROVED_GPU}" ]]; then
-  echo "BASELINE_GPU and IMPROVED_GPU must be different. Got ${BASELINE_GPU}." >&2
-  exit 1
+  SINGLE_GPU_MODE=1
+fi
+
+if [[ "${GPU_COUNT}" =~ ^[0-9]+$ ]] && (( GPU_COUNT == 1 )); then
+  SINGLE_GPU_MODE=1
+  IMPROVED_GPU="${BASELINE_GPU}"
 fi
 
 mapfile -t BASELINE_CFG_OPTIONS < <(
@@ -171,21 +197,31 @@ if (( ${#IMPROVED_CFG_OPTIONS[@]} > 0 )); then
   IMPROVED_TRAIN_ARGS+=(--cfg-options "${IMPROVED_CFG_OPTIONS[@]}")
 fi
 
-echo "[1/6] Train baseline on GPU ${BASELINE_GPU} and improved model on GPU ${IMPROVED_GPU} in parallel"
-run_python_on_gpu "${BASELINE_GPU}" \
-  "${BASELINE_TRAIN_ARGS[@]}" \
-  > "${LOG_DIR}/baseline_train.log" 2>&1 &
-BASELINE_TRAIN_PID=$!
-run_python_on_gpu "${IMPROVED_GPU}" \
-  "${IMPROVED_TRAIN_ARGS[@]}" \
-  > "${LOG_DIR}/improved_train.log" 2>&1 &
-IMPROVED_TRAIN_PID=$!
+if [[ "${SINGLE_GPU_MODE}" == "1" ]]; then
+  echo "[1/4] Single-GPU mode: train baseline then improved on GPU ${BASELINE_GPU}"
+  run_python_on_gpu "${BASELINE_GPU}" \
+    "${BASELINE_TRAIN_ARGS[@]}" \
+    > "${LOG_DIR}/baseline_train.log" 2>&1
+  run_python_on_gpu "${IMPROVED_GPU}" \
+    "${IMPROVED_TRAIN_ARGS[@]}" \
+    > "${LOG_DIR}/improved_train.log" 2>&1
+else
+  echo "[1/4] Train baseline on GPU ${BASELINE_GPU} and improved model on GPU ${IMPROVED_GPU} in parallel"
+  run_python_on_gpu "${BASELINE_GPU}" \
+    "${BASELINE_TRAIN_ARGS[@]}" \
+    > "${LOG_DIR}/baseline_train.log" 2>&1 &
+  BASELINE_TRAIN_PID=$!
+  run_python_on_gpu "${IMPROVED_GPU}" \
+    "${IMPROVED_TRAIN_ARGS[@]}" \
+    > "${LOG_DIR}/improved_train.log" 2>&1 &
+  IMPROVED_TRAIN_PID=$!
 
-echo "Baseline train PID: ${BASELINE_TRAIN_PID} (log: ${LOG_DIR}/baseline_train.log)"
-echo "Improved train PID: ${IMPROVED_TRAIN_PID} (log: ${LOG_DIR}/improved_train.log)"
+  echo "Baseline train PID: ${BASELINE_TRAIN_PID} (log: ${LOG_DIR}/baseline_train.log)"
+  echo "Improved train PID: ${IMPROVED_TRAIN_PID} (log: ${LOG_DIR}/improved_train.log)"
 
-wait_for_named_job "Baseline training" "${BASELINE_TRAIN_PID}"
-wait_for_named_job "Improved training" "${IMPROVED_TRAIN_PID}"
+  wait_for_named_job "Baseline training" "${BASELINE_TRAIN_PID}"
+  wait_for_named_job "Improved training" "${IMPROVED_TRAIN_PID}"
+fi
 
 BASELINE_CKPT="${BASELINE_WORK_DIR}/latest.pth"
 IMPROVED_CKPT="${IMPROVED_WORK_DIR}/latest.pth"
@@ -199,33 +235,53 @@ if [[ ! -f "${IMPROVED_CKPT}" ]]; then
   exit 1
 fi
 
-echo "[2/6] Evaluate both models on WIDERFace in parallel"
-run_python_on_gpu "${BASELINE_GPU}" \
-  tools/test_widerface_enhanced.py \
-  "${BASELINE_CONFIG}" \
-  "${BASELINE_CKPT}" \
-  --out "${BASELINE_RESULT_DIR}" \
-  --mode "${TEST_MODE}" \
-  --thr "${SCORE_THR}" \
-  > "${LOG_DIR}/baseline_eval.log" 2>&1 &
-BASELINE_EVAL_PID=$!
-run_python_on_gpu "${IMPROVED_GPU}" \
-  tools/test_widerface_enhanced.py \
-  "${IMPROVED_CONFIG}" \
-  "${IMPROVED_CKPT}" \
-  --out "${IMPROVED_RESULT_DIR}" \
-  --mode "${TEST_MODE}" \
-  --thr "${SCORE_THR}" \
-  > "${LOG_DIR}/improved_eval.log" 2>&1 &
-IMPROVED_EVAL_PID=$!
+if [[ "${SINGLE_GPU_MODE}" == "1" ]]; then
+  echo "[2/4] Single-GPU mode: evaluate baseline then improved on GPU ${BASELINE_GPU}"
+  run_python_on_gpu "${BASELINE_GPU}" \
+    tools/test_widerface_enhanced.py \
+    "${BASELINE_CONFIG}" \
+    "${BASELINE_CKPT}" \
+    --out "${BASELINE_RESULT_DIR}" \
+    --mode "${TEST_MODE}" \
+    --thr "${SCORE_THR}" \
+    > "${LOG_DIR}/baseline_eval.log" 2>&1
+  run_python_on_gpu "${IMPROVED_GPU}" \
+    tools/test_widerface_enhanced.py \
+    "${IMPROVED_CONFIG}" \
+    "${IMPROVED_CKPT}" \
+    --out "${IMPROVED_RESULT_DIR}" \
+    --mode "${TEST_MODE}" \
+    --thr "${SCORE_THR}" \
+    > "${LOG_DIR}/improved_eval.log" 2>&1
+else
+  echo "[2/4] Evaluate both models on WIDERFace in parallel"
+  run_python_on_gpu "${BASELINE_GPU}" \
+    tools/test_widerface_enhanced.py \
+    "${BASELINE_CONFIG}" \
+    "${BASELINE_CKPT}" \
+    --out "${BASELINE_RESULT_DIR}" \
+    --mode "${TEST_MODE}" \
+    --thr "${SCORE_THR}" \
+    > "${LOG_DIR}/baseline_eval.log" 2>&1 &
+  BASELINE_EVAL_PID=$!
+  run_python_on_gpu "${IMPROVED_GPU}" \
+    tools/test_widerface_enhanced.py \
+    "${IMPROVED_CONFIG}" \
+    "${IMPROVED_CKPT}" \
+    --out "${IMPROVED_RESULT_DIR}" \
+    --mode "${TEST_MODE}" \
+    --thr "${SCORE_THR}" \
+    > "${LOG_DIR}/improved_eval.log" 2>&1 &
+  IMPROVED_EVAL_PID=$!
 
-echo "Baseline eval PID: ${BASELINE_EVAL_PID} (log: ${LOG_DIR}/baseline_eval.log)"
-echo "Improved eval PID: ${IMPROVED_EVAL_PID} (log: ${LOG_DIR}/improved_eval.log)"
+  echo "Baseline eval PID: ${BASELINE_EVAL_PID} (log: ${LOG_DIR}/baseline_eval.log)"
+  echo "Improved eval PID: ${IMPROVED_EVAL_PID} (log: ${LOG_DIR}/improved_eval.log)"
 
-wait_for_named_job "Baseline evaluation" "${BASELINE_EVAL_PID}"
-wait_for_named_job "Improved evaluation" "${IMPROVED_EVAL_PID}"
+  wait_for_named_job "Baseline evaluation" "${BASELINE_EVAL_PID}"
+  wait_for_named_job "Improved evaluation" "${IMPROVED_EVAL_PID}"
+fi
 
-echo "[3/6] Build comparison report"
+echo "[3/4] Build comparison report"
 "${PYRUN[@]}" tools/compare_widerface_results.py \
   --baseline "${BASELINE_RESULT_DIR}" \
   --improved "${IMPROVED_RESULT_DIR}" \
@@ -233,7 +289,7 @@ echo "[3/6] Build comparison report"
   --improved-name "SCRFD-2.5G ASR+JSAR 80e" \
   --out-dir "${COMPARE_RESULT_DIR}"
 
-echo "[4/6] Done"
+echo "[4/4] Done"
 echo "Baseline results:  ${BASELINE_RESULT_DIR}"
 echo "Improved results:  ${IMPROVED_RESULT_DIR}"
 echo "Comparison report: ${COMPARE_RESULT_DIR}/comparison.md"

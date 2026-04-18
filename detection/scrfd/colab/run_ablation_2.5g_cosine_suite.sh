@@ -5,8 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 RUNNER="${SCRIPT_DIR}/run_in_env.sh"
 
-if [[ -x "${RUNNER}" ]]; then
-  PYRUN=("${RUNNER}" python)
+if [[ -f "${RUNNER}" ]]; then
+  PYRUN=(bash "${RUNNER}" python)
 else
   PYRUN=(python)
 fi

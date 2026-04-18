@@ -1,0 +1,340 @@
+% !TEX root = main.tex
+% !TEX encoding = UTF-8 Unicode
+
+\chapter{Bối cảnh bài toán và mục tiêu}
+
+\section{Đánh đổi giữa độ chính xác và chi phí tính toán}
+
+Trong bài toán phát hiện khuôn mặt, đặc biệt trên WIDER FACE, độ khó không nằm ở các khuôn mặt lớn nằm gần tâm ảnh mà nằm ở các khuôn mặt rất nhỏ, mờ, che khuất hoặc xuất hiện với mật độ dày. Khi đó, detector muốn tăng Average Precision thường phải tăng độ rộng mạng, độ sâu mạng hoặc độ phân giải đặc trưng, và hệ quả trực tiếp là số FLOPs tăng nhanh. Báo cáo SCRFD chỉ ra rằng điểm nghẽn không chỉ là \textit{bao nhiêu FLOPs} được cấp cho mô hình mà còn là \textit{FLOPs được phân bổ vào đâu}. \cite{guo2022scrfd}
+
+Gọi tập các stage của backbone là \(\mathcal{S} = \{C_2, C_3, C_4, C_5\}\). Tổng ngân sách suy luận có thể viết:
+\[
+\Phi_{\text{total}} = \sum_{s \in \mathcal{S}} \Phi_s(w_s, d_s, H_s, W_s),
+\]
+trong đó \(w_s\) là số kênh, \(d_s\) là số block, và \(H_s \times W_s\) là kích thước không gian của đặc trưng ở stage \(s\). Ý tưởng trung tâm của SCRFD là với cùng \(\Phi_{\text{total}}\), việc tăng đầu tư cho các stage đầu như \(C_2\) và \(C_3\) sẽ hữu ích hơn cho khuôn mặt nhỏ, vì đây là nơi đặc trưng vẫn còn giữ mật độ không gian cao. \cite{guo2022scrfd}
+
+\section{Vì sao chọn miền 2.5 GFLOPs}
+
+Ngưỡng 2.5 GFLOPs là một điểm ngọt hợp lý cho triển khai biên: đủ lớn để không làm detector suy sụp trên tập Hard, nhưng vẫn đủ nhỏ để duy trì khả năng suy luận gần thời gian thực trên các thiết bị hạn chế tài nguyên. Trong bối cảnh đề tài môn học, ngưỡng này còn giúp nhóm em giới hạn rõ không gian tìm kiếm, tránh việc tối ưu một mô hình quá nặng rồi mất tính thực tế khi triển khai.
+
+Ngoài ý nghĩa triển khai, 2.5 GFLOPs còn là một miền đủ thú vị về mặt kiến trúc. Nếu mô hình quá nhỏ thì hầu hết cấu hình đều thiếu năng lực biểu diễn; nếu mô hình quá lớn thì nhiều cấu hình đều đã đủ mạnh, làm mờ đi tác động của việc tái phân bổ tính toán. Miền 2.5 GFLOPs vì thế phù hợp để kiểm tra trực tiếp giả thuyết ``Funnel Principle'' mà SCRFD đề xuất.
+
+\section{Mục tiêu của báo cáo cuối kì}
+
+Báo cáo cuối kì này hướng đến ba mục tiêu chính:
+\begin{itemize}
+  \item Xây dựng một pipeline SPOS-NAS đủ gọn để huấn luyện trong phiên Kaggle T4 6 giờ nhưng vẫn giữ được tinh thần của SCRFD.
+  \item So sánh hai thiết kế Supernet V1 và V2 để làm rõ vì sao \textit{Dynamic Weight Slicing} quan trọng cho chia sẻ trọng số công bằng.
+  \item Rút ra các kết luận định lượng từ 1\,000 cấu hình NAS về quy luật phân bổ kênh và độ sâu giữa \(C_2\) đến \(C_5\).
+\end{itemize}
+
+\chapter{Cơ sở liên quan}
+
+\section{Single Path One-Shot NAS}
+
+SPOS là một hướng NAS chia sẻ trọng số, trong đó chỉ một nhánh con được kích hoạt ở mỗi lượt lan truyền thuận. Nhờ cơ chế lấy mẫu đồng đều và dùng chung trọng số của Supernet, chi phí huấn luyện tách rời khỏi số lượng kiến trúc được đánh giá sau cùng. Đây là lựa chọn rất phù hợp cho đề tài vì không gian kiến trúc có tới \(60^4 = 12{,}960{,}000\) tổ hợp nếu xét đồng thời độ rộng và độ sâu ở bốn stage. \cite{guo2020spos}
+
+Khác với NAS dựa trên reinforcement learning hoặc tiến hóa toàn phần, SPOS cho phép huấn luyện một lần rồi đánh giá nhiều kiến trúc con bằng cách ``cắt'' trọng số của Supernet. Điều này biến NAS từ một bài toán tốn hàng chục GPU-ngày thành một quy trình có thể chạy trong một buổi với hạ tầng hạn chế, miễn là phần chia sẻ trọng số được thiết kế đúng.
+
+\section{SCRFD và hai cơ chế Redistribution}
+
+SCRFD là detector khuôn mặt hiện đại tối ưu mạnh cho bài toán khuôn mặt nhỏ. Hai ý tưởng trọng tâm là:
+\begin{itemize}
+  \item \textbf{Sample Redistribution (SR):} tăng xác suất gặp các ảnh có khuôn mặt nhỏ trong huấn luyện để mô hình không bị tập easy áp đảo.
+  \item \textbf{Computation Redistribution (CR):} dùng NAS để tìm kiến trúc ưu tiên FLOPs cho những tầng sớm, nơi độ phân giải đặc trưng còn đủ lớn để giữ chi tiết của khuôn mặt nhỏ. \cite{guo2022scrfd}
+\end{itemize}
+
+Đối với bài toán của nhóm em, SCRFD đóng vai trò cả điểm tham chiếu lý thuyết lẫn mục tiêu tái hiện nguyên lý. Báo cáo không cố sao chép toàn bộ pipeline sản xuất của SCRFD, mà tập trung vào phiên bản rút gọn có khả năng chạy trong giới hạn thời gian và phần cứng sẵn có.
+
+\chapter{Phương pháp đề xuất}
+
+\section{Supernet và không gian tìm kiếm}
+
+Backbone của Supernet được tổ chức theo bốn stage \(C_2\) đến \(C_5\), theo tinh thần \textit{MobileNetV2-style inverted residual blocks} với hai trục tìm kiếm: số kênh và số block trên mỗi stage. \cite{howard2018mobilenetv2}
+
+\begin{table}[H]
+\centering
+\caption{Không gian tìm kiếm của Supernet trong miền 2.5 GFLOPs.}
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+\textbf{Stage} & \textbf{Stride} & \textbf{Feature map} & \textbf{Dải số kênh} & \textbf{Độ sâu} \\
+\midrule
+\(C_2\) & 4  & \(160 \times 160\) & 8--120 & 1--4 \\
+\(C_3\) & 8  & \(80 \times 80\)   & 8--120 & 1--4 \\
+\(C_4\) & 16 & \(40 \times 40\)   & 8--120 & 1--4 \\
+\(C_5\) & 32 & \(20 \times 20\)   & 8--120 & 1--4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Mỗi stage có 60 lựa chọn, tương ứng với 15 mức độ rộng và 4 mức độ sâu. Toàn bộ không gian lý thuyết có 12.96 triệu cấu hình; sau khi lọc theo ràng buộc \(\leq 2.5\) GFLOPs còn 2\,670\,925 kiến trúc hợp lệ. Ở phía sau backbone, nhóm dùng một neck kiểu PAFPN để đưa các mức đặc trưng về cùng bề rộng 64 kênh, sau đó nối với proxy head sinh heatmap. \cite{liu2018panet}
+
+\section{Chuyển từ V1 sang V2: Dynamic Weight Slicing}
+
+\subsection{Vấn đề của V1}
+
+Phiên bản V1 tổ chức mỗi lựa chọn \((w, d)\) như một nhánh module tương đối tách biệt. Khi số kênh của kiến trúc con nhỏ hơn số kênh mà stage sau mong đợi, đầu vào được nối thêm các kênh bằng 0 để khớp kích thước. Cách làm này giúp cài đặt nhanh nhưng tạo ra một vấn đề nghiêm trọng: gradient của kiến trúc nhỏ bị pha loãng lên nhiều kênh không hoạt động, khiến các subnet nhỏ học chậm hơn rõ rệt.
+
+\subsection{Ý tưởng của V2}
+
+Phiên bản V2 thay zero-padding bằng \textit{Dynamic Weight Slicing}. Thay vì giữ nhiều bộ tham số, mỗi block chỉ giữ một tensor trọng số cực đại rồi cắt trực tiếp phần cần thiết khi chạy:
+\[
+W_{\text{sub}} = W_{\text{full}}\left[:c_{\text{out}}, :c_{\text{in}}, :, :\right].
+\]
+Nhờ vậy, gradient chỉ chảy qua phần trọng số đang thực sự tham gia suy luận. Thiết kế này vừa giảm bộ nhớ, vừa đảm bảo mọi subnet đều nhận tín hiệu học phù hợp với kích thước của nó.
+
+\begin{table}[H]
+\centering
+\caption{So sánh V1 và V2 trong Supernet.}
+\begin{tabular}{@{}p{0.24\textwidth}p{0.31\textwidth}p{0.31\textwidth}@{}}
+\toprule
+\textbf{Khía cạnh} & \textbf{V1 -- Zero-padding} & \textbf{V2 -- Weight slicing} \\
+\midrule
+Chia sẻ trọng số & Nhiều nhánh, chia sẻ kém rõ ràng & Một bộ trọng số cực đại, cắt theo nhu cầu \\
+Lệch kênh & Bù bằng kênh 0 & Cắt đúng số kênh hoạt động \\
+Gradient cho subnet nhỏ & Bị pha loãng & Tập trung đúng phần trọng số hoạt động \\
+Ổn định hội tụ & Dễ phát sinh dao động & Ổn định hơn khi kết hợp AMP và clipping \\
+Mốc Val Loss \(<0.70\) & Khoảng epoch 17--18 & Khoảng epoch 12 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Quan sát thực nghiệm cho thấy V2 đạt ngưỡng validation loss dưới 0.70 sớm hơn khoảng 30\% so với V1. Điều này xác nhận rằng trong bài toán NAS chia sẻ trọng số, thiết kế cơ chế chia sẻ quan trọng không kém chính không gian tìm kiếm.
+
+\section{Proxy task dựa trên heatmap}
+
+Do không đủ tài nguyên để huấn luyện detector đầy đủ với classification, box regression và IoU head trong hàng trăm epoch, nhóm thay tác vụ gốc bằng một proxy task sinh heatmap Gaussian trên các mức \(P_3, P_4, P_5\). Với mỗi bounding box khuôn mặt, một Gaussian được vẽ trên feature map tương ứng, và mô hình được tối ưu bằng \textit{Proxy Focal Loss with logits}. \cite{lin2017focal}
+
+Ký hiệu \(\hat{z}_{ij}\) là logit dự đoán và \(p_{ij}\) là cường độ heatmap mục tiêu tại vị trí \((i, j)\), hàm mất mát có thể viết dạng rút gọn:
+\[
+\mathcal{L}_{\text{proxy}} = \sum_{l \in \{P_3,P_4,P_5\}}
+\frac{1}{N_{\text{pos}}}
+\sum_{i,j}
+w_{ij} \cdot \mathcal{L}_{\text{BCE}}(\hat{z}_{ij}, p_{ij}),
+\]
+trong đó \(w_{ij}\) đóng vai trò trọng số focal để giảm ảnh hưởng của nền áp đảo. Cách thiết kế này không thay thế hoàn toàn AP thật, nhưng là một surrogate hợp lý để xếp hạng nhanh nhiều kiến trúc NAS.
+
+\section{Sample Redistribution}
+
+WIDER FACE chứa rất nhiều ảnh ``dễ'', trong khi các ảnh có khuôn mặt nhỏ mới là phần làm nên khác biệt giữa các kiến trúc. Bởi vậy, nhóm lọc và ưu tiên các ảnh chứa ít nhất một khuôn mặt có chiều rộng hoặc chiều cao dưới 32 pixel:
+\[
+\mathcal{D}_{\text{SR}} =
+\{(I,\mathbf{B}) \in \mathcal{D}_{\text{train}} \mid
+\exists b \in \mathbf{B}: w_b < 32 \lor h_b < 32 \}.
+\]
+Chiến lược này làm gradient tập trung mạnh hơn vào những stage đầu như \(C_2\) và \(C_3\), nơi khuôn mặt nhỏ còn giữ được hỗ trợ không gian. Kết quả NAS sau này cho thấy chính SR là lực đẩy quan trọng khiến các kiến trúc thắng cuộc ưu tiên dạng ``wide-early, narrow-late''.
+
+\chapter{Cấu hình thực nghiệm trong điều kiện tài nguyên giới hạn}
+
+\section{Thiết lập huấn luyện}
+
+Toàn bộ pipeline được chạy trên một GPU Kaggle T4 16 GB với ngân sách thời gian xấp xỉ 6 giờ. Mục tiêu của nhóm không chỉ là đạt được một loss tốt, mà còn phải đảm bảo toàn bộ chu trình ``huấn luyện Supernet + đánh giá NAS'' thực sự hoàn thành trong một phiên làm việc.
+
+\begin{table}[H]
+\centering
+\caption{Cấu hình huấn luyện chính.}
+\begin{tabular}{@{}p{0.28\textwidth}p{0.20\textwidth}p{0.42\textwidth}@{}}
+\toprule
+\textbf{Tham số} & \textbf{Giá trị} & \textbf{Lý do chọn} \\
+\midrule
+Epochs & 35 & Tối đa vừa đủ trong 6 giờ \\
+Batch size hiệu dụng & 64 & Tận dụng AMP để tăng batch \\
+Optimizer & AdamW & Hội tụ nhanh, ổn định cho proxy task \\
+Learning rate đầu & \(2 \times 10^{-4}\) & Tránh dao động loss lớn đầu kỳ \\
+Weight decay & \(1 \times 10^{-4}\) & Regularization nhẹ \\
+Scheduler & Cosine annealing & Giảm mượt về cuối \\
+Gradient clipping & \texttt{max\_norm = 2.0} & Chặn spike do đổi subnet liên tục \\
+Mixed precision & FP16 AMP & Tiết kiệm VRAM, tăng throughput \\
+Số kiến trúc NAS & 1\,000 & Đủ để rút quy luật trong giới hạn thời gian \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Automatic Mixed Precision và ổn định số học}
+
+AMP được dùng xuyên suốt quá trình huấn luyện để giảm bộ nhớ và rút ngắn thời gian mỗi batch. Với SPOS, việc đổi subnet liên tục làm gradient có thể dao động mạnh, nên nhóm kết hợp AMP với \textit{GradScaler} và clipping norm. Cấu hình này không chỉ giúp batch size tăng lên mà còn giảm nguy cơ checkpoint bị hỏng do NaN/Inf. \cite{micikevicius2018mixed}
+
+\section{Chiến lược đánh giá NAS}
+
+Pipeline NAS được tách thành năm bước:
+\begin{enumerate}
+  \item Lọc toàn bộ không gian để chỉ giữ các kiến trúc có FLOPs không vượt 2.5G.
+  \item Lấy mẫu ngẫu nhiên 1\,000 kiến trúc từ tập hợp hợp lệ.
+  \item Thực hiện BatchNorm recalibration trên vài batch calibration.
+  \item Chuyển sang chế độ đánh giá và tính proxy validation loss.
+  \item Xếp hạng theo loss tăng dần và lưu leaderboard.
+\end{enumerate}
+
+Thời gian đánh giá mỗi kiến trúc dao động khoảng 5--8 giây, nên toàn bộ phần NAS nằm gọn trong khoảng 90 phút.
+
+\chapter{Kết quả huấn luyện và tìm kiếm kiến trúc}
+
+\section{Hội tụ của Supernet}
+
+\begin{table}[H]
+\centering
+\caption{Một số mốc hội tụ đáng chú ý của Supernet V2.}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+\textbf{Epoch} & \textbf{Train Loss} & \textbf{Val Loss} & \textbf{Learning rate} \\
+\midrule
+1  & 1.8963 & 1.2034 & \(1.996 \times 10^{-4}\) \\
+6  & 0.9217 & 0.8545 & \(1.859 \times 10^{-4}\) \\
+12 & 0.7861 & 0.7004 & \(1.477 \times 10^{-4}\) \\
+16 & 0.7333 & 0.6548 & \(1.139 \times 10^{-4}\) \\
+18 & 0.7213 & \textbf{0.6519} & \(9.604 \times 10^{-5}\) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Supernet giảm rất mạnh ở hai epoch đầu, sau đó đi vào giai đoạn hội tụ mượt hơn với dao động nhỏ do cơ chế lấy mẫu subnet ngẫu nhiên. Validation loss tốt nhất đạt 0.6519 tại epoch 18. Đây là một kết quả đủ tốt để làm nền cho giai đoạn đánh giá NAS tiếp theo.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.88\textwidth]{fig1_training_curve.png}
+  \caption{Đồ thị hội tụ của Supernet V2 với Dynamic Weight Slicing.}
+\end{figure}
+
+\section{Top kiến trúc tìm được}
+
+\begin{table}[H]
+\centering
+\caption{Top-10 kiến trúc tốt nhất trong 1\,000 mẫu NAS.}
+\small
+\begin{tabular}{@{}cccccc@{}}
+\toprule
+\textbf{Hạng} & \textbf{Arch ID} & \textbf{\(C_2\)} & \textbf{\(C_3\)} & \textbf{\(C_4\) và \(C_5\)} & \textbf{Val Loss} \\
+\midrule
+1 & 980 & \((48, 3)\) & \((32, 1)\) & \((72, 4), (80, 4)\) & \textbf{0.6521} \\
+2 & 116 & \((48, 3)\) & \((64, 3)\) & \((104, 1), (56, 4)\) & 0.6558 \\
+3 & 837 & \((48, 3)\) & \((80, 1)\) & \((96, 2), (88, 4)\) & 0.6585 \\
+4 & 766 & \((48, 3)\) & \((32, 1)\) & \((16, 3), (56, 4)\) & 0.6619 \\
+5 & 514 & \((48, 3)\) & \((56, 4)\) & \((72, 1), (80, 3)\) & 0.6627 \\
+6 & 475 & \((64, 2)\) & \((64, 3)\) & \((24, 1), (48, 4)\) & 0.6630 \\
+7 & 331 & \((56, 3)\) & \((32, 4)\) & \((88, 1), (96, 3)\) & 0.6656 \\
+8 & 204 & \((48, 3)\) & \((56, 4)\) & \((64, 1), (48, 2)\) & 0.6695 \\
+9 & 879 & \((48, 3)\) & \((56, 1)\) & \((88, 4), (40, 4)\) & 0.6713 \\
+10 & 732 & \((48, 3)\) & \((40, 4)\) & \((96, 4), (96, 3)\) & 0.6724 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Điểm nổi bật nhất là 8 trên 10 cấu hình đứng đầu cùng chia sẻ \(C_2 = (48 \text{ channels}, 3 \text{ blocks})\). Điều này cho thấy NAS không đi tìm một mô hình ngẫu nhiên, mà đang phát hiện một vùng cấu hình ổn định cho stage đầu tiên, đúng với trực giác ``nếu muốn tốt cho mặt nhỏ, phải đầu tư hợp lý cho tầng sớm''.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.94\textwidth]{fig2_nas_leaderboard.png}
+  \caption{Phân bố validation loss của 1\,000 kiến trúc NAS và histogram đi kèm.}
+\end{figure}
+
+\section{Kiến trúc tốt nhất}
+
+Kiến trúc tốt nhất là Arch \#980 với validation loss 0.6521. Cấu hình chi tiết được tóm tắt ở Bảng~\ref{tab:best-arch}. Đây là một cấu hình vẫn giữ được độ rộng đáng kể ở đầu mạng, nhưng không tiêu tốn quá nhiều FLOPs cho các tầng cuối.
+
+\begin{table}[H]
+\centering
+\caption{Kiến trúc tốt nhất tìm được trong miền 2.5 GFLOPs.}
+\label{tab:best-arch}
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+\textbf{Stage} & \textbf{Width} & \textbf{Depth} & \textbf{Spatial resolution} & \textbf{Vai trò chính} \\
+\midrule
+\(C_2\) & 48 & 3 & \(160 \times 160\) & Trích xuất đặc trưng mặt nhỏ \\
+\(C_3\) & 32 & 1 & \(80 \times 80\) & Gom ngữ cảnh trung gian \\
+\(C_4\) & 72 & 4 & \(40 \times 40\) & Mã hóa mặt cỡ vừa \\
+\(C_5\) & 80 & 4 & \(20 \times 20\) & Biểu diễn sâu cho mặt lớn \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\chapter{Ablation và thảo luận}
+
+\section{Kiểm chứng Funnel Principle}
+
+Bằng cách so sánh nhóm Top-100 và Bottom-100, nhóm nhận được một kết quả rất đáng chú ý: các kiến trúc thắng cuộc có xu hướng thu hẹp \(C_3\) và \(C_5\) so với các kiến trúc thua, trong khi vẫn giữ \(C_2\) ở mức tương đối cạnh tranh. Nói cách khác, FLOPs được rút khỏi các tầng sâu ít nhạy với mặt nhỏ để dồn về phần đầu mạng.
+
+\begin{table}[H]
+\centering
+\caption{So sánh độ rộng trung bình giữa Top-100 và Bottom-100.}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+\textbf{Stage} & \textbf{Top-100 mean width} & \textbf{Bottom-100 mean width} & \textbf{\(\Delta\) (top - bottom)} \\
+\midrule
+\(C_2\) & 50.7 & 52.3 & -1.6 \\
+\(C_3\) & 53.3 & 63.4 & \textbf{-10.1} \\
+\(C_4\) & 74.4 & 76.6 & -2.2 \\
+\(C_5\) & 64.5 & 70.1 & \textbf{-5.6} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.84\textwidth]{fig3_funnel_analysis.png}
+  \caption{Kiểm chứng Funnel Principle qua độ rộng trung bình các stage.}
+\end{figure}
+
+\section{Hồ sơ của các kiến trúc thắng cuộc}
+
+Hình~\ref{fig:top5-profiles} cho thấy dù top-5 cùng thống nhất mạnh ở \(C_2=(48,3)\), các stage sau vẫn có khá nhiều đường đi khả thi. Điều này gợi ý rằng giai đoạn đầu của backbone bị ràng buộc mạnh bởi bài toán mặt nhỏ, còn các stage sau có thể linh hoạt để đổi chác giữa ngữ cảnh và ngân sách tính toán.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\textwidth]{fig4_top5_profiles.png}
+  \caption{Hồ sơ số kênh và độ sâu của 5 kiến trúc đứng đầu.}
+  \label{fig:top5-profiles}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.94\textwidth]{fig5_c2_c5_distributions.png}
+  \caption{Phân bố độ rộng \(C_2\) và \(C_5\) của toàn bộ tập mẫu và nhóm Top-100.}
+\end{figure}
+
+\section{BatchNorm recalibration là chi tiết bắt buộc}
+
+Một vấn đề cài đặt rất quan trọng là BatchNorm của Supernet được cập nhật dưới phân phối hỗn hợp của nhiều subnet. Nếu lấy ngay một kiến trúc con để đánh giá mà không hiệu chỉnh lại thống kê chạy, loss thu được sẽ bị lệch so với trạng thái thật của subnet đó. Vì vậy, trước khi chấm điểm mỗi kiến trúc, nhóm phải chạy lại vài batch calibration ở chế độ \texttt{train()} rồi mới chuyển sang \texttt{eval()}.
+
+Chi tiết này nghe có vẻ nhỏ, nhưng thực tế lại ảnh hưởng trực tiếp đến độ tin cậy của leaderboard. Nếu bỏ qua recalibration, NAS có thể xếp hạng sai những kiến trúc tốt chỉ vì thống kê BatchNorm đang phản ánh ``mạng trung bình'' thay vì subnet đang xét.
+
+\section{Giới hạn của thí nghiệm}
+
+Bên cạnh các kết quả khả quan, đề tài vẫn còn ba giới hạn rõ ràng:
+\begin{itemize}
+  \item Proxy validation loss chỉ là surrogate, chưa phải Average Precision cuối cùng trên WIDER FACE.
+  \item 1\,000 mẫu mới chỉ chiếm khoảng 0.037\% tập các kiến trúc hợp lệ, nên vẫn có thể bỏ sót một số optimum hẹp.
+  \item Toàn bộ pipeline được tối ưu cho ngân sách 6 giờ, nên nhiều quyết định thực nghiệm ưu tiên tính khả thi hơn là tối đa hóa chất lượng tuyệt đối.
+\end{itemize}
+
+\chapter{Kết luận và hướng phát triển}
+
+\section{Kết luận}
+
+Qua quá trình triển khai, nhóm rút ra bốn kết luận chính:
+\begin{enumerate}
+  \item SPOS-NAS hoàn toàn khả thi trong một phiên Kaggle T4 kéo dài 6 giờ nếu thay tác vụ phát hiện đầy đủ bằng proxy heatmap task.
+  \item Dynamic Weight Slicing là điều kiện gần như bắt buộc để Supernet chia sẻ trọng số công bằng giữa kiến trúc lớn và nhỏ.
+  \item Kết quả NAS xác nhận khá rõ giả thuyết Funnel của SCRFD: đầu mạng nên giữ năng lực biểu diễn tốt hơn, còn tầng sâu cần tiết chế để giải phóng FLOPs.
+  \item Sample Redistribution không chỉ cải thiện huấn luyện mà còn định hình trực tiếp không gian nghiệm NAS, đặc biệt ở stage \(C_2\).
+\end{enumerate}
+
+\section{Hướng phát triển tiếp theo}
+
+\begin{table}[H]
+\centering
+\caption{Một số hướng mở rộng sau báo cáo cuối kì.}
+\begin{tabular}{@{}p{0.28\textwidth}p{0.42\textwidth}p{0.22\textwidth}@{}}
+\toprule
+\textbf{Hướng mở rộng} & \textbf{Mô tả} & \textbf{Tác động mong đợi} \\
+\midrule
+Huấn luyện đầy đủ Arch \#980 & Gắn head SCRFD hoàn chỉnh và train nhiều epoch & Đo được AP thật trên Easy/Medium/Hard \\
+Tăng số mẫu NAS & Nâng từ 1\,000 lên 10\,000 kiến trúc & Củng cố kết luận thống kê \\
+Thay BatchNorm & Thử GroupNorm hoặc BN-free Supernet & Giảm phụ thuộc recalibration \\
+Lượng tử hóa INT8 & Hậu huấn luyện và benchmark thiết bị biên & Tăng tốc suy luận thực tế \\
+Đa mục tiêu & Tìm Pareto giữa loss, FLOPs và latency & Phù hợp từng phần cứng cụ thể \\
+Triển khai ONNX/edge & Xuất mô hình sang ONNX và đo trên Jetson/RPi & Kiểm chứng giá trị triển khai \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Từ góc nhìn môn học, điều quan trọng nhất mà nhóm học được là sự kết nối giữa lý thuyết nhận dạng và kỹ thuật hệ thống. Một mô hình tốt không chỉ đến từ ý tưởng tối ưu mạnh, mà còn đến từ cách ta đơn giản hóa bài toán, kiểm soát tài nguyên và chọn thước đo phụ đủ tin cậy để ra quyết định trong điều kiện hữu hạn.

@@ -1,0 +1,16 @@
+\chapter*{Lời mở đầu}
+\addcontentsline{toc}{chapter}{Lời mở đầu}
+
+Trong giai đoạn cuối kì của môn học Nhận dạng, nhóm chúng em chuyển trọng tâm từ việc khảo sát nền tảng phát hiện khuôn mặt cổ điển sang việc triển khai một quy trình tối ưu kiến trúc hiện đại bám sát tinh thần của SCRFD. Nếu báo cáo giữa kì dùng Viola--Jones và SCRFD để làm rõ sự tiến hóa của tư duy thiết kế detector, thì báo cáo cuối kì tập trung vào câu hỏi thực nghiệm cụ thể hơn: với ngân sách tính toán chỉ khoảng 2.5 GFLOPs và tài nguyên huấn luyện giới hạn, có thể tổ chức không gian tìm kiếm kiến trúc như thế nào để detector vẫn ưu tiên tốt cho khuôn mặt nhỏ.
+
+Để trả lời câu hỏi đó, nhóm xây dựng một quy trình \textit{Single Path One-Shot Neural Architecture Search} (SPOS-NAS) với Supernet chia sẻ trọng số, proxy task dựa trên heatmap, cơ chế \textit{Sample Redistribution} cho ảnh khó và bước đánh giá hậu huấn luyện trên tập con các kiến trúc hợp lệ. Nội dung báo cáo được biên soạn dựa trên file phân tích kỹ thuật \codefile{SCRFD\_NAS\_Evolution\_Report.md}, sau đó được chuẩn hóa lại theo hình thức của báo cáo giữa kì để đồng bộ về trình bày và mạch học thuật.
+
+Bố cục báo cáo gồm bảy chương. Chương I trình bày bối cảnh, động lực chọn miền 2.5 GFLOPs và mục tiêu của đề tài. Chương II tóm tắt cơ sở liên quan gồm SPOS và SCRFD. Chương III mô tả chi tiết Supernet, không gian tìm kiếm và chuyển đổi từ thiết kế V1 sang V2 bằng \textit{Dynamic Weight Slicing}. Chương IV ghi lại cấu hình thực nghiệm trong điều kiện một phiên Kaggle T4 kéo dài 6 giờ. Chương V và Chương VI tập trung vào kết quả huấn luyện, kết quả NAS, các ablation chính và những nhận xét triển khai quan trọng như BatchNorm recalibration. Chương VII kết luận các phát hiện chính và đề xuất hướng mở rộng.
+
+Qua đồ án nhỏ này, nhóm chúng em rút ra một điểm quan trọng: trong detector hiện đại, tổng FLOPs không phải là yếu tố quyết định duy nhất; cách phân bổ FLOPs giữa các tầng mới là nơi thể hiện rõ nhất tư duy thiết kế mô hình. Điều đó tạo nên nhịp nối rất đẹp giữa bài học cổ điển về loại sớm, tiết kiệm tính toán và bài học hiện đại về kiến trúc hóa việc phân phối tài nguyên trong mạng sâu.
+
+\vspace{1.5cm}
+\begin{flushright}
+\textit{Thành phố Hồ Chí Minh, ngày 18 tháng 4 năm 2026}\\[0.5cm]
+\textbf{Nhóm sinh viên thực hiện}
+\end{flushright}

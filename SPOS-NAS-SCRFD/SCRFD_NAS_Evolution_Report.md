@@ -340,20 +340,28 @@ Each architecture evaluation required approximately **5–8 seconds**.
 | **Convergence Stability** | Unstable (large gradient spikes) | Stable (clip + AMP sufficient) |
 | **BN Recalibration Required** | Yes | Yes |
 
-### 7.2 Computation Redistribution (CR): Funnel Architecture Validation
+### 7.2 Computation Redistribution (CR): Computation Cost Analysis
 
-| Stage | Spatial Res. | Top-100 Mean Width | Bottom-100 Mean Width | Δ (top − bot) |
-|-------|-------------|-------------------|----------------------|---------------|
-| **C2** | 160×160 | 50.7 ch | 52.3 ch | −1.6 |
-| **C3** | 80×80  | **53.3 ch** | 63.4 ch | **−10.1** |
-| **C4** | 40×40  | 74.4 ch | 76.6 ch | −2.2 |
-| **C5** | 20×20  | **64.5 ch** | 70.1 ch | **−5.6** |
+To conduct a scrupulously fair comparison, architectural allocation was analyzed using the **exact Computation Cost (GFLOPs)** consumed by each stage's backbone and lateral layers. Furthermore, instead of comparing against unconditional "losers" (which might simply be unconverged architectures with massively higher GFLOP bounds), the Top-100 winners (mean $\sim 2.44$ GFLOPs) were compared against a strictly controlled baseline: the **Bottom-100 architectures drawn from an identical GFLOPs footprint ($\pm 0.1$ G).**
 
-Winning architectures consistently narrow **C3 and C5** relative to losing architectures, while maintaining competitive C2. This confirms the CR "Funnel" pattern: compute is freed from deep, low-resolution stages and reallocated toward earlier, small-face-sensitive stages.
+| Stage | Spatial Res. | Top-100 Cost (GFLOPs) | Equivalent-GFLOP Losers (GFLOPs) | Δ (Winners − Losers) |
+|-------|-------------|-----------------------|----------------------------------|--------------------|
+| **C2** | 160×160 | **1.124** | 0.643 | **+0.481** |
+| **C3** | 80×80  | 0.655 | **1.102** | −0.447 |
+| **C4** | 40×40  | 0.226 | **0.277** | −0.051 |
+| **C5** | 20×20  | **0.078** | 0.060 | **+0.018** |
 
-![Funnel Architecture — CR Principle](fig3_funnel_analysis.png)
+This mathematically-controlled calculation reveals the true mechanism of the SCRFD Computation Redistribution Principle within a rigid FLOP budget:
+1. **The C2 Imperative:** Winners aggressively reallocate compute toward C2, investing nearly half their entire FLOP budget (1.124 GFLOPs) into the 160×160 stage to guarantee robust early feature extraction for small-scale faces.
+2. **The C3 Trap:** Because C3 processes at a relatively high 80×80 resolution, any depth/width increases are astronomically expensive. Losers fell into this structural trap, dumping 1.102 GFLOPs into C3. This completely exhausted their 2.44G budget, leaving C2 severely starved (0.643 GFLOPs) and incapable of initial feature propagation.
+3. **Deep Stage Representation:** With their budgets consumed differently, Winners maintained a healthier pipeline ratio, ensuring C5 retained enough compute (0.078 GFLOPs vs 0.060 GFLOPs) to capture global facial semantics without compromising the heavy C2 front-end.
 
-*Figure 3. Mean channel widths across backbone stages for Top-100 vs. Bottom-100 architectures. Error bars represent one standard deviation. The consistent narrowing of C3 (−10.1 ch) and C5 (−5.6 ch) in winners vs. losers validates the SCRFD Computation Redistribution hypothesis: optimal 2.5G architectures are shaped like a funnel, wide at early stages and narrower deep.*
+![Funnel Architecture — Computation Cost](fig3_funnel_analysis.png)
+
+*Figure 3. Actual Computation Cost (GFLOPs) across backbone stages for Top-100 winners vs. equivalent-GFLOP losers ($\sim 2.44$ GFLOPs). Winners exhibit significantly stronger C2 representation while rigorously constraining C3 cost. Losers fall into the "C3 Trap": over-allocating massive compute to 80×80 convolutions, thereby blowing up their budget and severely starving the foundational C2 stage.*
+
+> [!NOTE]
+> **Observation on Convergence and Computational Allocation:** A critical corollary of these findings relates to training dynamics. Because the NAS search evaluates models within an early-training regime (35 epochs), structural efficiency heavily dictates observed performance. The "Trap" architectures with huge bottlenecked C3 stages not only distribute capacity poorly for multi-scale detection but likely suffer from degraded gradient flow across their starved early layer, slowing down their convergence significantly compared to the well-proportioned winner architectures.
 
 ### 7.3 Top-5 Architecture Configuration Profiles
 

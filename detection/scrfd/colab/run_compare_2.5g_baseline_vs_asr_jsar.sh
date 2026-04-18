@@ -17,6 +17,7 @@ WORK_ROOT="${WORK_ROOT:-work_dirs/compare_2.5g}"
 RESULT_ROOT="${RESULT_ROOT:-results/compare_2.5g}"
 TEST_MODE="${TEST_MODE:-0}"
 SCORE_THR="${SCORE_THR:-0.02}"
+SAVE_PREDS="${SAVE_PREDS:-0}"
 BASELINE_GPU="${BASELINE_GPU:-0}"
 IMPROVED_GPU="${IMPROVED_GPU:-1}"
 BATCH_SIZE_PER_GPU="${BATCH_SIZE_PER_GPU:-}"
@@ -35,6 +36,8 @@ IMPROVED_BASE_LR="${IMPROVED_BASE_LR:-0.01}"
 EXTRA_CFG_OPTIONS="${EXTRA_CFG_OPTIONS:-}"
 BASELINE_EXTRA_CFG_OPTIONS="${BASELINE_EXTRA_CFG_OPTIONS:-}"
 IMPROVED_EXTRA_CFG_OPTIONS="${IMPROVED_EXTRA_CFG_OPTIONS:-}"
+BASELINE_NAME="${BASELINE_NAME:-SCRFD-2.5G Baseline 80e}"
+IMPROVED_NAME="${IMPROVED_NAME:-SCRFD-2.5G ASR+JSAR 80e}"
 
 BASELINE_WORK_DIR="${WORK_ROOT}/baseline"
 IMPROVED_WORK_DIR="${WORK_ROOT}/asr_jsar"
@@ -225,6 +228,27 @@ fi
 
 BASELINE_CKPT="${BASELINE_WORK_DIR}/latest.pth"
 IMPROVED_CKPT="${IMPROVED_WORK_DIR}/latest.pth"
+BASELINE_EVAL_ARGS=(
+  tools/test_widerface_enhanced.py
+  "${BASELINE_CONFIG}"
+  "${BASELINE_CKPT}"
+  --out "${BASELINE_RESULT_DIR}"
+  --mode "${TEST_MODE}"
+  --thr "${SCORE_THR}"
+)
+IMPROVED_EVAL_ARGS=(
+  tools/test_widerface_enhanced.py
+  "${IMPROVED_CONFIG}"
+  "${IMPROVED_CKPT}"
+  --out "${IMPROVED_RESULT_DIR}"
+  --mode "${TEST_MODE}"
+  --thr "${SCORE_THR}"
+)
+
+if [[ "${SAVE_PREDS}" == "1" ]]; then
+  BASELINE_EVAL_ARGS+=(--save-preds)
+  IMPROVED_EVAL_ARGS+=(--save-preds)
+fi
 
 if [[ ! -f "${BASELINE_CKPT}" ]]; then
   echo "Missing baseline checkpoint: ${BASELINE_CKPT}" >&2
@@ -238,39 +262,19 @@ fi
 if [[ "${SINGLE_GPU_MODE}" == "1" ]]; then
   echo "[2/4] Single-GPU mode: evaluate baseline then improved on GPU ${BASELINE_GPU}"
   run_python_on_gpu "${BASELINE_GPU}" \
-    tools/test_widerface_enhanced.py \
-    "${BASELINE_CONFIG}" \
-    "${BASELINE_CKPT}" \
-    --out "${BASELINE_RESULT_DIR}" \
-    --mode "${TEST_MODE}" \
-    --thr "${SCORE_THR}" \
+    "${BASELINE_EVAL_ARGS[@]}" \
     > "${LOG_DIR}/baseline_eval.log" 2>&1
   run_python_on_gpu "${IMPROVED_GPU}" \
-    tools/test_widerface_enhanced.py \
-    "${IMPROVED_CONFIG}" \
-    "${IMPROVED_CKPT}" \
-    --out "${IMPROVED_RESULT_DIR}" \
-    --mode "${TEST_MODE}" \
-    --thr "${SCORE_THR}" \
+    "${IMPROVED_EVAL_ARGS[@]}" \
     > "${LOG_DIR}/improved_eval.log" 2>&1
 else
   echo "[2/4] Evaluate both models on WIDERFace in parallel"
   run_python_on_gpu "${BASELINE_GPU}" \
-    tools/test_widerface_enhanced.py \
-    "${BASELINE_CONFIG}" \
-    "${BASELINE_CKPT}" \
-    --out "${BASELINE_RESULT_DIR}" \
-    --mode "${TEST_MODE}" \
-    --thr "${SCORE_THR}" \
+    "${BASELINE_EVAL_ARGS[@]}" \
     > "${LOG_DIR}/baseline_eval.log" 2>&1 &
   BASELINE_EVAL_PID=$!
   run_python_on_gpu "${IMPROVED_GPU}" \
-    tools/test_widerface_enhanced.py \
-    "${IMPROVED_CONFIG}" \
-    "${IMPROVED_CKPT}" \
-    --out "${IMPROVED_RESULT_DIR}" \
-    --mode "${TEST_MODE}" \
-    --thr "${SCORE_THR}" \
+    "${IMPROVED_EVAL_ARGS[@]}" \
     > "${LOG_DIR}/improved_eval.log" 2>&1 &
   IMPROVED_EVAL_PID=$!
 
@@ -285,8 +289,8 @@ echo "[3/4] Build comparison report"
 "${PYRUN[@]}" tools/compare_widerface_results.py \
   --baseline "${BASELINE_RESULT_DIR}" \
   --improved "${IMPROVED_RESULT_DIR}" \
-  --baseline-name "SCRFD-2.5G Baseline 80e" \
-  --improved-name "SCRFD-2.5G ASR+JSAR 80e" \
+  --baseline-name "${BASELINE_NAME}" \
+  --improved-name "${IMPROVED_NAME}" \
   --out-dir "${COMPARE_RESULT_DIR}"
 
 echo "[4/4] Done"

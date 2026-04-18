@@ -30,6 +30,8 @@
 - [scale_prob_history/scale_prob_history.csv](default_source_scale_set/scale_prob_history/scale_prob_history.csv): Adaptive scale probability table.
 - [scale_prob_history/scale_prob_history_summary.json](default_source_scale_set/scale_prob_history/scale_prob_history_summary.json): Adaptive scale probability metadata.
 
+![Default source scale set - adaptive scale probability history](default_source_scale_set/scale_prob_history/scale_prob_history_epoch_end.png)
+
 ### Face Size Distribution
 
 - [face_size_analysis/analysis.md](default_source_scale_set/face_size_analysis/analysis.md): Face-size distribution analysis summary.
@@ -44,6 +46,10 @@
 - [face_size_analysis/baseline_transition_matrix.csv](default_source_scale_set/face_size_analysis/baseline_transition_matrix.csv): Baseline SR transition matrix.
 - [face_size_analysis/asr_jsar_transition_matrix.csv](default_source_scale_set/face_size_analysis/asr_jsar_transition_matrix.csv): ASR+JSAR transition matrix.
 
+![Default source scale set - face size histogram](default_source_scale_set/face_size_analysis/face_size_histogram.png)
+
+![Default source scale set - face size bin ratios](default_source_scale_set/face_size_analysis/face_size_bin_ratios.png)
+
 ### JSAR Assignment
 
 - [jsar_assignment/jsar_final_boost_ratio.png](default_source_scale_set/jsar_assignment/jsar_final_boost_ratio.png): Final positive-assignment boost ratio by size bin.
@@ -54,6 +60,10 @@
 - [jsar_assignment/jsar_small_pos_per_gt.png](default_source_scale_set/jsar_assignment/jsar_small_pos_per_gt.png): Small-face positives per ground-truth over epochs.
 - [jsar_assignment/jsar_assignment_history.csv](default_source_scale_set/jsar_assignment/jsar_assignment_history.csv): JSAR assignment history table.
 - [jsar_assignment/jsar_assignment_summary.json](default_source_scale_set/jsar_assignment/jsar_assignment_summary.json): JSAR assignment history metadata.
+
+![Default source scale set - JSAR final boost ratio](default_source_scale_set/jsar_assignment/jsar_final_boost_ratio.png)
+
+![Default source scale set - JSAR tiny positives per GT](default_source_scale_set/jsar_assignment/jsar_tiny_pos_per_gt.png)
 
 ### Hard Subset
 
@@ -77,6 +87,8 @@
 - [scale_prob_history/scale_prob_history.csv](paper_sr12_scale_set/scale_prob_history/scale_prob_history.csv): Adaptive scale probability table.
 - [scale_prob_history/scale_prob_history_summary.json](paper_sr12_scale_set/scale_prob_history/scale_prob_history_summary.json): Adaptive scale probability metadata.
 
+![Paper SR12 scale set - adaptive scale probability history](paper_sr12_scale_set/scale_prob_history/scale_prob_history_epoch_end.png)
+
 ### Face Size Distribution
 
 - [face_size_analysis/analysis.md](paper_sr12_scale_set/face_size_analysis/analysis.md): Face-size distribution analysis summary.
@@ -91,6 +103,10 @@
 - [face_size_analysis/baseline_transition_matrix.csv](paper_sr12_scale_set/face_size_analysis/baseline_transition_matrix.csv): Baseline SR transition matrix.
 - [face_size_analysis/asr_jsar_transition_matrix.csv](paper_sr12_scale_set/face_size_analysis/asr_jsar_transition_matrix.csv): ASR+JSAR transition matrix.
 
+![Paper SR12 scale set - face size histogram](paper_sr12_scale_set/face_size_analysis/face_size_histogram.png)
+
+![Paper SR12 scale set - face size bin ratios](paper_sr12_scale_set/face_size_analysis/face_size_bin_ratios.png)
+
 ### JSAR Assignment
 
 - [jsar_assignment/jsar_final_boost_ratio.png](paper_sr12_scale_set/jsar_assignment/jsar_final_boost_ratio.png): Final positive-assignment boost ratio by size bin.
@@ -101,6 +117,10 @@
 - [jsar_assignment/jsar_small_pos_per_gt.png](paper_sr12_scale_set/jsar_assignment/jsar_small_pos_per_gt.png): Small-face positives per ground-truth over epochs.
 - [jsar_assignment/jsar_assignment_history.csv](paper_sr12_scale_set/jsar_assignment/jsar_assignment_history.csv): JSAR assignment history table.
 - [jsar_assignment/jsar_assignment_summary.json](paper_sr12_scale_set/jsar_assignment/jsar_assignment_summary.json): JSAR assignment history metadata.
+
+![Paper SR12 scale set - JSAR final boost ratio](paper_sr12_scale_set/jsar_assignment/jsar_final_boost_ratio.png)
+
+![Paper SR12 scale set - JSAR tiny positives per GT](paper_sr12_scale_set/jsar_assignment/jsar_tiny_pos_per_gt.png)
 
 ### Hard Subset
 

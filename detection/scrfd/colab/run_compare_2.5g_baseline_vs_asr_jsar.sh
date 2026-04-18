@@ -26,6 +26,15 @@ BASELINE_BATCH_SIZE_PER_GPU="${BASELINE_BATCH_SIZE_PER_GPU:-${BATCH_SIZE_PER_GPU
 IMPROVED_BATCH_SIZE_PER_GPU="${IMPROVED_BATCH_SIZE_PER_GPU:-${BATCH_SIZE_PER_GPU}}"
 BASELINE_WORKERS_PER_GPU="${BASELINE_WORKERS_PER_GPU:-${WORKERS_PER_GPU}}"
 IMPROVED_WORKERS_PER_GPU="${IMPROVED_WORKERS_PER_GPU:-${WORKERS_PER_GPU}}"
+PIN_MEMORY="${PIN_MEMORY:-}"
+PERSISTENT_WORKERS="${PERSISTENT_WORKERS:-}"
+PREFETCH_FACTOR="${PREFETCH_FACTOR:-}"
+BASELINE_PIN_MEMORY="${BASELINE_PIN_MEMORY:-${PIN_MEMORY}}"
+IMPROVED_PIN_MEMORY="${IMPROVED_PIN_MEMORY:-${PIN_MEMORY}}"
+BASELINE_PERSISTENT_WORKERS="${BASELINE_PERSISTENT_WORKERS:-${PERSISTENT_WORKERS}}"
+IMPROVED_PERSISTENT_WORKERS="${IMPROVED_PERSISTENT_WORKERS:-${PERSISTENT_WORKERS}}"
+BASELINE_PREFETCH_FACTOR="${BASELINE_PREFETCH_FACTOR:-${PREFETCH_FACTOR}}"
+IMPROVED_PREFETCH_FACTOR="${IMPROVED_PREFETCH_FACTOR:-${PREFETCH_FACTOR}}"
 BASELINE_LR="${BASELINE_LR:-}"
 IMPROVED_LR="${IMPROVED_LR:-}"
 AUTO_SCALE_LR="${AUTO_SCALE_LR:-0}"
@@ -81,14 +90,33 @@ append_cfg_options_from_string() {
   done
 }
 
+to_python_bool() {
+  local raw_value="$1"
+  local lowered="${raw_value,,}"
+  case "${lowered}" in
+    1|true|yes|on)
+      printf 'True\n'
+      ;;
+    0|false|no|off)
+      printf 'False\n'
+      ;;
+    *)
+      printf '%s\n' "${raw_value}"
+      ;;
+  esac
+}
+
 build_cfg_options() {
   local batch_size="$1"
   local workers="$2"
-  local manual_lr="$3"
-  local auto_scale="$4"
-  local base_batch="$5"
-  local base_lr="$6"
-  local extra_options="$7"
+  local pin_memory="$3"
+  local persistent_workers="$4"
+  local prefetch_factor="$5"
+  local manual_lr="$6"
+  local auto_scale="$7"
+  local base_batch="$8"
+  local base_lr="$9"
+  local extra_options="${10}"
   local -a cfg_options=()
   local scaled_lr=""
   if [[ -n "${batch_size}" ]]; then
@@ -96,6 +124,15 @@ build_cfg_options() {
   fi
   if [[ -n "${workers}" ]]; then
     append_cfg_option cfg_options "data.workers_per_gpu" "${workers}"
+  fi
+  if [[ -n "${pin_memory}" ]]; then
+    append_cfg_option cfg_options "data.pin_memory" "$(to_python_bool "${pin_memory}")"
+  fi
+  if [[ -n "${persistent_workers}" ]]; then
+    append_cfg_option cfg_options "data.persistent_workers" "$(to_python_bool "${persistent_workers}")"
+  fi
+  if [[ -n "${prefetch_factor}" ]]; then
+    append_cfg_option cfg_options "data.prefetch_factor" "${prefetch_factor}"
   fi
   if [[ -n "${manual_lr}" ]]; then
     append_cfg_option cfg_options "optimizer.lr" "${manual_lr}"
@@ -162,6 +199,9 @@ mapfile -t BASELINE_CFG_OPTIONS < <(
   build_cfg_options \
     "${BASELINE_BATCH_SIZE_PER_GPU}" \
     "${BASELINE_WORKERS_PER_GPU}" \
+    "${BASELINE_PIN_MEMORY}" \
+    "${BASELINE_PERSISTENT_WORKERS}" \
+    "${BASELINE_PREFETCH_FACTOR}" \
     "${BASELINE_LR}" \
     "${AUTO_SCALE_LR}" \
     "${BASELINE_BASE_BATCH_SIZE}" \
@@ -172,6 +212,9 @@ mapfile -t IMPROVED_CFG_OPTIONS < <(
   build_cfg_options \
     "${IMPROVED_BATCH_SIZE_PER_GPU}" \
     "${IMPROVED_WORKERS_PER_GPU}" \
+    "${IMPROVED_PIN_MEMORY}" \
+    "${IMPROVED_PERSISTENT_WORKERS}" \
+    "${IMPROVED_PREFETCH_FACTOR}" \
     "${IMPROVED_LR}" \
     "${AUTO_SCALE_LR}" \
     "${IMPROVED_BASE_BATCH_SIZE}" \

@@ -60,16 +60,16 @@ Tiếp theo, ta tính lỗi trung bình trên mỗi mẫu dương:
 
 Để các đại lượng này có cùng thang đo, mỗi đại lượng được chuẩn hóa theo trung bình của các giá trị dương:
 \begin{equation}
-\operatorname{Norm}(x_b) =
+\operatorname{Normalize}(x_b) =
 \frac{x_b}{\operatorname{mean}\!\bigl(\{x_j \mid x_j > 0\}\bigr) + \varepsilon}.
 \end{equation}
 
 Độ khó của nhóm \(b\) được xác định bằng tổng ba thành phần:
 \begin{equation}
 d_b =
-\operatorname{Norm}(r_b) +
-\operatorname{Norm}(\bar{L}^{cls}_b) +
-\operatorname{Norm}(\bar{L}^{box}_b).
+\operatorname{Normalize}(r_b) +
+\operatorname{Normalize}(\bar{L}^{cls}_b) +
+\operatorname{Normalize}(\bar{L}^{box}_b).
 \end{equation}
 
 Nói cách khác, một nhóm được xem là ``khó'' khi vừa thiếu anchor dương, vừa có lỗi phân loại cao, vừa có lỗi hồi quy cao.
@@ -141,9 +141,9 @@ trong đó
 \begin{equation}
 \Delta_g =
 \begin{cases}
-\delta_{\text{rất nhỏ}}, & \text{nếu } \operatorname{size}_g < T_{\text{rất nhỏ}},\\
-\delta_{\text{nhỏ}}, & \text{nếu } T_{\text{rất nhỏ}} \le \operatorname{size}_g < T_{\text{nhỏ}},\\
-0, & \text{nếu } \operatorname{size}_g \ge T_{\text{nhỏ}}.
+\delta_{\text{tiny}}, & \text{if } \operatorname{size}_g < T_{\text{tiny}},\\
+\delta_{\text{small}}, & \text{if } T_{\text{tiny}} \le \operatorname{size}_g < T_{\text{small}},\\
+0, & \text{if } \operatorname{size}_g \ge T_{\text{small}}.
 \end{cases}
 \end{equation}
 
@@ -155,14 +155,14 @@ Hệ số điều chỉnh được viết là
 \begin{equation}
 c_g =
 \operatorname{clip}\!\left(
-  \frac{\operatorname{size}_g}{T_{\text{rất nhỏ}}},
+  \frac{\operatorname{size}_g}{T_{\text{tiny}}},
   1,\rho
 \right).
 \end{equation}
 
 Anchor \(a\) được giữ lại nếu thỏa điều kiện
 \begin{equation}
-d_{\min}(a,g)\, c_g > t_{\text{tâm}},
+d_{\min}(a,g)\, c_g > t_{\text{center}},
 \end{equation}
 trong đó \(d_{\min}(a,g)\) là khoảng cách tối thiểu từ anchor đến vùng trung tâm của khuôn mặt \(g\).
 Khi \(g\) rất nhỏ, hệ số \(c_g\) làm điều kiện này bớt khắt khe hơn, nhờ đó một số anchor lân cận vẫn còn được giữ lại.
@@ -171,7 +171,7 @@ Khi \(g\) rất nhỏ, hệ số \(c_g\) làm điều kiện này bớt khắt k
 Ngay cả sau hai bước trên, một khuôn mặt rất nhỏ vẫn có thể nhận quá ít mẫu dương.
 Khi đó, nếu
 \begin{equation}
-N_{\text{dương}}(g) < N_{\min},
+N_{\text{pos}}(g) < N_{\text{min}},
 \end{equation}
 hệ thống sẽ chọn thêm một số anchor gần nhất theo điểm số
 \begin{equation}
@@ -186,7 +186,7 @@ hệ thống sẽ chọn thêm một số anchor gần nhất theo điểm số
 Trong một số biến thể, trọng số mềm còn được mô tả bởi
 \begin{equation}
 w(a,g) =
-\exp\!\left(-\frac{\operatorname{dist}_{\text{chuẩn hóa}}}{T}\right)
+\exp\!\left(-\frac{\operatorname{dist}_{\text{norm}}}{T}\right)
 \cdot
 \operatorname{clamp}\!\left(\operatorname{IoU}(a,g)+0.1,\ 0.05,\ 1.0\right),
 \end{equation}
@@ -239,9 +239,9 @@ Bộ 12 mức theo bài báo & Cải tiến & 0.9028 & 0.8901 & 0.7738 / 0.8556 
 Quan sát chung cho thấy trong cả hai bộ tỉ lệ cắt, phần cải thiện lớn nhất luôn nằm ở chỉ số Hard AP.
 Đây là dấu hiệu đầu tiên cho thấy hai thành phần cải tiến đang tác động đúng vào nhóm trường hợp khó, thay vì chỉ làm tăng điểm trung bình một cách dàn trải.
 
-\section{Vì sao mô hình cải tiến tốt hơn mô hình gốc}
+\section{Phân tích nguyên nhân cải thiện so với mô hình gốc}
 
-\subsection{Mật độ giám sát cho khuôn mặt rất nhỏ tăng lên rõ rệt}
+\subsection{Gia tăng mật độ giám sát trên khuôn mặt rất nhỏ}
 
 Hình~\ref{fig:final-term-jsar-tiny-supervision} cho thấy sau bước gán nhãn cải tiến, số anchor dương trên mỗi khuôn mặt rất nhỏ tăng lên đáng kể và ổn định ở cả hai bộ tỉ lệ cắt.
 
@@ -258,9 +258,9 @@ Các giá trị chính là:
   \item với bộ 12 mức theo bài báo: số anchor dương trên mỗi khuôn mặt rất nhỏ tăng từ \(1.76\) lên \(2.67\), tức tăng khoảng \(1.520\) lần.
 \end{itemize}
 
-Kết quả này cho thấy phần cải thiện không đến từ may mắn của quá trình huấn luyện, mà đến từ một thay đổi có chủ đích ở đúng nơi trước đây mô hình bị thiếu giám sát nhất.
+Kết quả này cho thấy mức cải thiện không phải là dao động ngẫu nhiên của quá trình huấn luyện, mà xuất phát từ một thay đổi có chủ đích ở đúng miền dữ liệu vốn thiếu giám sát nhất.
 
-\subsection{Phần tăng điểm tập trung vào đúng nhóm khuôn mặt khó}
+\subsection{Mức cải thiện tập trung vào đúng miền kích thước khó}
 
 Hình~\ref{fig:final-term-hard-size-compare} cho thấy mức tăng về khả năng thu hồi trên tập Hard tập trung gần như hoàn toàn vào hai khoảng kích thước nhỏ nhất, tức là những khuôn mặt từ \(0\) đến \(16\) pixel sau khi quy về kích thước đánh giá.
 
@@ -303,9 +303,9 @@ Với bộ 12 mức theo bài báo, phần tăng lớn nhất cũng nằm ở ha
 \end{itemize}
 
 Từ \(16\) pixel trở lên, phần chênh lệch gần như bằng \(0\) hoặc giảm nhẹ.
-Điều này cho thấy cơ chế cải tiến không làm tăng đồng đều cho mọi loại mẫu, mà tập trung rất đúng vào nhóm khuôn mặt rất nhỏ trên tập Hard, tức là nhóm trường hợp khó nhất của bài toán.
+Điều này cho thấy phương pháp đề xuất không làm tăng đồng đều trên mọi loại mẫu, mà tập trung rõ rệt vào nhóm khuôn mặt rất nhỏ trong tập Hard, tức là nhóm trường hợp khó nhất của bài toán.
 
-\subsection{Hai thành phần cải tiến bổ sung cho nhau}
+\subsection{Tính bổ trợ giữa hai thành phần cải tiến}
 
 Từ cơ chế hoạt động và kết quả định lượng, có thể tóm lược vai trò của hai thành phần như sau:
 \begin{itemize}
@@ -313,14 +313,14 @@ Từ cơ chế hoạt động và kết quả định lượng, có thể tóm l
   \item \textbf{Phân phối lại phép gán mẫu} làm tăng trực tiếp số lượng anchor dương gắn với khuôn mặt rất nhỏ, nghĩa là tăng mật độ giám sát đúng tại bước gán nhãn.
 \end{itemize}
 
-Nếu chỉ có thành phần thứ nhất, mô hình có thể nhìn thấy nhiều khuôn mặt rất nhỏ hơn nhưng vẫn chưa học được hiệu quả vì số anchor dương còn quá ít.
-Ngược lại, nếu chỉ có thành phần thứ hai, tín hiệu gán nhãn có thể dày hơn nhưng chưa chắc đã được khai thác hết, vì mô hình chưa được buộc nhìn đủ nhiều tình huống khó.
-Khi kết hợp cả hai, một thành phần làm tăng ``độ hiện diện'' của mẫu khó trong dữ liệu, còn thành phần kia làm tăng ``mật độ giám sát'' của chính nhóm mẫu đó.
-Đó là lý do vì sao mô hình cải tiến tốt hơn mô hình gốc ở cả hai bộ tỉ lệ cắt.
+Nếu chỉ có thành phần thứ nhất, mô hình có thể nhìn thấy nhiều khuôn mặt rất nhỏ hơn nhưng vẫn chưa học hiệu quả vì số anchor dương còn quá ít.
+Ngược lại, nếu chỉ có thành phần thứ hai, tín hiệu gán nhãn có thể dày hơn nhưng chưa chắc đã được khai thác hết, vì mô hình chưa bị buộc phải quan sát đủ nhiều tình huống khó.
+Khi kết hợp cả hai, một thành phần làm tăng mức hiện diện của mẫu khó trong dữ liệu huấn luyện, còn thành phần kia làm tăng mật độ giám sát trên chính nhóm mẫu đó.
+Đây là nguyên nhân trực tiếp giải thích vì sao mô hình cải tiến tốt hơn mô hình gốc ở cả hai bộ tỉ lệ cắt.
 
-\section{Vì sao bộ 12 mức theo bài báo cho hành vi khác}
+\section{Phân tích ảnh hưởng của bộ tỉ lệ cắt ban đầu}
 
-\subsection{Bộ 12 mức theo bài báo vốn đã thiên về khuôn mặt rất nhỏ}
+\subsection{Đặc tính của bộ 12 mức theo bài báo}
 
 Hình~\ref{fig:final-term-scale-pool} so sánh hình học của hai tập tỉ lệ cắt.
 
@@ -337,9 +337,9 @@ Các số liệu tổng hợp cho thấy:
   \item với bộ 12 mức theo bài báo, khối lượng ở vùng thu nhỏ mạnh lớn hơn đáng kể.
 \end{itemize}
 
-Điều đó có nghĩa là ngay từ khi chưa dùng cơ chế thích nghi, bộ 12 mức theo bài báo đã có xu hướng làm xuất hiện nhiều khuôn mặt nhỏ hơn sau bước cắt và đổi cỡ ảnh.
+Điều đó có nghĩa là ngay từ khi chưa dùng cơ chế thích nghi, bộ 12 mức theo bài báo đã có xu hướng tạo ra nhiều khuôn mặt nhỏ hơn sau bước cắt và đổi cỡ ảnh.
 
-\subsection{Phân phối khuôn mặt sau tăng cường dữ liệu đã dịch mạnh về phía mẫu khó}
+\subsection{Dịch chuyển phân phối huấn luyện về phía mẫu rất nhỏ}
 
 Hình~\ref{fig:final-term-distribution-pressure} minh họa rõ hơn tác động này.
 
@@ -357,22 +357,22 @@ So sánh hai mô hình gốc cho thấy:
 \end{itemize}
 
 Nói cách khác, chỉ riêng việc thay bộ tỉ lệ cắt đã làm bài toán huấn luyện nghiêng mạnh hơn về nhóm khuôn mặt rất nhỏ.
-Đó là lý do mô hình gốc với bộ 12 mức theo bài báo đã mạnh hơn mô hình gốc với bộ mặc định trong mã nguồn, đặc biệt ở chỉ số Hard AP.
+Đây là nguyên nhân khiến mô hình gốc với bộ 12 mức theo bài báo đã mạnh hơn mô hình gốc với bộ mặc định trong mã nguồn, đặc biệt ở chỉ số Hard AP.
 
-\subsection{Vì sao phần tăng thêm của mô hình cải tiến không còn lớn như trước}
+\subsection{Hệ quả đối với biên độ cải thiện của phương pháp đề xuất}
 
 Khi bộ tỉ lệ cắt ban đầu đã đẩy nhiều mẫu về vùng khuôn mặt rất nhỏ, mô hình gốc đã nhận sẵn một phần lợi ích mà trước đây cơ chế cải tiến phải tự tạo ra.
 Nói cách khác, khoảng trống để cải thiện thêm trở nên nhỏ hơn.
 
-Điều này giải thích đồng thời hai hiện tượng:
+Phân tích trên giải thích đồng thời hai hiện tượng:
 \begin{itemize}
   \item mô hình gốc với bộ 12 mức theo bài báo mạnh hơn mô hình gốc với bộ mặc định trong mã nguồn;
   \item mô hình cải tiến vẫn tiếp tục tốt hơn mô hình gốc, nhưng phần chênh lệch tăng thêm không còn cách biệt quá lớn như khi bắt đầu từ bộ mặc định trong mã nguồn.
 \end{itemize}
 
-Vì vậy, kết quả thực nghiệm không cho thấy bộ 12 mức theo bài báo làm mô hình kém đi.
+Vì vậy, kết quả thực nghiệm không cho thấy bộ 12 mức theo bài báo làm mô hình suy giảm.
 Ngược lại, nó tạo ra một điểm xuất phát mạnh hơn cho mô hình gốc.
-Phần cải thiện còn lại của mô hình đề xuất chủ yếu đến từ việc tăng giám sát cho đúng nhóm khuôn mặt rất nhỏ mà bộ tỉ lệ cắt này vẫn còn khó xử lý tốt.
+Phần cải thiện còn lại của phương pháp đề xuất chủ yếu đến từ việc tăng giám sát đúng vào nhóm khuôn mặt rất nhỏ mà bộ tỉ lệ cắt này vẫn còn xử lý chưa đủ tốt.
 
 \section{Kết luận}
 

@@ -35,7 +35,7 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc}
+\usetikzlibrary{arrows.meta,positioning}
 \usepackage{xurl}
 
 \graphicspath{{../figures/}{../assets/}}
@@ -56,258 +56,302 @@
   \tableofcontents
 \end{frame}
 
-\begin{frame}{Mục tiêu trình bày}
+\section{Mở đầu}
+
+\begin{frame}{Phạm vi của báo cáo này}
   \begin{itemize}
-    \item Mở đầu từ đúng pipeline của SCRFD: \textbf{CR} để tìm cấu hình, \textbf{SR} để điều chỉnh phân bố scale, rồi \textbf{train/eval} cấu hình đã chọn trên WIDER FACE.
-    \item Sau đó đi sâu từng bước ở mức \textbf{flow triển khai, config, hyperparameter và logic huấn luyện}, không chỉ dừng ở trực giác của paper.
-    \item Phần mở rộng được trình bày tuần tự: \textbf{SPOS-NAS} trước vì nó phân tích trực tiếp bước \textbf{Computation Redistribution}; \textbf{ASR+JSAR} sau vì nó sửa \textbf{Sample Redistribution} và assignment khi train.
-    \item Mục tiêu cuối cùng là rút ra insight kỹ thuật: SCRFD mạnh vì \textbf{đặt compute đúng chỗ} và \textbf{tạo training signal đúng chỗ} cho tiny/hard faces.
+    \item Báo cáo chỉ tập trung vào bài báo \textbf{SCRFD} và pipeline detector một giai đoạn cho face detection trên \textbf{WIDER FACE}.
+    \item Nội dung được tổ chức theo đúng logic của một report bài báo khoa học: trình bày phương pháp, tái hiện bằng official code, đối chiếu paper với code, rồi phân tích kết quả.
+    \item Từ đó nhóm mở rộng theo đúng hai mắt xích quan trọng của SCRFD:
   \end{itemize}
+  \begin{block}{Hai hướng mở rộng}
+    \textbf{SPOS-NAS} cho bước \textbf{Computation Redistribution}; \quad
+    \textbf{ASR+JSAR} cho bước \textbf{Sample Redistribution} và assignment khi train.
+  \end{block}
 \end{frame}
 
-\section{Pipeline SCRFD}
-
-\begin{frame}{SCRFD nhìn như một pipeline 3 bước}
+\begin{frame}{SCRFD nên được nhìn như pipeline 3 bước}
   \centering
   \begin{tikzpicture}[
-    node distance=1.3cm,
+    node distance=1.2cm,
     box/.style={draw, rounded corners, minimum width=0.28\textwidth, minimum height=1.9cm, align=center, fill=blue!4},
     arrow/.style={-{Latex[length=3mm]}, thick}
   ]
-    \node[box] (cr) {\textbf{Bước 1: Computation Redistribution}\\Lấy mẫu kiến trúc trong cùng vùng FLOPs\\và chọn cấu hình tốt nhất};
-    \node[box, right=of cr] (sr) {\textbf{Bước 2: Sample Redistribution}\\Điều chỉnh phân bố scale khi huấn luyện\\để tiny faces xuất hiện đúng mức};
-    \node[box, right=of sr] (train) {\textbf{Bước 3: Train / Evaluate}\\Train cấu hình đã chọn\\và đo Easy / Medium / Hard AP};
+    \node[box] (cr) {\textbf{Bước 1: Computation Redistribution}\\Tìm cấu hình detector tốt trong cùng vùng FLOPs};
+    \node[box, right=of cr] (sr) {\textbf{Bước 2: Sample Redistribution}\\Điều chỉnh phân bố scale khi huấn luyện};
+    \node[box, right=of sr] (train) {\textbf{Bước 3: Train / Evaluate}\\Train cấu hình đã chọn và đo AP};
     \draw[arrow] (cr) -- (sr);
     \draw[arrow] (sr) -- (train);
   \end{tikzpicture}
 
-  \vspace{0.7cm}
+  \vspace{0.6cm}
   \begin{itemize}
-    \item Trong paper gốc, ba bước này gắn với nhau chứ không tách rời: cấu hình tốt nhưng scale distribution sai vẫn tụt Hard AP.
-    \item Hai phần mở rộng của nhóm cũng bám đúng pipeline này: \textbf{SPOS-NAS} đi vào bước 1, còn \textbf{ASR+JSAR} đi vào bước 2 và bước train.
+    \item Điểm quan trọng là ba bước này gắn chặt với nhau: kiến trúc đúng nhưng sample policy sai vẫn tụt Hard AP.
+    \item Vì vậy phần mở rộng cũng phải đi theo đúng trình tự \textbf{CR trước, SR sau}.
   \end{itemize}
-\end{frame}
-
-\begin{frame}{Vì sao phải nhìn SCRFD theo pipeline}
-  \begin{itemize}
-    \item Nếu chỉ nhìn \textbf{tổng FLOPs}, ta không trả lời được vì sao cùng khoảng 2.5 GFLOPs nhưng Hard AP chênh nhau vài điểm.
-    \item Nếu chỉ nhìn \textbf{augmentation}, ta cũng không giải thích được vì sao cùng scale set nhưng backbone này học tốt hơn backbone kia.
-    \item SCRFD hiệu quả vì nó tối ưu đồng thời:
-  \end{itemize}
-  \vspace{0.2cm}
-  \begin{block}{Ba đối tượng tối ưu}
-    \begin{enumerate}
-      \item \textbf{Kiến trúc}: compute rơi vào stage nào.
-      \item \textbf{Dữ liệu huấn luyện}: tiny faces xuất hiện với tần suất nào sau crop/resize.
-      \item \textbf{Supervision}: tiny faces có nhận đủ positive anchors hay không.
-    \end{enumerate}
-  \end{block}
 \end{frame}
 
 \section{SCRFD Gốc}
 
-\begin{frame}{Kiến trúc nền của SCRFD}
+\begin{frame}{Bài toán mà SCRFD giải}
+  \begin{itemize}
+    \item SCRFD hướng vào \textbf{face detection hiệu quả}, đặc biệt là nhóm \textbf{tiny faces} trong ảnh VGA.
+    \item Trên WIDER FACE, split Hard chứa rất nhiều mặt cực nhỏ, nên detector không thể chỉ mạnh về ngữ nghĩa sâu; nó còn phải giữ tốt chi tiết không gian ở các tầng nông.
+    \item Bài báo vì thế không chỉ hỏi mô hình nào mạnh hơn, mà hỏi hai câu đúng hơn:
+  \end{itemize}
+  \begin{block}{Hai câu hỏi cốt lõi}
+    Với cùng ngân sách FLOPs, compute nên đặt ở đâu?\\
+    Và trong lúc train, detector nên nhìn thấy khuôn mặt ở những scale nào nhiều hơn?
+  \end{block}
+\end{frame}
+
+\begin{frame}{Kiến trúc nền Backbone--Neck--Head}
   \begin{columns}[T,onlytextwidth]
-    \column{0.57\textwidth}
+    \column{0.56\textwidth}
     \includegraphics[width=\linewidth]{scrfd_backbone_neck_head.png}
-    \column{0.43\textwidth}
+    \column{0.44\textwidth}
     \begin{itemize}
       \item \textbf{Backbone}: tạo chuỗi đặc trưng \(C_2 \rightarrow C_5\).
-      \item \textbf{Neck}: hợp nhất thông tin đa tỉ lệ để giữ cả ngữ nghĩa lẫn vị trí.
-      \item \textbf{Head}: phân loại khuôn mặt/nền và hồi quy bbox trên các feature map.
-      \item Điểm mấu chốt: face detection, đặc biệt là \textbf{tiny faces}, phụ thuộc mạnh vào các tầng nông có độ phân giải cao.
+      \item \textbf{PAFPN}: hợp nhất thông tin nhiều mức để vừa giữ vị trí vừa giữ ngữ nghĩa.
+      \item \textbf{Dense head}: dự đoán classification và bbox trên các feature map.
+      \item Trọng tâm của SCRFD là làm cho cấu trúc này phù hợp hơn với tiny-face detection thay vì bê nguyên detector phân loại ảnh sang.
     \end{itemize}
   \end{columns}
 \end{frame}
 
-\begin{frame}{Computation Redistribution: flow làm việc thực sự}
-  \begin{enumerate}
-    \item Chọn một detector template trong miền 2.5 GFLOPs.
-    \item Lấy mẫu \textbf{độ sâu, độ rộng và tỉ lệ kênh} của các stage backbone; sau đó mở rộng sang neck và head.
-    \item Tính lại FLOPs cho candidate; chỉ giữ những cấu hình còn nằm trong \textbf{cùng dải chi phí} quanh mục tiêu 2.5 GFLOPs.
-    \item Train từng candidate đủ để so sánh, rồi đo AP trên WIDER FACE.
-    \item Chọn winner theo chất lượng thực nghiệm, không theo trực giác thủ công.
-  \end{enumerate}
-  \vspace{0.25cm}
-  \begin{block}{Ý nghĩa}
-    CR biến việc “thiết kế detector” thành một bài toán \textbf{sinh -- lọc -- huấn luyện -- đánh giá} dưới cùng ràng buộc chi phí.
-  \end{block}
-\end{frame}
-
-\begin{frame}{CR rút ra điều gì cho face detection}
+\begin{frame}{Computation Redistribution được làm theo hai pha}
   \begin{itemize}
-    \item Detector tốt không đơn giản là detector “to hơn”, mà là detector \textbf{đặt FLOPs đúng chỗ hơn}.
-    \item Với tiny faces, stage nông vừa quý vừa đắt: tăng compute ở đây giúp giữ chi tiết không gian, nhưng nếu tăng sai chỗ sẽ làm chi phí bùng lên.
-    \item Vì vậy CR không đi theo quy tắc cứng kiểu “luôn tăng sớm” hay “luôn tăng sâu”, mà tìm \textbf{tỉ lệ phân bổ hợp lý} giữa \(C_2,C_3,C_4,C_5\), neck và head.
-    \item Đây cũng chính là điểm mà phần \textbf{SPOS-NAS} của nhóm sẽ đi sâu phân tích lại.
+    \item \textbf{Pha 1: search backbone.} Ở bước này paper cố định phần còn lại tương đối ổn định để trả lời câu hỏi riêng cho backbone: trong khung 4 stage \(C_2,C_3,C_4,C_5\), độ sâu và độ rộng nên dồn vào đâu.
+    \item Các candidate backbone được sinh ra từ một template có sẵn, đo lại FLOPs, rồi chỉ những cấu hình còn nằm trong cùng vùng chi phí mới được đem đi train và so sánh.
+    \item \textbf{Pha 2: search toàn mạng.} Từ backbone template thắng ở pha 1, paper mới mở rộng sang detector đầy đủ: backbone vẫn được dao động trong phạm vi hợp lý, đồng thời neck và head cũng được tinh chỉnh.
+    \item Ý nghĩa của cách tách này là tránh để neck/head che mờ tác động thật sự của backbone ngay từ đầu, đồng thời giữ search space đủ lớn nhưng vẫn kiểm soát được chi phí.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Sample Redistribution: flow trong pipeline huấn luyện}
+\begin{frame}{Critical thinking về các assumption của CR}
+  \begin{itemize}
+    \item CR không search từ số 0. Paper giả định trước một \textbf{khung detector cố định}: backbone 4 stage, PAFPN, dense head, các mức stride chính vẫn giữ nguyên.
+    \item Trong pha backbone, search thực chất là phân bổ lại depth/width quanh template ban đầu, chứ không mở tự do mọi loại module.
+    \item Trong pha toàn mạng, detector cũng không được mở hoàn toàn; backbone đã bị khóa quanh template thắng, rồi mới phân phối nốt compute cho neck và head.
+    \item Vì vậy giá trị của CR không phải ở chỗ paper search mọi thứ, mà ở chỗ paper chọn đúng abstraction level để search: \textbf{phân bổ compute giữa các phần của detector}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Sample Redistribution tác động vào đâu}
   \begin{enumerate}
-    \item Mỗi ảnh train được chọn một \textbf{scale crop} từ scale set.
-    \item Ảnh bị crop thành patch vuông rồi resize về kích thước cố định \(640 \times 640\).
-    \item Cùng một khuôn mặt, sau bước này có thể trở nên \textbf{lớn hơn} hoặc \textbf{nhỏ hơn} tương đối so với anchor và feature map.
-    \item Bước gán mẫu dương/âm vì thế thay đổi: tiny faces có thể nhận nhiều positive hơn hoặc ít positive hơn.
-    \item Chính điều đó làm SR ảnh hưởng trực tiếp tới Hard AP.
+    \item Mỗi ảnh train được crop vuông theo một scale rồi resize về cùng input \(640 \times 640\).
+    \item Vì vậy cùng một khuôn mặt sau resize có thể lớn hơn hoặc nhỏ hơn tương đối, dù ảnh đầu vào là cùng một ảnh.
+    \item Kích thước tương đối đó quyết định mặt rơi vào feature level nào và có bao nhiêu positive anchors.
+    \item Do đó SR không chỉ là augmentation; nó đang điều khiển trực tiếp \textbf{training signal} cho tiny/small faces.
   \end{enumerate}
-  \vspace{0.2cm}
   \begin{block}{Luồng nhân quả}
-    scale set \(\rightarrow\) kích thước mặt sau resize \(\rightarrow\) positive anchors \(\rightarrow\) training signal \(\rightarrow\) Hard AP.
+    scale set \(\rightarrow\) face size sau resize \(\rightarrow\) positive samples \(\rightarrow\) Hard AP
   \end{block}
 \end{frame}
 
-\begin{frame}{SR không chỉ là augmentation thông thường}
+\begin{frame}{Critical thinking về các assumption của SR}
   \begin{itemize}
-    \item Nếu scale set thiên về zoom-in, detector thấy nhiều mặt vừa/lớn hơn nhưng ít tình huống tiny faces thật sự.
-    \item Nếu scale set tạo thêm zoom-out hợp lý, tiny faces xuất hiện dày hơn sau resize và detector học đúng vùng khó của WIDER FACE.
-    \item Trong reproduction của nhóm, chỉ riêng việc đổi từ default scale set sang \textbf{paper-SR12} đã làm Hard AP tăng từ \textbf{72.49} lên \textbf{73.71}.
-    \item Nghĩa là cùng một kiến trúc SCRFD-2.5GF, \textbf{phân bố sample khi train} đã đủ tạo chênh lệch rõ rệt.
+    \item SR cũng không tối ưu trực tiếp positive supervision; paper chỉ search trên một \textbf{tập scale rời rạc} rồi để pipeline crop/resize biến nó thành tín hiệu học.
+    \item Nghĩa là paper tối ưu một biến gián tiếp: scale set, chứ không tối ưu trực tiếp số positives hay gradient mass theo level.
+    \item Public release còn cho thấy narrative của paper và code public không hoàn toàn trùng nhau: code công khai giữ một scale list hand-crafted, trong khi paper nhấn mạnh searched scale set.
+    \item Điểm này rất quan trọng khi đọc kết quả reproduction: chênh lệch Hard AP có thể đến từ chính sample policy, không chỉ từ backbone hay random seed.
   \end{itemize}
 \end{frame}
 
-\section{Chạy Lại Paper}
+\begin{frame}{Điểm mạnh và hạn chế của SCRFD}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.49\textwidth}
+    \begin{block}{Điểm mạnh}
+      \begin{itemize}
+        \item Đặt đúng bài toán tiny-face detection dưới ràng buộc hiệu quả.
+        \item Nối được kiến trúc và dữ liệu train thành một pipeline logic.
+        \item Đường cong accuracy-efficiency rất thực dụng cho face detection.
+      \end{itemize}
+    \end{block}
+    \column{0.49\textwidth}
+    \begin{block}{Hạn chế}
+      \begin{itemize}
+        \item Search vẫn tốn tài nguyên.
+        \item Search space còn bị ràng buộc bởi template detector ban đầu.
+        \item Kết quả gắn rất mạnh với WIDER FACE và tiny-face benchmark.
+      \end{itemize}
+    \end{block}
+  \end{columns}
+\end{frame}
 
-\begin{frame}{Phạm vi reproduction bằng official code}
+\section{Reproduction}
+
+\begin{frame}{WIDER FACE là benchmark trung tâm của báo cáo}
+  \small
+  \begin{tabular}{@{}lccc@{}}
+    \toprule
+    Split & Số ảnh & Số face boxes & Ghi chú \\
+    \midrule
+    Train & 12,880 & 159,393 & dùng để train \\
+    Val & 3,226 & 39,697 & dùng để evaluate \\
+    Test & 16,097 & -- & không có GT public \\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{0.35cm}
   \begin{itemize}
-    \item Nhóm không viết lại SCRFD từ đầu, mà chạy lại \textbf{official code} theo đúng cây triển khai detector của InsightFace.
-    \item Dataset dùng là \textbf{WIDER FACE} theo layout mà detector yêu cầu: train images, val images và annotation dạng RetinaFace/SCRFD.
-    \item Baseline reproduction tập trung vào \textbf{SCRFD-2.5GF} vì đây là điểm cân bằng tốt giữa chi phí và độ nhạy với CR/SR.
-    \item Phần cải tiến chỉ được làm sau khi đã có baseline chạy được và có kết quả AP ổn định.
+    \item Paper thực chất bám rất chặt vào WIDER FACE để search, train và benchmark.
+    \item EDA trong report cho thấy hơn 70\% face boxes nằm dưới ngưỡng \(32\) px, nên tiny faces không phải edge case mà là vùng dữ liệu thống trị bài toán.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Thiết lập chạy lại baseline paper-SR12}
+\begin{frame}{Cấu hình baseline chạy lại paper}
+  \begin{itemize}
+    \item Nhóm bám \textbf{official public SCRFD codebase} và official detector family, không tự viết lại mô hình.
+    \item Baseline được chọn là \textbf{SCRFD-2.5GF}: đủ lớn để có ý nghĩa thống kê, nhưng vẫn nằm trong phạm vi tài nguyên có thể tái hiện ổn định.
+    \item Đây là quyết định có chủ ý: full NAS của paper quá nặng vì phải sinh nhiều candidate, train rút gọn, đánh giá, chọn cấu hình rồi mới train dài cho model cuối.
+    \item Scale policy \textbf{paper-SR12} được nhóm \textbf{phục dựng lại} trên pipeline công khai; nó không phải một baseline upstream có sẵn đúng nguyên xi từ authors.
+    \item Vì vậy reproduction của nhóm là \textbf{public reproducible baseline trên official stack}, không phải rerun toàn bộ NAS end-to-end của paper.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Protocol train và evaluate của baseline}
   \small
   \begin{tabular}{@{}p{0.30\textwidth}p{0.62\textwidth}@{}}
     \toprule
     Thành phần & Thiết lập \\
     \midrule
-    Input size & \(640 \times 640\) \\
-    Backbone & SCRFD-2.5GF trong official config \\
-    Optimizer & SGD, momentum \(0.9\), weight decay \(5 \times 10^{-4}\) \\
-    Schedule & 80 epochs, cosine LR, có warmup \\
-    Batch / workers & Theo official setup trong môi trường GPU của nhóm \\
-    Augmentation chính & crop vuông, resize, flip, photometric distortion, normalize \\
-    Evaluation & WIDER FACE Easy / Medium / Hard, score threshold \(0.02\), NMS \(0.45\) \\
+    Input & \(640 \times 640\) \\
+    Optimizer & SGD, momentum \(0.9\), weight decay \(5\times10^{-4}\) \\
+    Schedule & 80 epochs, cosine LR, warmup \\
+    Augmentation & crop vuông, resize, flip, photometric distortion, normalize \\
+    Evaluation & WIDER FACE Easy/Medium/Hard trên \textbf{validation split}, threshold \(0.02\), NMS \(0.45\) \\
     \bottomrule
   \end{tabular}
+
+  \vspace{0.3cm}
+  \begin{itemize}
+    \item Điểm cần nhớ là baseline dùng cùng pipeline train/eval với official repo, nhưng đường chạy `80e cosine + paper-SR12` là cấu hình thực nghiệm nhóm dựng lại trên official stack.
+    \item Vì vậy khi so với official model zoo, phải tách rõ hai lớp nguyên nhân: khác recipe train dài-ngắn và khác sample policy.
+  \end{itemize}
 \end{frame}
 
-\begin{frame}{Kết quả baseline và khoảng cách với model zoo}
+\begin{frame}{Kết quả tái hiện baseline và vai trò của paper-SR12}
   \small
   \begin{tabular}{@{}lcccc@{}}
     \toprule
-    Thiết lập & Easy & Medium & Hard & Ghi chú \\
+    Thiết lập & Easy & Medium & Hard & mAP \\
     \midrule
-    Official model zoo & 93.78 & 92.16 & 77.87 & SCRFD-2.5GF \\
-    Baseline default scale set & 93.62 & 91.81 & 72.49 & tái hiện ban đầu \\
-    Baseline paper-SR12 & 93.82 & 91.90 & 73.71 & gần paper hơn \\
+    Official model zoo & 93.78 & 92.16 & 77.87 & 87.94 \\
+    Baseline default scale set & 91.40 & 89.69 & 72.49 & 84.53 \\
+    Baseline paper-SR12 & 91.61 & 89.99 & 73.71 & 85.10 \\
     \bottomrule
   \end{tabular}
 
   \vspace{0.35cm}
   \begin{itemize}
-    \item Easy và Medium khá gần official, nhưng \textbf{Hard còn thiếu rõ rệt}.
-    \item Điều này xác nhận rằng phần khó nhất của SCRFD không phải “chạy được model”, mà là tái tạo đúng \textbf{toàn bộ chuỗi thiết kế} ảnh hưởng tới tiny faces.
+    \item Trong cùng khung \textbf{80 epoch cosine}, chỉ riêng việc đổi sang \textbf{paper-SR12} đã kéo Hard AP tăng \(+1.22\).
+    \item Điều này xác nhận một insight lớn của report: phần khó nhất của SCRFD không chỉ là chạy model, mà là tái tạo đúng sample policy cho tiny faces.
   \end{itemize}
+\end{frame}
+
+\begin{frame}{Đọc đúng gap với official model zoo}
+  \begin{itemize}
+    \item Gap với official không nên quy hết cho một lý do duy nhất.
+    \item \textbf{Official 2.5GF} là mốc model zoo đã được huấn luyện rất dài trong public recipe gốc, khoảng \textbf{640 epoch với step schedule}.
+    \item \textbf{Baseline của nhóm} là \textbf{80 epoch với cosine scheduler} trên official public codebase, rồi gắn thêm paper-SR12 vào pipeline công khai.
+    \item Vì vậy gap Hard \(-4.16\) phải được đọc như tổng hợp của:
+  \end{itemize}
+  \begin{block}{Bốn nguồn chênh lệch}
+    training horizon, scale policy, randomness, và mức độ tinh chỉnh sâu hơn của pipeline official
+  \end{block}
 \end{frame}
 
 \section{SPOS-NAS Cho CR}
 
-\begin{frame}{Vì sao dùng SPOS-NAS để phân tích CR}
+\begin{frame}{Vì sao dùng SPOS-NAS để mở rộng CR}
   \begin{itemize}
-    \item Official SCRFD dùng empirical search tốn tài nguyên; nhóm cần một cách \textbf{nhẹ hơn} để kiểm tra lại trực giác phân bổ compute.
-    \item SPOS-NAS cho phép huấn luyện \textbf{một supernet duy nhất}, sau đó rút ra nhiều candidate bằng inherited weights.
-    \item Mục tiêu của phần này không thay thế official code, mà trả lời câu hỏi:
+    \item Official CR search rất nặng, nên nhóm dùng \textbf{SPOS-NAS proxy} để khảo sát sâu hơn cấu trúc phân bổ compute trong cùng miền 2.5 GFLOPs.
+    \item Mục tiêu không phải thay official AP benchmark, mà là kiểm tra xem khi search dưới áp lực tiny-face detection, winner có tự học một quy luật phân bổ compute nhất quán hay không.
+    \item Đây là \textbf{phân tích bổ sung cho CR}, không phải nhánh evidence chính mạnh hơn baseline + ASR.
+    \item Đây là phần mở rộng trực tiếp cho \textbf{Computation Redistribution}, nên được trình bày trước.
   \end{itemize}
-  \begin{block}{Câu hỏi}
-    Trong cùng khoảng 2.5 GFLOPs, winner có thật sự dồn compute vào những stage hữu ích cho face detection hay không?
-  \end{block}
 \end{frame}
 
 \begin{frame}{Flow triển khai SPOS-NAS proxy}
   \begin{enumerate}
-    \item Xây dựng supernet bao phủ nhiều lựa chọn depth/width trên bốn stage \(C_2 \rightarrow C_5\).
-    \item Mỗi mini-batch chỉ kích hoạt \textbf{một đường con} để huấn luyện theo tinh thần single-path.
-    \item Sau khi supernet học đủ ổn định, lấy mẫu nhiều candidate trong dải FLOPs mục tiêu.
-    \item Với mỗi candidate, chạy \textbf{calibration thống kê chuẩn hóa}, rồi đo proxy score trên tập validation.
-    \item Xếp hạng 1\,000 kiến trúc hợp lệ và phân tích cấu trúc của nhóm đứng đầu.
+    \item Xây dựng một supernet bao phủ nhiều phương án depth/width trên bốn stage \(C_2 \rightarrow C_5\).
+    \item Huấn luyện supernet theo kiểu single-path để mỗi mini-batch chỉ kích hoạt một đường con.
+    \item Sau khi supernet đủ ổn định, lấy mẫu \textbf{1,000} candidate trong cùng vùng 2.5 GFLOPs.
+    \item Với mỗi candidate, chạy BatchNorm recalibration rồi đo proxy score trên validation.
+    \item Từ bảng xếp hạng đó, phân tích cấu hình của Top-10, Top-100 và nhóm thua để rút ra quy luật CR.
   \end{enumerate}
 \end{frame}
 
-\begin{frame}{Kết quả chính của SPOS-NAS proxy}
-  \small
-  \begin{tabular}{@{}p{0.24\textwidth}p{0.66\textwidth}@{}}
-    \toprule
-    Quan sát & Ý nghĩa \\
-    \midrule
-    Supernet đạt best validation loss khoảng \textbf{0.6519} ở epoch 18 & Proxy đủ ổn định để so sánh candidate trong giới hạn tài nguyên \\
-    Đánh giá \textbf{1\,000} kiến trúc trong cùng vùng 2.5 GFLOPs & So sánh được pattern phân bổ compute thay vì chỉ một vài mẫu ngẫu nhiên \\
-    Top group không đi theo phân bổ đồng đều & Winner có cấu trúc rõ ràng, không phải may mắn thống kê \\
-    \bottomrule
-  \end{tabular}
-
-  \vspace{0.35cm}
+\begin{frame}{Kết quả chính của SPOS-NAS}
   \begin{itemize}
-    \item Điều nhóm cần không chỉ là top-1, mà là \textbf{mẫu hình chung} của Top-100 so với nhóm thua.
+    \item Nhóm tốt không phân bổ compute đồng đều; winner có xu hướng \textbf{đầu tư mạnh vào \(C_2\)} và tránh làm \(C_3\) phình quá mức.
+    \item \(C_2\) giữ chi tiết không gian cho tiny faces, còn \(C_5\) bổ sung ngữ nghĩa đủ mạnh cho head.
+    \item \(C_3\) là vùng dễ thành bẫy chi phí: feature map vẫn còn lớn nên FLOPs đắt, nhưng gain tăng không tương xứng nếu mở quá rộng.
+    \item Khi đổi proxy target từ center-focus sang edge-focus, phân bố compute lại dịch đi, cho thấy search phản ứng với \textbf{hình học của task} chứ không chỉ học thuộc một template cố định.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Insight lớn nhất từ SPOS-NAS}
-  \begin{itemize}
-    \item Top-100 winners có xu hướng \textbf{đầu tư ổn định vào \(C_2\) và \(C_5\)} thay vì dồn nhiều compute vào \(C_3\).
-    \item \(C_2\) giữ chi tiết không gian cho tiny faces; \(C_5\) bổ sung ngữ nghĩa đủ mạnh cho head.
-    \item \(C_3\) thường là \textbf{bẫy chi phí}: feature map vẫn còn lớn nên FLOPs đắt, nhưng lợi ích tăng không tương xứng nếu phình quá mức.
-    \item Khi proxy target đổi từ \textbf{center-focus} sang \textbf{edge-focus}, compute dịch thêm khỏi \(C_3\) và trải về \(C_2/C_5\), càng củng cố kết luận trên.
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Kết luận của phần SPOS-NAS}
-  \begin{block}{Điều SPOS-NAS xác nhận}
-    Computation Redistribution của SCRFD là một ý tưởng \textbf{có cấu trúc thật}, không phải một mẹo search ngẫu nhiên.
+\begin{frame}{Insight chốt lại từ SPOS-NAS}
+  \begin{block}{Điểm mà phần mở rộng này xác nhận}
+    Computation Redistribution của SCRFD là một nguyên tắc phân bổ compute có cấu trúc, không phải mẹo thử-sai ngẫu nhiên.
   \end{block}
   \begin{itemize}
-    \item Trong miền 2.5 GFLOPs, winner không thắng vì “to hơn”, mà vì \textbf{phân bổ compute đúng hơn}.
-    \item Quy luật rút ra là: giữ đủ năng lực ở tầng nông để không mất tiny faces, đồng thời để tầng sâu đủ mạnh cho ngữ nghĩa; tránh phình quá mức ở vùng trung gian đắt đỏ.
+    \item Trong miền 2.5 GFLOPs, winner thắng vì phân bổ compute đúng hơn, không phải vì đơn giản lớn hơn.
+    \item Đó là lý do report kết luận SCRFD mạnh vì nó đặt năng lực biểu diễn đúng chỗ ngay từ cấp kiến trúc.
   \end{itemize}
 \end{frame}
 
 \section{ASR+JSAR Cho SR Và Train}
 
-\begin{frame}{Vì sao cần ASR+JSAR sau baseline}
+\begin{frame}{Động cơ của ASR+JSAR}
   \begin{itemize}
-    \item Baseline paper-SR12 đã tốt hơn default scale set, nhưng Hard AP vẫn còn cách official model zoo hơn \textbf{4 điểm}.
-    \item Điều này gợi ý rằng scale set tĩnh vẫn chưa đủ: detector chưa nhìn thấy tiny faces với \textbf{độ khó đúng mức}, và bước assignment vẫn có thể bỏ sót positive samples.
-    \item Vì vậy nhóm cải tiến theo hai hướng nối tiếp:
+    \item Sau baseline paper-SR12, gap lớn nhất vẫn nằm ở split Hard.
+    \item Điều đó cho thấy sample policy tĩnh vẫn chưa đủ, và tiny faces vẫn còn bị thiếu positive supervision ở bước assignment.
+    \item Vì vậy nhóm sửa đúng hai nút thắt của giai đoạn train:
   \end{itemize}
-  \begin{block}{Hai đòn can thiệp}
-    \textbf{ASR}: sửa cách chọn scale khi train. \\
-    \textbf{JSAR}: sửa cách tiny faces nhận positive anchors.
+  \begin{block}{Hai cải tiến}
+    \textbf{ASR}: điều chỉnh xác suất lấy các scale theo tín hiệu khó dễ đang quan sát được.\\
+    \textbf{JSAR}: tăng positive assignment cho tiny faces khi pipeline chuẩn còn bỏ sót.
   \end{block}
 \end{frame}
 
-\begin{frame}{ASR: flow cập nhật phân bố scale theo độ khó}
-  \begin{enumerate}
-    \item Bắt đầu từ một scale pool đủ rộng, không khóa cứng xác suất như paper-SR12.
-    \item Sau mỗi giai đoạn huấn luyện, gom thống kê kích thước mặt và mức độ thiếu hụt recall trên các vùng khó.
-    \item Chia các mặt vào các bin kích thước; bin nào đang thiếu supervision sẽ được tăng xác suất lấy mẫu.
-    \item Làm mượt thống kê theo kiểu \textbf{EMA} để policy không giật giữa các epoch.
-    \item Epoch sau dùng phân bố mới để tạo crop/resize, từ đó đưa nhiều tiny faces có ích hơn vào train.
-  \end{enumerate}
+\begin{frame}{ASR và JSAR hoạt động như thế nào}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.49\textwidth}
+    \begin{block}{ASR}
+      \begin{itemize}
+        \item Bắt đầu từ scale pool đủ rộng.
+        \item Gom thống kê face-size distribution và thiếu hụt recall theo từng giai đoạn train.
+        \item Tăng xác suất cho các scale tạo ra nhóm tiny/small faces còn thiếu.
+        \item Làm mượt policy bằng EMA để tránh dao động quá mạnh.
+      \end{itemize}
+    \end{block}
+    \column{0.49\textwidth}
+    \begin{block}{JSAR}
+      \begin{itemize}
+        \item Tiny faces thường nhận quá ít positives với assignment gốc.
+        \item JSAR nới lỏng bước chọn ứng viên quanh tâm.
+        \item Nếu vẫn thiếu positives, fallback sẽ giữ lại một nhóm anchor gần nhất còn hợp lý.
+        \item Nhờ đó tiny faces không còn bị rơi khỏi supervision.
+      \end{itemize}
+    \end{block}
+  \end{columns}
 \end{frame}
 
-\begin{frame}{JSAR: flow tăng positive assignment cho tiny faces}
-  \begin{enumerate}
-    \item Với các ground truth rất nhỏ, điều kiện gán dương mặc định thường quá chặt nên số positive bị thiếu.
-    \item JSAR nới lỏng việc chọn candidate quanh tâm và giảm mức khắt khe của bước gán cho nhóm tiny faces.
-    \item Nếu sau các bước chuẩn mà một tiny face vẫn gần như không có positive, cơ chế \textbf{fallback} sẽ cưỡng bức giữ lại một nhóm anchor gần nhất còn hợp lý.
-    \item Nhờ vậy, tiny faces không còn bị “rớt supervision” ở cuối pipeline train.
-  \end{enumerate}
-  \vspace{0.2cm}
-  \begin{block}{Vai trò riêng}
-    ASR sửa \textbf{đầu vào huấn luyện}; JSAR sửa \textbf{bước nhận tín hiệu học}.
+\begin{frame}{Protocol thực nghiệm cho ASR+JSAR}
+  \begin{itemize}
+    \item Cả baseline và cải tiến đều dùng \textbf{SCRFD-2.5GF}, input \(640\times640\), 80 epoch, cosine scheduler.
+    \item Nhóm chạy hai cặp thí nghiệm để tách ảnh hưởng của sample pool:
+  \end{itemize}
+  \begin{block}{Hai trường hợp}
+    \textbf{Default scale set}: baseline gốc của source code.\\
+    \textbf{Paper-SR12 scale set}: scale policy gần hơn với narrative của paper.
   \end{block}
+  \begin{itemize}
+    \item Cách so sánh này giúp đọc đúng delta của ASR+JSAR: gain đến từ adaptive redistribution và assignment, không chỉ từ việc đổi scale pool.
+    \item Trên nhánh `default`, baseline và ASR không dùng hoàn toàn cùng điểm đầu bên trái của scale pool; trên nhánh \textbf{paper-SR12}, cả hai mới thật sự dùng cùng một 12-scale set.
+  \end{itemize}
 \end{frame}
 
 \begin{frame}{Kết quả ASR+JSAR trên WIDER FACE}
@@ -316,48 +360,39 @@
     \toprule
     Thiết lập & Easy & Medium & Hard & mAP \\
     \midrule
-    Baseline default scale set & 93.62 & 91.81 & 72.49 & 85.97 \\
-    Baseline paper-SR12 & 93.82 & 91.90 & 73.71 & 86.48 \\
-    ASR+JSAR + paper-SR12 & 94.10 & 92.58 & 77.38 & 88.02 \\
-    Official model zoo & 93.78 & 92.16 & 77.87 & 87.94 \\
+    Default baseline & 93.62 & 91.81 & 72.49 & 85.97 \\
+    Default ASR+JSAR & 90.39 & 89.25 & 76.90 & 85.51 \\
+    Paper-SR12 baseline & 93.82 & 91.90 & 73.71 & 86.48 \\
+    Paper-SR12 ASR+JSAR & 90.28 & 89.01 & 77.38 & 85.56 \\
     \bottomrule
   \end{tabular}
 
   \vspace{0.35cm}
   \begin{itemize}
-    \item Mức tăng quan trọng nhất nằm ở \textbf{Hard}: từ \textbf{73.71} lên \textbf{77.38}.
-    \item Tức là cải tiến của nhóm đã kéo reproduction tới rất gần mức official ở split khó nhất.
+    \item Gain lớn nhất tập trung ở \textbf{Hard}: \(+4.40\) với default và \(+3.67\) với paper-SR12.
+    \item Trên paper-SR12, kết quả chỉ còn cách official model zoo khoảng \(0.49\) điểm ở split khó nhất.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Vì sao ASR+JSAR có tác dụng}
+\begin{frame}{ASR+JSAR đang sửa đúng cái gì}
   \begin{itemize}
-    \item ASR làm tiny faces xuất hiện với \textbf{phân bố phù hợp hơn} trong các epoch cuối, nên head được nhìn thấy nhiều tình huống khó hơn.
-    \item JSAR làm số positive trên mỗi tiny ground truth tăng lên rõ rệt; theo thống kê của nhóm, \textbf{positives per GT} tăng từ khoảng \textbf{1.76} lên \textbf{2.67}.
-    \item Hai cơ chế này bổ sung nhau:
-  \end{itemize}
-  \begin{block}{Phối hợp}
-    ASR đưa đúng dữ liệu khó vào train; JSAR đảm bảo dữ liệu khó đó \textbf{thực sự sinh ra supervision}.
-  \end{block}
-\end{frame}
-
-\begin{frame}{Kết luận của phần ASR+JSAR}
-  \begin{itemize}
-    \item Nếu chỉ thay scale set, detector tiến bộ nhưng chưa đủ.
-    \item Nếu chỉ sửa assignment mà dữ liệu train vẫn thiếu tiny faces, hiệu quả cũng bị giới hạn.
-    \item Hard AP tăng mạnh chỉ khi \textbf{phân bố sample} và \textbf{cơ chế nhận mẫu dương} được sửa cùng lúc.
-    \item Đây là phần nối trực tiếp giữa \textbf{Sample Redistribution} của paper và hành vi huấn luyện quan sát được trong code.
+    \item Về \textbf{dữ liệu train}, ASR làm thay đổi face-size distribution theo hướng detector còn thiếu.
+    \item Về \textbf{supervision}, JSAR làm tiny positives/GT tăng từ khoảng \(1.76\) lên \(2.67\), tức gần \(1.52\times\).
+    \item Về \textbf{kết quả}, gain tập trung ở Hard subset, nghĩa là phần cải tiến đúng là đang chạm vào vùng tiny/hard faces thay vì cải thiện đồng đều mọi split.
+    \item Trên nhánh paper-SR12, ASR không đẩy phân phối về tiny một cách cực đoan hơn nữa; nó chủ yếu làm mềm các scale cực đoan và giữ tiny supervision ở mức hiệu quả hơn.
+    \item Trade-off vẫn tồn tại: Easy/Medium giảm nhẹ, nhưng đó là đánh đổi có chủ đích để đẩy training signal về đúng nhóm khó nhất.
   \end{itemize}
 \end{frame}
 
-\section{Kết Luận}
+\section{Kết luận}
 
 \begin{frame}{Kết luận}
   \begin{itemize}
-    \item \textbf{SCRFD mạnh không chỉ vì tổng FLOPs}, mà vì FLOPs được phân bổ đúng chỗ trong detector.
-    \item \textbf{SPOS-NAS} xác nhận trực giác của CR: winner trong miền 2.5 GFLOPs có phân bổ compute có cấu trúc, đặc biệt tránh đầu tư quá mức vào \(C_3\).
-    \item \textbf{ASR+JSAR} cho thấy phần khó còn lại nằm ở training signal cho tiny faces: sửa scale distribution và assignment có thể kéo Hard AP gần tới official result.
-    \item Insight tổng quát của báo cáo là: với face detection hiệu quả, phải tối ưu đồng thời \textbf{kiến trúc}, \textbf{dữ liệu huấn luyện} và \textbf{supervision}.
+    \item SCRFD mạnh vì tối ưu đồng thời \textbf{nơi mô hình đặt năng lực biểu diễn} và \textbf{nơi dữ liệu tạo tín hiệu học}.
+    \item \textbf{Baseline reproduction} cho thấy gap lớn nhất luôn nằm ở Hard; đó mới là vùng khó thật của SCRFD.
+    \item \textbf{ASR+JSAR} là bằng chứng mạnh nhất của report: giữ nguyên kiến trúc suy luận vẫn có thể kéo Hard AP từ \(73.71\) lên \(77.38\) nếu scale distribution và positive supervision cho tiny faces được sửa đúng chỗ.
+    \item \textbf{SPOS-NAS} củng cố phía CR: trong cùng miền 2.5 GFLOPs, winner thắng vì phân bổ compute đúng hơn, đặc biệt ở \(C_2\), \(C_3\) và \(C_5\).
+    \item Insight cuối cùng của report là: với efficient face detection, tối ưu kiến trúc thôi là chưa đủ; phải tối ưu cùng lúc \textbf{architecture, data distribution và supervision}.
   \end{itemize}
 \end{frame}
 

@@ -1,0 +1,37 @@
+{
+  "latest_epoch": 80,
+  "latest_iteration": 32241,
+  "latest_scale_probs": [
+    0.056191031089850484,
+    0.08531985110142262,
+    0.08838849326406024,
+    0.10004526508274109,
+    0.09429127666914984,
+    0.09478197544325076,
+    0.0968132952211902,
+    0.09321946595267361,
+    0.09077240609555846,
+    0.0780865007565466,
+    0.06524837919270479,
+    0.05684206013085136
+  ],
+  "num_epoch_records": 80,
+  "num_records": 80,
+  "record_type": "epoch_end",
+  "resolved_source": "E:\\t\\ab3\\experiments\\asr_jsar\\work_dir\\adaptive_sr\\scale_prob_history.jsonl",
+  "scale_candidates": [
+    0.5,
+    0.7,
+    0.8,
+    1.0,
+    1.1,
+    1.2,
+    1.4,
+    1.5,
+    1.8,
+    2.0,
+    2.3,
+    2.6
+  ],
+  "scheduler": "adaptive_sr"
+}

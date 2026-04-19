@@ -1,0 +1,5 @@
+metric,SCRFD-2.5G PaperSR12 Baseline 80e,SCRFD-2.5G PaperSR12 ASR+JSAR 80e,delta
+easy_AP,0.9161,0.9028,-0.0133
+medium_AP,0.8999,0.8901,-0.0098
+hard_AP,0.7371,0.7738,+0.0367
+mAP,0.8510,0.8556,+0.0045

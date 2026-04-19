@@ -1,0 +1,46 @@
+{
+  "bin_names": [
+    "tiny",
+    "small",
+    "medium",
+    "large"
+  ],
+  "epoch_log_dir": "E:\\GHuy\\Study\\Nh\u1eadn d\u1ea1ng\\SCRFD\\analysis_artifacts_bundle\\experiments\\asr_jsar\\work_dir\\adaptive_sr\\epoch_logs",
+  "final_after_hist": [
+    199928.0,
+    150222.0,
+    98314.0,
+    28282.0
+  ],
+  "final_after_per_gt": [
+    2.6655645032264945,
+    6.018268498858219,
+    5.465836437427031,
+    5.100450856627592
+  ],
+  "final_before_hist": [
+    129631.0,
+    150212.0,
+    98314.0,
+    28282.0
+  ],
+  "final_before_per_gt": [
+    1.7283211562050025,
+    6.017867873883258,
+    5.465836437427031,
+    5.100450856627592
+  ],
+  "final_boost_ratio": [
+    1.5422854101256644,
+    1.0000665725774238,
+    1.0,
+    1.0
+  ],
+  "final_epoch": 80,
+  "final_gt_hist": [
+    75004.0,
+    24961.0,
+    17987.0,
+    5545.0
+  ]
+}

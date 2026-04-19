@@ -1,0 +1,11 @@
+{
+  "config": "configs/scrfd/scrfd_2.5g_80e_cosine_baseline.py",
+  "checkpoint": "work_dirs/ablation_2.5g_cosine/baseline/latest.pth",
+  "timestamp": "2026-04-17 11:40:46",
+  "easy_AP": 0.913986761986248,
+  "medium_AP": 0.89686423307923,
+  "hard_AP": 0.7249351526473802,
+  "mAP": 0.8452620492376193,
+  "score_threshold": 0.02,
+  "test_mode": 0
+}

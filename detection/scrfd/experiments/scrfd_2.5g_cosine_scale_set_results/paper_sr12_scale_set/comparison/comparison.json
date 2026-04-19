@@ -1,0 +1,28 @@
+{
+  "baseline_name": "SCRFD-2.5G PaperSR12 Baseline 80e",
+  "baseline_summary": "E:\\t\\ab3\\experiments\\baseline\\results\\results_summary.json",
+  "improved_name": "SCRFD-2.5G PaperSR12 ASR+JSAR 80e",
+  "improved_summary": "E:\\t\\ab3\\experiments\\asr_jsar\\results\\results_summary.json",
+  "metrics": {
+    "easy_AP": {
+      "baseline": 0.9161121282818951,
+      "delta": -0.013281883132552075,
+      "improved": 0.9028302451493431
+    },
+    "hard_AP": {
+      "baseline": 0.737089848538885,
+      "delta": 0.03666506203877329,
+      "improved": 0.7737549105776583
+    },
+    "mAP": {
+      "baseline": 0.8510409502529824,
+      "delta": 0.004511492643266002,
+      "improved": 0.8555524428962484
+    },
+    "medium_AP": {
+      "baseline": 0.8999208739381672,
+      "delta": -0.009848700976423319,
+      "improved": 0.8900721729617439
+    }
+  }
+}

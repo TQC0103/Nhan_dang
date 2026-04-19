@@ -1,0 +1,11 @@
+{
+  "config": "configs/scrfd/scrfd_2.5g_80e_cosine_baseline_paper_sr12.py",
+  "checkpoint": "work_dirs/compare_2.5g_paper_sr12_cosine/baseline/latest.pth",
+  "timestamp": "2026-04-18 19:29:05",
+  "easy_AP": 0.9161121282818951,
+  "medium_AP": 0.8999208739381672,
+  "hard_AP": 0.737089848538885,
+  "mAP": 0.8510409502529824,
+  "score_threshold": 0.02,
+  "test_mode": 0
+}

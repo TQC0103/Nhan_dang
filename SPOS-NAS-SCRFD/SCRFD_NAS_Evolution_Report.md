@@ -53,6 +53,10 @@ This study specifically targets this regime via NAS, searching for the optimal $
 
 SPOS (Guo *et al.*, 2020) trains a single **Supernet** whose weights are shared across all sub-networks (child architectures). During training, a random sub-network is sampled at each forward pass; during search, all sub-networks are evaluated by directly slicing the trained Supernet weights, requiring no retraining. This decouples the search cost from the training cost, enabling the evaluation of millions of architectures in constant time.
 
+![SPOS Workflow](SPOS-Workflow-viz.png)
+
+
+
 ### 2.2 SCRFD Framework
 
 SCRFD (Guo *et al.*, 2021) introduces two orthogonal innovations:

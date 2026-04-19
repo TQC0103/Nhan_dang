@@ -604,6 +604,19 @@ Giới hạn thứ hai là ASR+JSAR hiện được kiểm chứng trên WIDER F
 
 Song song với official reproduction, nhóm thực hiện thêm một cải tiến theo hướng SPOS-NAS để phân tích trực tiếp nguyên lý \textit{Computation Redistribution} trong điều kiện tài nguyên giới hạn. Phần này không thay thế kết quả AP thật của SCRFD, nhưng là đóng góp thực nghiệm riêng của nhóm: thay vì chỉ lặp lại mô hình có sẵn, nhóm xây dựng một supernet weight-sharing, thiết kế proxy heatmap task cho face detection, rồi dùng nó để khảo sát hàng nghìn kiến trúc dưới ràng buộc 2.5 GFLOPs. Mục tiêu của phần này là trả lời câu hỏi: nếu search được đặt dưới áp lực nhận diện khuôn mặt nhỏ, nó có tự học cách phân bổ compute giống tinh thần SCRFD hay không.
 
+Quá trình này được minh họa cụ thể qua Hình \ref{fig:spos_workflow}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{SPOS-Workflow-viz.png}
+\caption{Minh họa luồng làm việc của SPOS (hình gốc từ bài báo SPOS): (a) Tại mỗi stage có nhiều "khối lựa chọn", trong mỗi lượt truyền (forward pass), supernet sẽ chọn ngẫu nhiên một khối để kích hoạt; (b) Cơ chế cắt trọng số (weight slicing) được kích hoạt khi hai khối ở hai tầng liên tiếp có kích thước in/out khác nhau, khối lớn hơn sẽ tự động cắt bớt số kênh cho tương thích; (c) Kỹ thuật mixed precision được tích hợp trong quá trình huấn luyện nhằm tối ưu bộ nhớ và thời gian.}
+\label{fig:spos_workflow}
+\end{figure}
+
+
+% ![SPOS Workflow](SPOS-Workflow-viz.png) 
+% Hình gốc từ paper spos để minh họa (a) Nhiều "khối lựa chọn" ở 1 stage, với từng pass thì supernet sẽ chọn random một khối để kích hoạt và đi theo đường đó. (b) khi 2 khối ở 2 tầng cần kích thước in/out khác nhau thì khối to hơn sẽ cắt bớt các kênh cho phù hợp. (c) trong quá trình huấn luyện thì có dùng thêm mix precision.
+
 Thí nghiệm proxy dùng WIDER FACE với 12\,876 ảnh train và 3\,222 ảnh validation. Không gian tìm kiếm xét bốn stage \(C_2,C_3,C_4,C_5\), mỗi stage có 15 lựa chọn số kênh từ 8 đến 120 và 4 lựa chọn độ sâu, tức \(60^4=12\,960\,000\) cấu hình lý thuyết. Sau khi lọc theo ràng buộc \(\leq 2.5\) GFLOPs, còn \(2\,670\,925\) cấu hình hợp lệ. Vì không thể train đầy đủ từng kiến trúc, nhóm huấn luyện một supernet SPOS bằng proxy heatmap task rồi đánh giá 1\,000 kiến trúc được lấy mẫu từ không gian hợp lệ.
 
 \begin{table}[H]
@@ -637,7 +650,7 @@ Số kiến trúc đánh giá & 1\,000 kiến trúc, khoảng 5--8 giây mỗi k
 \end{tabular}
 \end{table}
 
-Một thay đổi quan trọng trong quá trình phát triển proxy là thay cơ chế zero-padding tĩnh bằng dynamic weight slicing. Cách cũ làm gradient bị pha loãng vì các cấu hình nhỏ phải đi qua tensor có nhiều kênh đệm bằng 0; cách mới chỉ lát cắt đúng phần trọng số đang hoạt động, nhờ đó gradient tập trung vào sub-network được lấy mẫu. Kết quả trong file thí nghiệm cho thấy ngưỡng validation loss \(<0.70\) đạt vào khoảng epoch 12, trong khi phiên bản cũ cần khoảng epoch 17--18; tức nhanh hơn xấp xỉ \(30\%\) theo số epoch tới ngưỡng hội tụ.
+Ban đầu, để đơn giản quá trình cài đặt thì nhóm chúng em dùng cơ chế zeropadding và làm nhiều block ở một tầng. Nên thay đổi quan trọng trong quá trình phát triển proxy là thay cơ chế zero-padding tĩnh bằng dynamic weight slicing (giống với cách làm ban đầu của tác giả). Cách cũ làm gradient bị pha loãng vì các cấu hình nhỏ phải đi qua tensor có nhiều kênh đệm bằng 0; cách mới chỉ lát cắt đúng phần trọng số đang hoạt động, nhờ đó gradient tập trung vào sub-network được lấy mẫu. Kết quả trong file thí nghiệm cho thấy ngưỡng validation loss \(<0.70\) đạt vào khoảng epoch 12, trong khi phiên bản cũ cần khoảng epoch 17--18; tức nhanh hơn xấp xỉ \(30\%\) theo số epoch tới ngưỡng hội tụ.
 
 \begin{table}[H]
 \centering

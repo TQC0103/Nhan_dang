@@ -475,8 +475,6 @@ The present study demonstrates that:
 
 *Report generated from experimental notebooks: `spos-supernet-for-scrf-dynamic-block.ipynb`, `scrfd-spos-nas-and-inference-dynamic-block (2).ipynb`, and the NAS leaderboard `nas_leaderboard-dynamic.csv`.*
 
- 
- 
 ---
 
 ## Appendix B: Task-Driven Architecture — Geometric Sensitivity of NAS

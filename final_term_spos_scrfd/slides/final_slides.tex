@@ -7,19 +7,11 @@
 \setbeamertemplate{navigation symbols}{}
 \setbeamertemplate{caption}[numbered]
 
-\setbeamerfont{title}{size=\Large}
-\setbeamerfont{author}{size=\large}
-\setbeamerfont{institute}{size=\large}
-\setbeamerfont{date}{size=\large}
-
-\AtBeginSection[]{%
+\AtBeginSection[]{
   \begin{frame}[plain,noframenumbering]
     \vfill
     \centering
-    \begin{minipage}{0.9\textwidth}
-      \centering
-      {\usebeamercolor[fg]{structure}\bfseries\LARGE\insertsectionhead\par}
-    \end{minipage}
+    {\usebeamercolor[fg]{structure}\bfseries\LARGE\insertsectionhead\par}
     \vfill
   \end{frame}
 }
@@ -37,40 +29,22 @@
 \fi
 
 \usepackage{microtype}
-\usepackage{etoolbox}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{array}
 \usepackage{amsmath}
 \usepackage{amssymb}
-\usepackage{xurl}
 \usepackage{tikz}
-\usetikzlibrary{positioning, fit, arrows.meta, shapes.geometric, backgrounds, calc}
-\hypersetup{hidelinks}
-
-\usepackage[backend=biber,style=ieee]{biblatex}
-\addbibresource{../references.bib}
-\setcounter{biburlnumpenalty}{100}
-\setcounter{biburlucpenalty}{100}
-\setcounter{biburllcpenalty}{100}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc}
+\usepackage{xurl}
 
 \graphicspath{{../figures/}{../assets/}}
 
-\newif\ifhascites
-\hascitesfalse
-\AtBeginDocument{%
-  \pretocmd{\cite}{\global\hascitestrue}{}{}%
-  \pretocmd{\parencite}{\global\hascitestrue}{}{}%
-  \pretocmd{\textcite}{\global\hascitestrue}{}{}%
-  \pretocmd{\footcite}{\global\hascitestrue}{}{}%
-  \pretocmd{\autocite}{\global\hascitestrue}{}{}%
-}
-
-\title[Final -- Nhận dạng]{Báo cáo cuối kì: Tái hiện nguyên lý SCRFD bằng SPOS-NAS\\trong miền 2.5 GFLOPs}
+\title[SCRFD Final]{Báo cáo cuối kỳ: SCRFD, SPOS-NAS và ASR+JSAR}
 \author[Nhóm 23KHMT]{23127333 Trương Quốc Cường \and 23127011 Lê Anh Duy \and 23127199 Trần Gia Huy}
 \institute[HCMUS]{CSC14006 -- Nhận dạng\\Trường ĐH Khoa học Tự nhiên, ĐHQG-HCM}
-\date[18/04/2026]{TP. Hồ Chí Minh, ngày 18 tháng 4 năm 2026}
-\titlegraphic{\includegraphics[width=0.16\textwidth]{../assets/HCMUS.png}}
+\date[20/04/2026]{TP. Hồ Chí Minh, ngày 20 tháng 4 năm 2026}
+\titlegraphic{\includegraphics[width=0.15\textwidth]{../assets/HCMUS.png}}
 
 \begin{document}
 
@@ -82,220 +56,314 @@
   \tableofcontents
 \end{frame}
 
-\section{Bài toán}
-
-\begin{frame}{Động lực của đề tài}
+\begin{frame}{Mục tiêu trình bày}
   \begin{itemize}
-    \setlength{\itemsep}{6pt}
-    \item Detector khuôn mặt nhỏ thường bị giới hạn bởi chi phí tính toán nếu chỉ tăng độ sâu hoặc độ rộng mạng một cách đồng đều.
-    \item SCRFD chỉ ra rằng điều quan trọng không chỉ là tổng FLOPs, mà là \textbf{cách phân bổ FLOPs} giữa các stage \(C_2\) đến \(C_5\). \cite{guo2022scrfd}
-    \item Mục tiêu của nhóm là tái hiện nguyên lý đó bằng một pipeline NAS đủ gọn để chạy trong 1 phiên Kaggle T4 6 giờ.
+    \item Mở đầu từ đúng pipeline của SCRFD: \textbf{CR} để tìm cấu hình, \textbf{SR} để điều chỉnh phân bố scale, rồi \textbf{train/eval} cấu hình đã chọn trên WIDER FACE.
+    \item Sau đó đi sâu từng bước ở mức \textbf{flow triển khai, config, hyperparameter và logic huấn luyện}, không chỉ dừng ở trực giác của paper.
+    \item Phần mở rộng được trình bày tuần tự: \textbf{SPOS-NAS} trước vì nó phân tích trực tiếp bước \textbf{Computation Redistribution}; \textbf{ASR+JSAR} sau vì nó sửa \textbf{Sample Redistribution} và assignment khi train.
+    \item Mục tiêu cuối cùng là rút ra insight kỹ thuật: SCRFD mạnh vì \textbf{đặt compute đúng chỗ} và \textbf{tạo training signal đúng chỗ} cho tiny/hard faces.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Vì sao chọn miền 2.5 GFLOPs}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.53\textwidth}
-    \begin{itemize}
-      \setlength{\itemsep}{5pt}
-      \item Phù hợp triển khai biên và vẫn còn đủ năng lực cho khuôn mặt nhỏ.
-      \item Là miền đủ nhạy để thấy rõ tác động của \textbf{Computation Redistribution}.
-      \item Giúp giới hạn không gian tìm kiếm và kiểm soát thời gian huấn luyện.
-    \end{itemize}
-    \column{0.47\textwidth}
-    \begin{block}{Mục tiêu cuối kì}
-      Xây dựng SPOS Supernet, đánh giá 1\,000 kiến trúc hợp lệ, và rút ra quy luật phân bổ kênh/độ sâu tốt nhất cho detector trong ràng buộc 2.5 GFLOPs.
-    \end{block}
-  \end{columns}
-\end{frame}
+\section{Pipeline SCRFD}
 
-\section{Phương pháp}
+\begin{frame}{SCRFD nhìn như một pipeline 3 bước}
+  \centering
+  \begin{tikzpicture}[
+    node distance=1.3cm,
+    box/.style={draw, rounded corners, minimum width=0.28\textwidth, minimum height=1.9cm, align=center, fill=blue!4},
+    arrow/.style={-{Latex[length=3mm]}, thick}
+  ]
+    \node[box] (cr) {\textbf{Bước 1: Computation Redistribution}\\Lấy mẫu kiến trúc trong cùng vùng FLOPs\\và chọn cấu hình tốt nhất};
+    \node[box, right=of cr] (sr) {\textbf{Bước 2: Sample Redistribution}\\Điều chỉnh phân bố scale khi huấn luyện\\để tiny faces xuất hiện đúng mức};
+    \node[box, right=of sr] (train) {\textbf{Bước 3: Train / Evaluate}\\Train cấu hình đã chọn\\và đo Easy / Medium / Hard AP};
+    \draw[arrow] (cr) -- (sr);
+    \draw[arrow] (sr) -- (train);
+  \end{tikzpicture}
 
-\begin{frame}{Không gian tìm kiếm của Supernet}
-  \small
-  \begin{tabular}{@{}ccccc@{}}
-    \toprule
-    Stage & Stride & Feature map & Channels & Depth \\
-    \midrule
-    \(C_2\) & 4  & \(160 \times 160\) & 8--120 & 1--4 \\
-    \(C_3\) & 8  & \(80 \times 80\)   & 8--120 & 1--4 \\
-    \(C_4\) & 16 & \(40 \times 40\)   & 8--120 & 1--4 \\
-    \(C_5\) & 32 & \(20 \times 20\)   & 8--120 & 1--4 \\
-    \bottomrule
-  \end{tabular}
-
-  \vspace{8pt}
+  \vspace{0.7cm}
   \begin{itemize}
-    \setlength{\itemsep}{4pt}
-    \item 60 lựa chọn mỗi stage, tổng cộng \(60^4 = 12.96\) triệu cấu hình lý thuyết.
-    \item Sau khi lọc theo \(\leq 2.5\) GFLOPs còn 2\,670\,925 cấu hình hợp lệ.
-    \item Backbone đi kèm neck kiểu PAFPN và một proxy head sinh heatmap.
+    \item Trong paper gốc, ba bước này gắn với nhau chứ không tách rời: cấu hình tốt nhưng scale distribution sai vẫn tụt Hard AP.
+    \item Hai phần mở rộng của nhóm cũng bám đúng pipeline này: \textbf{SPOS-NAS} đi vào bước 1, còn \textbf{ASR+JSAR} đi vào bước 2 và bước train.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{V1 sang V2: vì sao Dynamic Weight Slicing quan trọng}
-  \small
-  \begin{tabular}{@{}p{0.26\textwidth}p{0.28\textwidth}p{0.32\textwidth}@{}}
-    \toprule
-    Khía cạnh & V1 & V2 \\
-    \midrule
-    Xử lý lệch kênh & Zero-padding & Cắt trực tiếp trọng số \\
-    Gradient cho subnet nhỏ & Bị pha loãng & Tập trung vào kênh hoạt động \\
-    Tốc độ hội tụ & Chậm hơn & Nhanh hơn \\
-    Mốc Val Loss \(<0.70\) & Epoch 17--18 & Khoảng epoch 12 \\
-    \bottomrule
-  \end{tabular}
-
-  \vspace{8pt}
-  \begin{block}{Ý chính}
-    V2 giúp việc chia sẻ trọng số trở nên công bằng hơn giữa subnet lớn và subnet nhỏ, nên NAS đáng tin hơn và huấn luyện cũng ổn định hơn.
+\begin{frame}{Vì sao phải nhìn SCRFD theo pipeline}
+  \begin{itemize}
+    \item Nếu chỉ nhìn \textbf{tổng FLOPs}, ta không trả lời được vì sao cùng khoảng 2.5 GFLOPs nhưng Hard AP chênh nhau vài điểm.
+    \item Nếu chỉ nhìn \textbf{augmentation}, ta cũng không giải thích được vì sao cùng scale set nhưng backbone này học tốt hơn backbone kia.
+    \item SCRFD hiệu quả vì nó tối ưu đồng thời:
+  \end{itemize}
+  \vspace{0.2cm}
+  \begin{block}{Ba đối tượng tối ưu}
+    \begin{enumerate}
+      \item \textbf{Kiến trúc}: compute rơi vào stage nào.
+      \item \textbf{Dữ liệu huấn luyện}: tiny faces xuất hiện với tần suất nào sau crop/resize.
+      \item \textbf{Supervision}: tiny faces có nhận đủ positive anchors hay không.
+    \end{enumerate}
   \end{block}
 \end{frame}
 
-\begin{frame}{Proxy task và Sample Redistribution}
+\section{SCRFD Gốc}
+
+\begin{frame}{Kiến trúc nền của SCRFD}
   \begin{columns}[T,onlytextwidth]
-    \column{0.52\textwidth}
+    \column{0.57\textwidth}
+    \includegraphics[width=\linewidth]{scrfd_backbone_neck_head.png}
+    \column{0.43\textwidth}
     \begin{itemize}
-      \setlength{\itemsep}{5pt}
-      \item Thay detector đầy đủ bằng proxy heatmap task trên \(P_3, P_4, P_5\).
-      \item Dùng focal-style BCE with logits để xử lý mất cân bằng giữa mặt và nền. \cite{lin2017focal}
-      \item Mục tiêu: xếp hạng nhanh kiến trúc thay vì đo AP thật ngay từ đầu.
+      \item \textbf{Backbone}: tạo chuỗi đặc trưng \(C_2 \rightarrow C_5\).
+      \item \textbf{Neck}: hợp nhất thông tin đa tỉ lệ để giữ cả ngữ nghĩa lẫn vị trí.
+      \item \textbf{Head}: phân loại khuôn mặt/nền và hồi quy bbox trên các feature map.
+      \item Điểm mấu chốt: face detection, đặc biệt là \textbf{tiny faces}, phụ thuộc mạnh vào các tầng nông có độ phân giải cao.
     \end{itemize}
-    \column{0.48\textwidth}
-    \begin{block}{Sample Redistribution}
-      Ưu tiên ảnh có mặt nhỏ (\(< 32\) px) để tăng áp lực học lên \(C_2\) và \(C_3\), đúng theo trực giác của SCRFD. \cite{yang2016widerface}
-    \end{block}
   \end{columns}
 \end{frame}
 
-\section{Thực nghiệm}
-
-\begin{frame}{Thiết lập huấn luyện}
-  \small
-  \begin{tabular}{@{}p{0.32\textwidth}p{0.16\textwidth}p{0.38\textwidth}@{}}
-    \toprule
-    Tham số & Giá trị & Ghi chú \\
-    \midrule
-    GPU & Kaggle T4 16 GB & ngân sách 6 giờ \\
-    Epochs & 35 & vừa đủ cho train + NAS \\
-    Batch size hiệu dụng & 64 & nhờ AMP \\
-    Optimizer & AdamW & ổn định cho proxy task \\
-    Scheduler & Cosine annealing & giảm mượt cuối kỳ \\
-    Gradient clipping & 2.0 & chặn spike khi đổi subnet \\
-    Số kiến trúc NAS & 1\,000 & khoảng 90 phút \\
-    \bottomrule
-  \end{tabular}
-
-  \vspace{6pt}
-  AMP + clipping + BN recalibration là ba chi tiết thực thi quan trọng nhất để pipeline chạy ổn định.
+\begin{frame}{Computation Redistribution: flow làm việc thực sự}
+  \begin{enumerate}
+    \item Chọn một detector template trong miền 2.5 GFLOPs.
+    \item Lấy mẫu \textbf{độ sâu, độ rộng và tỉ lệ kênh} của các stage backbone; sau đó mở rộng sang neck và head.
+    \item Tính lại FLOPs cho candidate; chỉ giữ những cấu hình còn nằm trong \textbf{cùng dải chi phí} quanh mục tiêu 2.5 GFLOPs.
+    \item Train từng candidate đủ để so sánh, rồi đo AP trên WIDER FACE.
+    \item Chọn winner theo chất lượng thực nghiệm, không theo trực giác thủ công.
+  \end{enumerate}
+  \vspace{0.25cm}
+  \begin{block}{Ý nghĩa}
+    CR biến việc “thiết kế detector” thành một bài toán \textbf{sinh -- lọc -- huấn luyện -- đánh giá} dưới cùng ràng buộc chi phí.
+  \end{block}
 \end{frame}
 
-\begin{frame}{Hội tụ của Supernet}
-  \begin{figure}
-    \centering
-    \includegraphics[width=0.9\linewidth,height=0.7\textheight,keepaspectratio]{fig1_training_curve.png}
-  \end{figure}
-  \vspace{-4pt}
-  \small Best validation loss đạt \textbf{0.6519} ở epoch 18.
-\end{frame}
-
-\section{Kết quả NAS}
-
-\begin{frame}{Kết quả leaderboard}
-  \small
-  \begin{tabular}{@{}cccc@{}}
-    \toprule
-    Rank & Arch ID & Cấu hình nổi bật & Val Loss \\
-    \midrule
-    1 & 980 & \(C_2=(48,3), C_3=(32,1)\) & \textbf{0.6521} \\
-    2 & 116 & \(C_2=(48,3), C_3=(64,3)\) & 0.6558 \\
-    3 & 837 & \(C_2=(48,3), C_3=(80,1)\) & 0.6585 \\
-    4 & 766 & \(C_2=(48,3), C_3=(32,1)\) & 0.6619 \\
-    5 & 514 & \(C_2=(48,3), C_3=(56,4)\) & 0.6627 \\
-    \bottomrule
-  \end{tabular}
-
-  \vspace{8pt}
+\begin{frame}{CR rút ra điều gì cho face detection}
   \begin{itemize}
-    \setlength{\itemsep}{4pt}
-    \item 8/10 kiến trúc đứng đầu cùng có \(C_2 = (48,3)\).
-    \item NAS không chỉ tìm ra một kiến trúc tốt, mà còn phát hiện một \textbf{mẫu phân bổ tính toán ổn định}.
+    \item Detector tốt không đơn giản là detector “to hơn”, mà là detector \textbf{đặt FLOPs đúng chỗ hơn}.
+    \item Với tiny faces, stage nông vừa quý vừa đắt: tăng compute ở đây giúp giữ chi tiết không gian, nhưng nếu tăng sai chỗ sẽ làm chi phí bùng lên.
+    \item Vì vậy CR không đi theo quy tắc cứng kiểu “luôn tăng sớm” hay “luôn tăng sâu”, mà tìm \textbf{tỉ lệ phân bổ hợp lý} giữa \(C_2,C_3,C_4,C_5\), neck và head.
+    \item Đây cũng chính là điểm mà phần \textbf{SPOS-NAS} của nhóm sẽ đi sâu phân tích lại.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Phân bố điểm số của 1\,000 kiến trúc}
-  \begin{figure}
-    \centering
-    \includegraphics[width=0.97\linewidth,height=0.74\textheight,keepaspectratio]{fig2_nas_leaderboard.png}
-  \end{figure}
-\end{frame}
-
-\begin{frame}{Kiểm chứng Funnel Principle}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.54\textwidth}
-    \small
-    \begin{tabular}{@{}cccc@{}}
-      \toprule
-      Stage & Top-100 & Bottom-100 & \(\Delta\) \\
-      \midrule
-      \(C_2\) & 50.7 & 52.3 & -1.6 \\
-      \(C_3\) & 53.3 & 63.4 & \textbf{-10.1} \\
-      \(C_4\) & 74.4 & 76.6 & -2.2 \\
-      \(C_5\) & 64.5 & 70.1 & \textbf{-5.6} \\
-      \bottomrule
-    \end{tabular}
-
-    \vspace{8pt}
-    Top winners có xu hướng \textbf{hẹp hơn ở \(C_3\) và \(C_5\)}, tức là rút FLOPs khỏi tầng sâu để phục vụ tầng đầu.
-    \column{0.46\textwidth}
-    \includegraphics[width=\linewidth,height=0.62\textheight,keepaspectratio]{fig3_funnel_analysis.png}
-  \end{columns}
-\end{frame}
-
-\begin{frame}{Hồ sơ top-5 và phân bố \(C_2/C_5\)}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.5\textwidth}
-    \includegraphics[width=\linewidth,height=0.62\textheight,keepaspectratio]{fig4_top5_profiles.png}
-    \column{0.5\textwidth}
-    \includegraphics[width=\linewidth,height=0.62\textheight,keepaspectratio]{fig5_c2_c5_distributions.png}
-  \end{columns}
-
-  \vspace{6pt}
-  \small Cấu hình thắng cuộc thống nhất mạnh ở \(C_2\), nhưng vẫn linh hoạt ở các stage sâu hơn.
-\end{frame}
-
-\section{Kết luận}
-
-\begin{frame}{Kết luận chính}
+\begin{frame}{Sample Redistribution: flow trong pipeline huấn luyện}
   \begin{enumerate}
-    \setlength{\itemsep}{6pt}
-    \item SPOS-NAS khả thi trong ngân sách 6 giờ nếu dùng proxy heatmap task.
-    \item Dynamic Weight Slicing giúp huấn luyện công bằng hơn và tăng tốc hội tụ khoảng 30\%.
-    \item Kết quả NAS xác nhận giả thuyết Funnel của SCRFD trong miền 2.5 GFLOPs.
-    \item Sample Redistribution định hình rõ nghiệm tốt ở stage đầu, đặc biệt là \(C_2=(48,3)\).
+    \item Mỗi ảnh train được chọn một \textbf{scale crop} từ scale set.
+    \item Ảnh bị crop thành patch vuông rồi resize về kích thước cố định \(640 \times 640\).
+    \item Cùng một khuôn mặt, sau bước này có thể trở nên \textbf{lớn hơn} hoặc \textbf{nhỏ hơn} tương đối so với anchor và feature map.
+    \item Bước gán mẫu dương/âm vì thế thay đổi: tiny faces có thể nhận nhiều positive hơn hoặc ít positive hơn.
+    \item Chính điều đó làm SR ảnh hưởng trực tiếp tới Hard AP.
+  \end{enumerate}
+  \vspace{0.2cm}
+  \begin{block}{Luồng nhân quả}
+    scale set \(\rightarrow\) kích thước mặt sau resize \(\rightarrow\) positive anchors \(\rightarrow\) training signal \(\rightarrow\) Hard AP.
+  \end{block}
+\end{frame}
+
+\begin{frame}{SR không chỉ là augmentation thông thường}
+  \begin{itemize}
+    \item Nếu scale set thiên về zoom-in, detector thấy nhiều mặt vừa/lớn hơn nhưng ít tình huống tiny faces thật sự.
+    \item Nếu scale set tạo thêm zoom-out hợp lý, tiny faces xuất hiện dày hơn sau resize và detector học đúng vùng khó của WIDER FACE.
+    \item Trong reproduction của nhóm, chỉ riêng việc đổi từ default scale set sang \textbf{paper-SR12} đã làm Hard AP tăng từ \textbf{72.49} lên \textbf{73.71}.
+    \item Nghĩa là cùng một kiến trúc SCRFD-2.5GF, \textbf{phân bố sample khi train} đã đủ tạo chênh lệch rõ rệt.
+  \end{itemize}
+\end{frame}
+
+\section{Chạy Lại Paper}
+
+\begin{frame}{Phạm vi reproduction bằng official code}
+  \begin{itemize}
+    \item Nhóm không viết lại SCRFD từ đầu, mà chạy lại \textbf{official code} theo đúng cây triển khai detector của InsightFace.
+    \item Dataset dùng là \textbf{WIDER FACE} theo layout mà detector yêu cầu: train images, val images và annotation dạng RetinaFace/SCRFD.
+    \item Baseline reproduction tập trung vào \textbf{SCRFD-2.5GF} vì đây là điểm cân bằng tốt giữa chi phí và độ nhạy với CR/SR.
+    \item Phần cải tiến chỉ được làm sau khi đã có baseline chạy được và có kết quả AP ổn định.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Thiết lập chạy lại baseline paper-SR12}
+  \small
+  \begin{tabular}{@{}p{0.30\textwidth}p{0.62\textwidth}@{}}
+    \toprule
+    Thành phần & Thiết lập \\
+    \midrule
+    Input size & \(640 \times 640\) \\
+    Backbone & SCRFD-2.5GF trong official config \\
+    Optimizer & SGD, momentum \(0.9\), weight decay \(5 \times 10^{-4}\) \\
+    Schedule & 80 epochs, cosine LR, có warmup \\
+    Batch / workers & Theo official setup trong môi trường GPU của nhóm \\
+    Augmentation chính & crop vuông, resize, flip, photometric distortion, normalize \\
+    Evaluation & WIDER FACE Easy / Medium / Hard, score threshold \(0.02\), NMS \(0.45\) \\
+    \bottomrule
+  \end{tabular}
+\end{frame}
+
+\begin{frame}{Kết quả baseline và khoảng cách với model zoo}
+  \small
+  \begin{tabular}{@{}lcccc@{}}
+    \toprule
+    Thiết lập & Easy & Medium & Hard & Ghi chú \\
+    \midrule
+    Official model zoo & 93.78 & 92.16 & 77.87 & SCRFD-2.5GF \\
+    Baseline default scale set & 93.62 & 91.81 & 72.49 & tái hiện ban đầu \\
+    Baseline paper-SR12 & 93.82 & 91.90 & 73.71 & gần paper hơn \\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{0.35cm}
+  \begin{itemize}
+    \item Easy và Medium khá gần official, nhưng \textbf{Hard còn thiếu rõ rệt}.
+    \item Điều này xác nhận rằng phần khó nhất của SCRFD không phải “chạy được model”, mà là tái tạo đúng \textbf{toàn bộ chuỗi thiết kế} ảnh hưởng tới tiny faces.
+  \end{itemize}
+\end{frame}
+
+\section{SPOS-NAS Cho CR}
+
+\begin{frame}{Vì sao dùng SPOS-NAS để phân tích CR}
+  \begin{itemize}
+    \item Official SCRFD dùng empirical search tốn tài nguyên; nhóm cần một cách \textbf{nhẹ hơn} để kiểm tra lại trực giác phân bổ compute.
+    \item SPOS-NAS cho phép huấn luyện \textbf{một supernet duy nhất}, sau đó rút ra nhiều candidate bằng inherited weights.
+    \item Mục tiêu của phần này không thay thế official code, mà trả lời câu hỏi:
+  \end{itemize}
+  \begin{block}{Câu hỏi}
+    Trong cùng khoảng 2.5 GFLOPs, winner có thật sự dồn compute vào những stage hữu ích cho face detection hay không?
+  \end{block}
+\end{frame}
+
+\begin{frame}{Flow triển khai SPOS-NAS proxy}
+  \begin{enumerate}
+    \item Xây dựng supernet bao phủ nhiều lựa chọn depth/width trên bốn stage \(C_2 \rightarrow C_5\).
+    \item Mỗi mini-batch chỉ kích hoạt \textbf{một đường con} để huấn luyện theo tinh thần single-path.
+    \item Sau khi supernet học đủ ổn định, lấy mẫu nhiều candidate trong dải FLOPs mục tiêu.
+    \item Với mỗi candidate, chạy \textbf{calibration thống kê chuẩn hóa}, rồi đo proxy score trên tập validation.
+    \item Xếp hạng 1\,000 kiến trúc hợp lệ và phân tích cấu trúc của nhóm đứng đầu.
   \end{enumerate}
 \end{frame}
 
-\begin{frame}{Hướng phát triển}
+\begin{frame}{Kết quả chính của SPOS-NAS proxy}
+  \small
+  \begin{tabular}{@{}p{0.24\textwidth}p{0.66\textwidth}@{}}
+    \toprule
+    Quan sát & Ý nghĩa \\
+    \midrule
+    Supernet đạt best validation loss khoảng \textbf{0.6519} ở epoch 18 & Proxy đủ ổn định để so sánh candidate trong giới hạn tài nguyên \\
+    Đánh giá \textbf{1\,000} kiến trúc trong cùng vùng 2.5 GFLOPs & So sánh được pattern phân bổ compute thay vì chỉ một vài mẫu ngẫu nhiên \\
+    Top group không đi theo phân bổ đồng đều & Winner có cấu trúc rõ ràng, không phải may mắn thống kê \\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{0.35cm}
   \begin{itemize}
-    \setlength{\itemsep}{6pt}
-    \item Huấn luyện end-to-end Arch \#980 với head SCRFD đầy đủ để đo AP thật.
-    \item Mở rộng NAS từ 1\,000 lên 10\,000 kiến trúc để tăng độ tin cậy thống kê.
-    \item Thử BN-free Supernet hoặc GroupNorm để giảm phụ thuộc vào recalibration.
-    \item Xuất ONNX và đo latency trên Jetson Nano / Raspberry Pi để kiểm chứng giá trị triển khai.
+    \item Điều nhóm cần không chỉ là top-1, mà là \textbf{mẫu hình chung} của Top-100 so với nhóm thua.
   \end{itemize}
 \end{frame}
 
-\ifhascites
-\begin{frame}[allowframebreaks]{Tài liệu tham khảo}
-  \tiny
-  \printbibliography[heading=none]
+\begin{frame}{Insight lớn nhất từ SPOS-NAS}
+  \begin{itemize}
+    \item Top-100 winners có xu hướng \textbf{đầu tư ổn định vào \(C_2\) và \(C_5\)} thay vì dồn nhiều compute vào \(C_3\).
+    \item \(C_2\) giữ chi tiết không gian cho tiny faces; \(C_5\) bổ sung ngữ nghĩa đủ mạnh cho head.
+    \item \(C_3\) thường là \textbf{bẫy chi phí}: feature map vẫn còn lớn nên FLOPs đắt, nhưng lợi ích tăng không tương xứng nếu phình quá mức.
+    \item Khi proxy target đổi từ \textbf{center-focus} sang \textbf{edge-focus}, compute dịch thêm khỏi \(C_3\) và trải về \(C_2/C_5\), càng củng cố kết luận trên.
+  \end{itemize}
 \end{frame}
-\fi
 
-\begin{frame}
+\begin{frame}{Kết luận của phần SPOS-NAS}
+  \begin{block}{Điều SPOS-NAS xác nhận}
+    Computation Redistribution của SCRFD là một ý tưởng \textbf{có cấu trúc thật}, không phải một mẹo search ngẫu nhiên.
+  \end{block}
+  \begin{itemize}
+    \item Trong miền 2.5 GFLOPs, winner không thắng vì “to hơn”, mà vì \textbf{phân bổ compute đúng hơn}.
+    \item Quy luật rút ra là: giữ đủ năng lực ở tầng nông để không mất tiny faces, đồng thời để tầng sâu đủ mạnh cho ngữ nghĩa; tránh phình quá mức ở vùng trung gian đắt đỏ.
+  \end{itemize}
+\end{frame}
+
+\section{ASR+JSAR Cho SR Và Train}
+
+\begin{frame}{Vì sao cần ASR+JSAR sau baseline}
+  \begin{itemize}
+    \item Baseline paper-SR12 đã tốt hơn default scale set, nhưng Hard AP vẫn còn cách official model zoo hơn \textbf{4 điểm}.
+    \item Điều này gợi ý rằng scale set tĩnh vẫn chưa đủ: detector chưa nhìn thấy tiny faces với \textbf{độ khó đúng mức}, và bước assignment vẫn có thể bỏ sót positive samples.
+    \item Vì vậy nhóm cải tiến theo hai hướng nối tiếp:
+  \end{itemize}
+  \begin{block}{Hai đòn can thiệp}
+    \textbf{ASR}: sửa cách chọn scale khi train. \\
+    \textbf{JSAR}: sửa cách tiny faces nhận positive anchors.
+  \end{block}
+\end{frame}
+
+\begin{frame}{ASR: flow cập nhật phân bố scale theo độ khó}
+  \begin{enumerate}
+    \item Bắt đầu từ một scale pool đủ rộng, không khóa cứng xác suất như paper-SR12.
+    \item Sau mỗi giai đoạn huấn luyện, gom thống kê kích thước mặt và mức độ thiếu hụt recall trên các vùng khó.
+    \item Chia các mặt vào các bin kích thước; bin nào đang thiếu supervision sẽ được tăng xác suất lấy mẫu.
+    \item Làm mượt thống kê theo kiểu \textbf{EMA} để policy không giật giữa các epoch.
+    \item Epoch sau dùng phân bố mới để tạo crop/resize, từ đó đưa nhiều tiny faces có ích hơn vào train.
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{JSAR: flow tăng positive assignment cho tiny faces}
+  \begin{enumerate}
+    \item Với các ground truth rất nhỏ, điều kiện gán dương mặc định thường quá chặt nên số positive bị thiếu.
+    \item JSAR nới lỏng việc chọn candidate quanh tâm và giảm mức khắt khe của bước gán cho nhóm tiny faces.
+    \item Nếu sau các bước chuẩn mà một tiny face vẫn gần như không có positive, cơ chế \textbf{fallback} sẽ cưỡng bức giữ lại một nhóm anchor gần nhất còn hợp lý.
+    \item Nhờ vậy, tiny faces không còn bị “rớt supervision” ở cuối pipeline train.
+  \end{enumerate}
+  \vspace{0.2cm}
+  \begin{block}{Vai trò riêng}
+    ASR sửa \textbf{đầu vào huấn luyện}; JSAR sửa \textbf{bước nhận tín hiệu học}.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Kết quả ASR+JSAR trên WIDER FACE}
+  \small
+  \begin{tabular}{@{}lcccc@{}}
+    \toprule
+    Thiết lập & Easy & Medium & Hard & mAP \\
+    \midrule
+    Baseline default scale set & 93.62 & 91.81 & 72.49 & 85.97 \\
+    Baseline paper-SR12 & 93.82 & 91.90 & 73.71 & 86.48 \\
+    ASR+JSAR + paper-SR12 & 94.10 & 92.58 & 77.38 & 88.02 \\
+    Official model zoo & 93.78 & 92.16 & 77.87 & 87.94 \\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{0.35cm}
+  \begin{itemize}
+    \item Mức tăng quan trọng nhất nằm ở \textbf{Hard}: từ \textbf{73.71} lên \textbf{77.38}.
+    \item Tức là cải tiến của nhóm đã kéo reproduction tới rất gần mức official ở split khó nhất.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Vì sao ASR+JSAR có tác dụng}
+  \begin{itemize}
+    \item ASR làm tiny faces xuất hiện với \textbf{phân bố phù hợp hơn} trong các epoch cuối, nên head được nhìn thấy nhiều tình huống khó hơn.
+    \item JSAR làm số positive trên mỗi tiny ground truth tăng lên rõ rệt; theo thống kê của nhóm, \textbf{positives per GT} tăng từ khoảng \textbf{1.76} lên \textbf{2.67}.
+    \item Hai cơ chế này bổ sung nhau:
+  \end{itemize}
+  \begin{block}{Phối hợp}
+    ASR đưa đúng dữ liệu khó vào train; JSAR đảm bảo dữ liệu khó đó \textbf{thực sự sinh ra supervision}.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Kết luận của phần ASR+JSAR}
+  \begin{itemize}
+    \item Nếu chỉ thay scale set, detector tiến bộ nhưng chưa đủ.
+    \item Nếu chỉ sửa assignment mà dữ liệu train vẫn thiếu tiny faces, hiệu quả cũng bị giới hạn.
+    \item Hard AP tăng mạnh chỉ khi \textbf{phân bố sample} và \textbf{cơ chế nhận mẫu dương} được sửa cùng lúc.
+    \item Đây là phần nối trực tiếp giữa \textbf{Sample Redistribution} của paper và hành vi huấn luyện quan sát được trong code.
+  \end{itemize}
+\end{frame}
+
+\section{Kết Luận}
+
+\begin{frame}{Kết luận}
+  \begin{itemize}
+    \item \textbf{SCRFD mạnh không chỉ vì tổng FLOPs}, mà vì FLOPs được phân bổ đúng chỗ trong detector.
+    \item \textbf{SPOS-NAS} xác nhận trực giác của CR: winner trong miền 2.5 GFLOPs có phân bổ compute có cấu trúc, đặc biệt tránh đầu tư quá mức vào \(C_3\).
+    \item \textbf{ASR+JSAR} cho thấy phần khó còn lại nằm ở training signal cho tiny faces: sửa scale distribution và assignment có thể kéo Hard AP gần tới official result.
+    \item Insight tổng quát của báo cáo là: với face detection hiệu quả, phải tối ưu đồng thời \textbf{kiến trúc}, \textbf{dữ liệu huấn luyện} và \textbf{supervision}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Cảm ơn thầy và các bạn đã lắng nghe}
   \centering
-  {\LARGE Cảm ơn thầy và các bạn đã lắng nghe}
+  {\Large Sẵn sàng cho phần câu hỏi}
 \end{frame}
 
 \end{document}

@@ -21,11 +21,11 @@ SCRFD đề xuất hai ý tưởng bổ trợ nhau. \textit{Computation Redistri
 
 Bài báo cũng xây dựng một họ mô hình SCRFD từ mức rất nhỏ đến mức lớn hơn. Trong báo cáo này, nhóm tập trung vào miền \textit{SCRFD-2.5GF} vì đây là điểm cân bằng phù hợp giữa chi phí tái hiện và khả năng quan sát tác động của hai cơ chế chính. Theo số liệu model zoo của InsightFace, \textit{SCRFD-2.5GF} đạt \(93.78/92.16/77.87\) trên Easy/Medium/Hard, trong khi \textit{ResNet-2.5GF} cùng mức FLOPs chỉ đạt \(93.21/91.11/74.47\). Khoảng chênh \(+3.40\) điểm Hard AP cho thấy lợi ích của cách phân bổ tính toán, không chỉ lợi ích của việc tăng tổng dung lượng mạng. \cite{insightface2026}
 
-\section{Phạm vi kế thừa từ báo cáo giữa kỳ}
+\section{Phạm vi của báo cáo này}
 
-Từ bản giữa kỳ, nhóm chỉ kế thừa Chương II về SCRFD: kiến trúc Backbone--Neck--Head, Computation Redistribution, Sample Redistribution, đánh giá trên WIDER FACE và các nhận định về điểm mạnh/hạn chế của paper. Cách giới hạn phạm vi này giúp báo cáo cuối kỳ giữ đúng hình thức của một report về một bài báo khoa học cụ thể.
+Báo cáo cuối kỳ này giữ SCRFD là đối tượng trung tâm và giới hạn phạm vi vào đúng một bài báo khoa học cụ thể, thay vì mở rộng sang các nội dung face detection tổng quát. Trong phạm vi đó, nhóm tập trung vào một cấu hình đại diện là \textit{SCRFD-2.5GF} để trình bày trọn vẹn pipeline của paper: kiến trúc Backbone--Neck--Head, bước \textit{Computation Redistribution} để tìm cấu hình, bước \textit{Sample Redistribution} để điều chỉnh phân bố scale khi huấn luyện, và protocol đánh giá trên WIDER FACE.
 
-So với bản giữa kỳ, phần SCRFD được hoàn thiện theo ba hướng. Thứ nhất, báo cáo không chỉ dừng ở diễn giải paper mà bổ sung việc chạy mã nguồn chính thức. Thứ hai, các ý tưởng trong paper được đối chiếu với các thành phần triển khai tương ứng. Thứ ba, kết quả tái hiện được so sánh trực tiếp với số liệu paper/model zoo, kèm phân tích nguyên nhân chênh lệch và ý nghĩa của chênh lệch đó.
+Trên nền phạm vi đó, báo cáo đi theo ba lớp nội dung chính. Thứ nhất, trình bày lại SCRFD như một technical report hoàn chỉnh thay vì chỉ dừng ở mức tóm tắt ý tưởng. Thứ hai, tái hiện official code và đối chiếu kết quả với paper/model zoo để chỉ ra mức độ khớp và nguyên nhân chênh lệch. Thứ ba, phân tích hai hướng mở rộng bám trực tiếp vào pipeline này: \textit{SPOS-NAS} như một góc nhìn cải tiến/phân tích cho bước \textit{Computation Redistribution}, và \textit{ASR+JSAR} như cải tiến cho \textit{Sample Redistribution} cùng cơ chế assignment trong giai đoạn huấn luyện.
 
 \chapter{Phương pháp SCRFD trong paper}
 

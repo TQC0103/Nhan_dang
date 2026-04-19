@@ -27,15 +27,15 @@ Trong mỗi nhóm, so sánh được thực hiện giữa:
 
 \subsection{Phân phối lại mẫu thích nghi}
 
-Thành phần thứ nhất có nhiệm vụ thay thế cách chọn tỉ lệ cắt ảnh theo xác suất cố định bằng một phân phối xác suất được cập nhật liên tục theo phản hồi của quá trình huấn luyện.
-Ý tưởng trực quan được minh họa ở Hình~\ref{fig:final-term-asr-schematic}.
+Thành phần thứ nhất thay thế cách chọn tỉ lệ cắt ảnh theo xác suất cố định bằng một phân phối xác suất được cập nhật liên tục theo phản hồi của quá trình huấn luyện.
+Có thể hiểu cơ chế này theo ba ý chính:
+\begin{itemize}
+  \item từ kết quả huấn luyện của epoch hiện tại, mô hình thống kê xem nhóm khuôn mặt nào đang học kém;
+  \item các nhóm đang khó hơn sẽ làm tăng xác suất của những tỉ lệ cắt có xu hướng sinh ra đúng loại mẫu đó trong epoch kế tiếp;
+  \item sau nhiều lần cập nhật, phân phối dữ liệu huấn luyện sẽ dịch dần về phía những trường hợp mà mô hình còn xử lý chưa tốt, đặc biệt là khuôn mặt rất nhỏ.
+\end{itemize}
 
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=\textwidth]{final_term_spos_scrfd/asr_schematic.png}
-  \caption{Nguyên lý của cơ chế phân phối lại mẫu thích nghi. Từ trái sang phải: tập tỉ lệ cắt ban đầu, tín hiệu phản hồi theo nhóm kích thước khuôn mặt, và sự dịch chuyển của phân phối kích thước mặt sau bước cắt và đổi cỡ ảnh.}
-  \label{fig:final-term-asr-schematic}
-\end{figure}
+Như vậy, thay vì giữ nguyên một lịch lấy mẫu tĩnh từ đầu đến cuối, mô hình tự điều chỉnh cách lấy mẫu theo tình trạng học thực tế của chính nó.
 
 Trong cài đặt hiện tại, khuôn mặt trong mỗi ảnh sau tăng cường dữ liệu được chia vào bốn nhóm kích thước: rất nhỏ, nhỏ, vừa và lớn.
 Sau mỗi epoch, hệ thống thu thập các thống kê sau cho từng nhóm \(b\):
@@ -113,14 +113,14 @@ Nó không thay đổi kiến trúc mạng, mà thay đổi ``bài toán huấn 
 
 Thành phần thứ hai tác động vào bước gán nhãn giữa anchor và khuôn mặt thật trong giai đoạn huấn luyện.
 Mục tiêu là tăng mật độ giám sát cho các khuôn mặt rất nhỏ, vốn thường nhận quá ít anchor dương nếu giữ nguyên quy tắc gán nhãn ban đầu.
-Ý tưởng tổng quát được mô tả ở Hình~\ref{fig:final-term-jsar-schematic}.
+Về bản chất, cơ chế này làm ba việc:
+\begin{itemize}
+  \item nới ngưỡng chấp nhận cho các khuôn mặt rất nhỏ hoặc nhỏ;
+  \item nới điều kiện ràng buộc theo vùng gần tâm để bớt loại bỏ quá sớm các anchor lân cận;
+  \item nếu sau hai bước trên mà số anchor dương vẫn chưa đủ, hệ thống sẽ chọn thêm một số anchor gần nhất theo điểm số ghép cặp.
+\end{itemize}
 
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=\textwidth]{final_term_spos_scrfd/jsar_schematic.png}
-  \caption{Nguyên lý của cơ chế phân phối lại phép gán mẫu. Trái: gán nhãn ban đầu thường cho quá ít anchor dương với khuôn mặt rất nhỏ. Giữa: nới điều kiện chấp nhận theo kích thước. Phải: bổ sung một số anchor gần nhất nếu số anchor dương vẫn còn quá ít.}
-  \label{fig:final-term-jsar-schematic}
-\end{figure}
+Vì vậy, cơ chế này không làm thay đổi mạng ở giai đoạn suy luận, mà chỉ làm cho khuôn mặt rất nhỏ nhận được nhiều tín hiệu giám sát hơn trong lúc huấn luyện.
 
 Cơ chế gán nhãn gốc của SCRFD dựa trên ATSS.
 Với mỗi khuôn mặt thật \(g\), ATSS xây dựng một ngưỡng chấp nhận

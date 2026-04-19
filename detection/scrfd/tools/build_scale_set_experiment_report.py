@@ -263,10 +263,10 @@ def plot_jsar_tiny_supervision(runs: List[Dict], out_path: str):
     plt.close(fig)
 
 
-def plot_default_hard_size_gain(default_run: Dict, out_path: str):
-    if not default_run.get('hard_subset'):
+def plot_hard_size_gain(run: Dict, out_path: str, title: str):
+    if not run.get('hard_subset'):
         return
-    bins = default_run['hard_subset']['size_bins']
+    bins = run['hard_subset']['size_bins']
     labels = [item['size_bin'] for item in bins]
     deltas = [item['recall_proxy_delta'] for item in bins]
     x = np.arange(len(labels))
@@ -276,11 +276,39 @@ def plot_default_hard_size_gain(default_run: Dict, out_path: str):
     ax.set_xticklabels(labels)
     ax.axhline(0, color='black', linewidth=1)
     ax.set_ylabel('recall proxy delta')
-    ax.set_title('Default scale set: hard-subset recall gain by face-size bin')
+    ax.set_title(title)
     ax.grid(axis='y', linestyle='--', alpha=0.25)
     for bar, val in zip(bars, deltas):
         ax.text(bar.get_x() + bar.get_width() / 2, val + (0.005 if val >= 0 else -0.005),
                 f'{val:+.3f}', ha='center', va='bottom' if val >= 0 else 'top', fontsize=8)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=180)
+    plt.close(fig)
+
+
+def plot_hard_size_gain_compare(runs: List[Dict], out_path: str):
+    if not all(run.get('hard_subset') for run in runs):
+        return
+    labels = [item['size_bin'] for item in runs[0]['hard_subset']['size_bins']]
+    default_deltas = [item['recall_proxy_delta'] for item in runs[0]['hard_subset']['size_bins']]
+    paper_deltas = [item['recall_proxy_delta'] for item in runs[1]['hard_subset']['size_bins']]
+    x = np.arange(len(labels))
+    width = 0.35
+    fig, ax = plt.subplots(figsize=(11, 4.8))
+    bars1 = ax.bar(x - width / 2, default_deltas, width, label='Default scale set', color='#4c78a8')
+    bars2 = ax.bar(x + width / 2, paper_deltas, width, label='Paper SR12 scale set', color='#e45756')
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.axhline(0, color='black', linewidth=1)
+    ax.set_ylabel('recall proxy delta')
+    ax.set_title('Hard-subset recall gain by face-size bin')
+    ax.grid(axis='y', linestyle='--', alpha=0.25)
+    ax.legend()
+    for bars in (bars1, bars2):
+        for bar in bars:
+            val = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width() / 2, val + (0.005 if val >= 0 else -0.005),
+                    f'{val:+.3f}', ha='center', va='bottom' if val >= 0 else 'top', fontsize=8)
     fig.tight_layout()
     fig.savefig(out_path, dpi=180)
     plt.close(fig)
@@ -395,7 +423,11 @@ def main():
     plot_scale_pool_geometry(runs, osp.join(out_dir, 'scale_pool_geometry.png'))
     plot_distribution_pressure(runs, osp.join(out_dir, 'distribution_pressure.png'))
     plot_jsar_tiny_supervision(runs, osp.join(out_dir, 'jsar_tiny_supervision.png'))
-    plot_default_hard_size_gain(default_run, osp.join(out_dir, 'default_hard_size_gain.png'))
+    plot_hard_size_gain(default_run, osp.join(out_dir, 'default_hard_size_gain.png'),
+                        'Default scale set: hard-subset recall gain by face-size bin')
+    plot_hard_size_gain(paper_run, osp.join(out_dir, 'paper_hard_size_gain.png'),
+                        'Paper SR12 scale set: hard-subset recall gain by face-size bin')
+    plot_hard_size_gain_compare(runs, osp.join(out_dir, 'hard_size_gain_by_scale_set.png'))
     plot_asr_schematic(osp.join(out_dir, 'asr_schematic.png'))
     plot_jsar_schematic(osp.join(out_dir, 'jsar_schematic.png'))
     write_summary_json(runs, osp.join(out_dir, 'report_summary.json'))

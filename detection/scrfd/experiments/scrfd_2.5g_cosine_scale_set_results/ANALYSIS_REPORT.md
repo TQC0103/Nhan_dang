@@ -1,46 +1,51 @@
 # Phân Tích Kết Quả SCRFD 2.5G Cosine: Default Scale Set vs Paper SR12
 
-## 1. Mục tiêu
+## 1. Phạm vi và lưu ý về kết quả
 
-Báo cáo này phân tích hai câu hỏi:
+Báo cáo này tổng hợp hai cặp thí nghiệm:
+
+1. `default_source_scale_set`
+2. `paper_sr12_scale_set`
+
+Cả hai đều dùng:
+
+- `SCRFD 2.5G`
+- `80 epochs`
+- `cosine lr scheduler`
+
+Riêng `paper_sr12_scale_set` trong báo cáo này là **run đã train lại với `lr=0.04`**, tức là đã khớp với setting của `default_source_scale_set`. Kết quả cũ từ bundle trước, nơi `paper_sr12_scale_set` bị train với `lr=0.02`, không còn được dùng để rút kết luận.
+
+Hai câu hỏi chính của báo cáo:
 
 1. Vì sao `ASR+JSAR` đều tốt hơn `baseline` ở cả hai scale set.
-2. Vì sao scale set `paper_sr12_scale_set` lại cho kết quả tuyệt đối kém hơn scale set mặc định trong source code, dù đây là scale set được mô tả là tốt trong phần SR search của paper.
+2. Sau khi khớp lại learning rate, nên hiểu thế nào về khác biệt giữa scale set mặc định trong source code và scale set `SR12` lấy từ phần search của paper.
 
-Phạm vi báo cáo chỉ dùng các kết quả đã train/eval trong thư mục này. Phần giải thích tập trung vào:
-
-- metric WIDERFace,
-- phân phối scale được dùng trong train,
-- phân phối kích thước mặt sau SR simulation,
-- mật độ positive assignment mà `JSAR` bổ sung cho tiny faces,
-- hard-subset analysis ở run `default_source_scale_set`.
-
-## 2. Phương pháp cải tiến
+## 2. Tóm tắt phương pháp cải tiến
 
 ### 2.1. Adaptive Sample Redistribution (ASR)
 
-`ASR` thay việc lấy mẫu scale augmentation tĩnh bằng một vòng lặp phản hồi theo thống kê train. Ở cuối mỗi epoch, hook thu các thống kê theo size bin, tính độ khó của từng bin, rồi cập nhật xác suất chọn các crop ratio cho epoch kế tiếp.
+`ASR` thay việc chọn scale augmentation tĩnh bằng một phân phối động được cập nhật theo thống kê train. Cuối mỗi epoch, hook dùng thông tin về GT histogram, số positive anchors và loss theo size bin để điều chỉnh xác suất chọn crop ratio cho epoch sau.
 
 ![ASR schematic](report_assets/asr_schematic.png)
 
 Trong pipeline SCRFD này:
 
-- `scale nhỏ` tương ứng với crop nhỏ hơn, tức `zoom-in`, nên mặt sau resize sẽ lớn hơn.
-- `scale lớn` tương ứng với crop lớn hơn, tức `zoom-out`, nên mặt sau resize sẽ nhỏ hơn.
+- `scale nhỏ` = crop nhỏ hơn = `zoom-in` = mặt lớn hơn sau resize
+- `scale lớn` = crop lớn hơn = `zoom-out` = mặt nhỏ hơn sau resize
 
-Vì vậy, khi `ASR` tăng xác suất ở các scale lớn hơn, phân phối train sẽ dịch về phía nhiều tiny faces hơn.
+Do đó, nếu xác suất dịch về phía scale lớn hơn thì phân phối mặt sau SR sẽ nghiêng về tiny faces nhiều hơn.
 
 ### 2.2. Joint SampleAssignment Redistribution (JSAR)
 
-`JSAR` không đổi backbone, neck, head hay inference. Nó chỉ sửa phần target assignment khi train để tiny faces nhận được nhiều positive anchors hơn nếu assigner gốc đang under-supervise chúng.
+`JSAR` không đổi kiến trúc hay inference. Nó chỉ can thiệp vào assignment khi train để tiny faces nhận được nhiều positive anchors hơn khi assigner gốc quá chặt.
 
 ![JSAR schematic](report_assets/jsar_schematic.png)
 
-Trong implementation hiện tại, hiệu ứng quan trọng nhất là:
+Hiệu ứng mong muốn:
 
-- tiny faces có số positives trên mỗi GT tăng rõ rệt,
-- small/medium/large gần như giữ nguyên,
-- do đó mật độ supervision tăng đúng vào vùng khó nhất của WIDERFace Hard.
+- tăng positives / GT cho tiny faces,
+- gần như giữ nguyên medium / large faces,
+- tăng supervision density đúng ở vùng khó nhất của WIDERFace Hard.
 
 ## 3. Tổng quan kết quả
 
@@ -52,171 +57,214 @@ Trong implementation hiện tại, hiệu ứng quan trọng nhất là:
 | --- | --- | ---: | ---: | ---: | ---: |
 | Default source | Baseline | 0.9140 | 0.8969 | 0.7249 | 0.8453 |
 | Default source | ASR+JSAR | 0.9039 | 0.8925 | 0.7690 | 0.8551 |
-| Paper SR12 | Baseline | 0.9016 | 0.8842 | 0.7073 | 0.8310 |
-| Paper SR12 | ASR+JSAR | 0.8845 | 0.8720 | 0.7457 | 0.8341 |
+| Paper SR12 | Baseline | 0.9161 | 0.8999 | 0.7371 | 0.8510 |
+| Paper SR12 | ASR+JSAR | 0.9028 | 0.8901 | 0.7738 | 0.8556 |
 
 ### 3.2. Delta của ASR+JSAR so với baseline
 
 ![ASR delta by scale set](report_assets/asr_delta_by_scale_set.png)
 
-Điểm nhất quán nhất giữa hai scale set là:
+Delta của `ASR+JSAR`:
 
-- `hard_AP` đều tăng mạnh,
-- `easy_AP` và `medium_AP` đều giảm nhẹ,
-- `mAP` tăng nhưng mức tăng nhỏ hơn lợi ích riêng trên Hard.
+- Default source scale set:
+  - `easy_AP`: `-0.0100`
+  - `medium_AP`: `-0.0044`
+  - `hard_AP`: `+0.0440`
+  - `mAP`: `+0.0099`
+- Paper SR12 scale set:
+  - `easy_AP`: `-0.0133`
+  - `medium_AP`: `-0.0098`
+  - `hard_AP`: `+0.0367`
+  - `mAP`: `+0.0045`
 
-Điều này cho thấy `ASR+JSAR` không phải cải tiến đồng đều cho mọi kích thước mặt. Nó chủ yếu chuyển năng lực học sang nhóm tiny/hard faces.
+Mẫu hình chung vẫn giữ nguyên:
+
+- `ASR+JSAR` chủ yếu giúp `hard_AP`,
+- đổi lại `easy_AP` và `medium_AP` giảm nhẹ,
+- lợi ích mạnh nhất tập trung vào tiny/hard faces.
 
 ## 4. Vì sao ASR+JSAR tốt hơn baseline ở cả hai scale set
 
-### 4.1. JSAR luôn tăng supervision density cho tiny faces
+### 4.1. JSAR tăng mật độ supervision cho tiny faces một cách ổn định
 
 ![JSAR tiny supervision](report_assets/jsar_tiny_supervision.png)
 
-Ở cả hai scale set, `JSAR` gần như giữ nguyên mức boost cho tiny faces:
+Ở cả hai scale set, `JSAR` đều tăng rõ số positive anchors trên mỗi tiny GT:
 
-- default scale set:
-  - tiny positives / GT: `1.73 -> 2.67`
-  - boost ratio: `1.542x`
-- paper SR12 scale set:
-  - tiny positives / GT: `1.73 -> 2.66`
-  - boost ratio: `1.538x`
+- Default source:
+  - `1.73 -> 2.67`
+  - boost ratio `1.542x`
+- Paper SR12:
+  - `1.76 -> 2.67`
+  - boost ratio `1.520x`
 
-Điều này rất quan trọng: `JSAR` vẫn hoạt động gần như giống hệt nhau ở cả hai scale pool. Nói cách khác, phần assignment redistribution của phương pháp là ổn định và không phải nguyên nhân gây tụt hiệu năng tuyệt đối ở `paper_sr12_scale_set`.
+Điều này cho thấy `JSAR` hoạt động khá ổn định giữa các scale pool khác nhau. Khác biệt về hiệu năng giữa hai scale set không đến từ việc `JSAR` “hỏng” ở một trong hai run.
 
-### 4.2. Gain trên hard tập trung vào tiny faces
+### 4.2. Gain trên hard vẫn tập trung đúng vào tiny faces
 
-Với `default_source_scale_set`, hard-subset analysis đầy đủ cho thấy lợi ích của `ASR+JSAR` tập trung gần như hoàn toàn vào các mặt rất nhỏ.
+![Hard size gain by scale set](report_assets/hard_size_gain_by_scale_set.png)
+
+Hình trên cho thấy ở cả hai scale set, gain recall trên hard subset đều tập trung ở hai bin nhỏ nhất:
+
+- `[0, 8)`
+- `[8, 16)`
+
+và gần như không có lợi ích ở các bin lớn hơn.
+
+#### Default source scale set
 
 ![Default hard size gain](report_assets/default_hard_size_gain.png)
 
-Các delta recall proxy theo hard-size bin:
+Ở `default_source_scale_set`, delta recall proxy theo hard-size bin là:
 
 - `[0, 8)`: `+0.138`
 - `[8, 16)`: `+0.119`
 - `[16, 32)`: `+0.009`
-- từ `32` px trở lên: gần như bằng `0` hoặc âm nhẹ
+- từ `32` px trở lên: gần `0` hoặc âm nhẹ
 
-Điều này khớp trực tiếp với mục tiêu của `JSAR`: tăng mật độ positive assignment cho tiny faces vốn rất dễ bị under-supervised.
+Điều đó cho thấy lợi ích đến gần như hoàn toàn từ tiny hard faces.
 
-Ngoài ra, ở run mặc định:
+#### Paper SR12 scale set
 
-- hard recall proxy tăng `0.8243 -> 0.8659`
-- precision proxy cũng tăng `0.0153 -> 0.0182`
+Với run `paper_sr12_scale_set` sau khi khớp learning rate, hard-subset analysis cũng cho cùng một mẫu hình:
 
-Tức là `ASR+JSAR` không chỉ bắt được thêm hard faces mà còn không phải đánh đổi bằng việc phun ra quá nhiều false positives ở ngưỡng đang đo.
+- `[0, 8)`: `+0.108`
+- `[8, 16)`: `+0.104`
+- `[16, 32)`: `+0.003`
+- từ `32` px trở lên: âm nhẹ
 
-### 4.3. ASR thay đổi sample distribution, còn JSAR biến thay đổi đó thành supervision hữu ích
+Ngoài ra:
 
-Hai thành phần đóng vai trò khác nhau:
+- hard recall proxy tăng `0.8357 -> 0.8690`
+- precision proxy tăng `0.0167 -> 0.0196`
+- prediction count giảm `1,595,279 -> 1,416,440`
 
-- `ASR` quyết định model nhìn thấy loại crop nào nhiều hơn.
-- `JSAR` đảm bảo tiny faces trong các crop đó thật sự nhận được đủ positive anchors.
+Tức là trên scale set của paper, `ASR+JSAR` vẫn bắt được thêm hard faces nhỏ và đồng thời giảm số prediction, nên gain không phải là cái giá phải trả bằng việc phun thêm nhiều false positives.
 
-Nếu chỉ có `ASR` mà assignment vẫn quá chặt, nhiều tiny faces vẫn bị under-supervise. Nếu chỉ có `JSAR` mà SR không thay đổi, model vẫn chưa nhìn thấy đủ nhiều tình huống tiny/hard để tận dụng toàn bộ lợi ích của assignment expansion. Hai phần này bổ sung cho nhau.
+### 4.3. ASR và JSAR bổ sung cho nhau
 
-## 5. Vì sao paper SR12 scale set cho kết quả tuyệt đối kém hơn
+Hai thành phần giải quyết hai vấn đề khác nhau:
 
-Đây là điểm cần phân biệt rõ:
+- `ASR` thay đổi loại crop mà model thấy thường xuyên hơn.
+- `JSAR` biến các sample tiny/hard đó thành supervision dày hơn.
 
-- `ASR+JSAR` vẫn cải thiện so với baseline ngay cả trên `paper_sr12_scale_set`.
-- Nhưng cả baseline lẫn ASR+JSAR trên `paper_sr12_scale_set` đều kém hơn run dùng scale set mặc định.
+Nếu chỉ có `ASR`, tiny faces vẫn có thể bị under-assigned. Nếu chỉ có `JSAR`, model lại chưa chắc đã thấy đủ nhiều sample tiny/hard để tận dụng lợi ích của positive expansion. Lợi ích lớn nhất đến từ việc cả hai cùng đẩy training signal về tiny faces.
 
-Nói cách khác, vấn đề nằm nhiều hơn ở **candidate scale pool** của run `paper_sr12_scale_set`, không phải vì `ASR+JSAR` ngừng hoạt động.
+## 5. So sánh chéo giữa default scale set và paper SR12 sau khi khớp learning rate
 
-### 5.1. Hình học của hai scale pool rất khác nhau
+Sau khi train lại `paper_sr12_scale_set` với `lr=0.04`, kết luận đã thay đổi so với bundle cũ:
+
+- `paper_sr12` **không còn kém hơn rõ rệt**.
+- `paper_sr12 baseline` thực ra mạnh hơn `default baseline`.
+- `paper_sr12 ASR+JSAR` gần như ngang với `default ASR+JSAR`, và nhỉnh hơn nhẹ ở `hard_AP` và `mAP`.
+
+### 5.1. Scale pool của paper SR12 vẫn tiny-oriented hơn rất nhiều
 
 ![Scale pool geometry](report_assets/scale_pool_geometry.png)
 
-Từ thống kê scale pool:
+Một số thống kê quan trọng:
 
-- default baseline:
-  - expected magnification `E[1/scale] = 1.270`
+- Default baseline:
+  - `E[1/scale] = 1.270`
   - extreme zoom-in mass (`scale <= 0.6`) = `0.300`
   - extreme zoom-out mass (`scale >= 2.0`) = `0.100`
-- paper SR12 baseline:
-  - expected magnification `E[1/scale] = 0.890`
+- Paper SR12 baseline:
+  - `E[1/scale] = 0.890`
   - extreme zoom-in mass (`scale <= 0.6`) = `0.083`
   - extreme zoom-out mass (`scale >= 2.0`) = `0.250`
 
-Nghĩa là scale set của paper, khi áp dụng trong setting hiện tại, có xu hướng:
+Điều này nghĩa là scale pool `SR12` về bản chất đã:
 
-- ít khả năng `zoom-in` mạnh hơn,
-- nhiều khả năng `zoom-out` mạnh hơn,
-- và nhìn chung đẩy phân phối train sang một bài toán khó hơn.
+- ít zoom-in mạnh hơn,
+- nhiều zoom-out mạnh hơn,
+- và do đó tạo ra train distribution thiên về tiny faces ngay từ baseline.
 
-### 5.2. Phân phối kích thước mặt sau SR bị đẩy quá mạnh sang tiny regime
+### 5.2. Static paper SR12 baseline đã “ăn trước” một phần lợi ích mà ASR phải tạo ra ở default scale set
 
 ![Distribution pressure](report_assets/distribution_pressure.png)
 
-So với default scale set, `paper_sr12_scale_set` tạo áp lực mạnh hơn lên vùng tiny:
+Sau SR simulation:
 
-- default baseline:
+- Default baseline:
   - tiny ratio = `0.475`
   - median face size = `17.12`
   - tiny -> `>=16px` promotion ratio = `0.223`
-- paper SR12 baseline:
+- Paper SR12 baseline:
   - tiny ratio = `0.582`
   - median face size = `12.97`
   - tiny -> `>=16px` promotion ratio = `0.092`
 
-Điều này có hai hệ quả:
+Nói ngắn gọn:
 
-1. Model phải học trên nhiều tiny faces hơn đáng kể.
-2. Nhưng các face đó lại ít được “đẩy” sang vùng kích thước dễ học hơn.
+- baseline của `paper_sr12` đã đẩy train distribution mạnh vào vùng tiny/hard,
+- nên bản thân baseline đã mạnh hơn trên hard faces,
+- và khoảng trống để `ASR+JSAR` tiếp tục cải thiện sẽ nhỏ hơn.
 
-Vì vậy, độ khó của train distribution tăng lên mạnh hơn mức mà JSAR có thể bù hết.
+Đó là lý do delta của `ASR+JSAR` trên `paper_sr12` nhỏ hơn:
 
-### 5.3. ASR trên paper SR12 không cứu được vì không gian lựa chọn bản thân nó đã bất lợi hơn
+- `hard_AP`: `+0.0367` thay vì `+0.0440`
+- `mAP`: `+0.0045` thay vì `+0.0099`
 
-Trên `paper_sr12_scale_set`, `ASR` vẫn tự điều chỉnh xác suất để tránh bớt các mức quá cực đoan, nhưng candidate pool vẫn bị ràng buộc bởi hai đặc điểm:
+Không phải vì phương pháp yếu đi, mà vì baseline của scale set này đã mang sẵn một thiên hướng tiny-focused mạnh hơn.
 
-- thiếu các lựa chọn zoom-in mạnh kiểu default source scale set,
-- có thêm các lựa chọn zoom-out mạnh như `2.3`, `2.6`.
+### 5.3. ASR trên paper SR12 chủ yếu làm mềm bớt các extreme scales, không còn phải “dịch pha” phân phối mạnh như ở default
 
-Kết quả là:
+Từ `report_summary.json`:
 
-- `ASR+JSAR` vẫn thắng baseline trong cùng scale set,
-- nhưng trần hiệu năng của toàn bộ run thấp hơn, vì không gian scale cho SR đã đẩy bài toán sang phía quá nhiều tiny faces.
+- Default:
+  - baseline `E[1/scale] = 1.270`
+  - improved `E[1/scale] = 1.062`
+- Paper SR12:
+  - baseline `E[1/scale] = 0.890`
+  - improved `E[1/scale] = 0.887`
 
-### 5.4. Giải thích đúng phạm vi
+Ở default scale set, `ASR` phải thay đổi phân phối đáng kể để kéo training signal về tiny faces. Ở paper SR12, baseline vốn đã tiny-heavy, nên `ASR` chỉ còn điều chỉnh tương đối nhẹ quanh không gian sẵn có.
 
-Từ các số đo hiện có, cách diễn giải đúng là:
+Điều này cũng khớp với face-size simulation:
 
-- scale set `paper_sr12_scale_set` không nhất thiết “xấu” trong mọi thiết lập,
-- nhưng trong **public codebase + 80 epochs + cosine schedule + cấu hình train hiện tại**, nó tạo ra một train distribution khó hơn default scale set,
-- nên hiệu năng tuyệt đối thấp hơn ở cả baseline lẫn ASR+JSAR.
+- Paper baseline tiny ratio `0.582`
+- Paper improved tiny ratio `0.577`
 
-## 6. Ghi chú về dữ liệu phân tích hard-subset của paper SR12
+Tức là trên scale set của paper, `ASR` không còn “đẩy sang tiny” mạnh nữa; nó thiên về cân bằng lại một scale pool vốn đã rất tiny-biased.
 
-Hard-subset per-image analysis chỉ được dùng mạnh cho `default_source_scale_set`. Với `paper_sr12_scale_set`, bundle predictions đã tải về không đầy đủ cho improved run, nên phần hard-subset per-image của scale set này không đủ tin cậy để dùng làm bằng chứng chính cho báo cáo.
+### 5.4. Khác biệt giữa hai scale set hiện nay nên được hiểu như thế nào
 
-Vì vậy, các kết luận về `paper_sr12_scale_set` trong báo cáo này chủ yếu dựa trên:
+Với learning rate đã khớp:
 
-- WIDERFace metric chính thức,
-- scale probability history,
-- face-size distribution simulation,
-- JSAR assignment summary.
+- Default source scale set:
+  - baseline yếu hơn một chút trên Hard
+  - nên `ASR+JSAR` có nhiều headroom hơn để cải thiện
+- Paper SR12 scale set:
+  - baseline đã mạnh hơn vì static SR đã thiên về tiny faces
+  - nên `ASR+JSAR` vẫn giúp, nhưng gain biên nhỏ hơn
 
-## 7. Kết luận
+Tóm lại, sự khác biệt chính bây giờ không còn là “scale set nào đúng, scale set nào sai”, mà là:
 
-### 7.1. Về ASR+JSAR
+- scale set mặc định cần `ASR+JSAR` nhiều hơn để bù lại static SR chưa đủ tiny-oriented,
+- còn `paper SR12` đã mang sẵn bias tiny-focused, nên baseline mạnh hơn và biên cải thiện nhỏ hơn.
+
+## 6. Kết luận
+
+### 6.1. Về ASR+JSAR
 
 `ASR+JSAR` tốt hơn baseline ở cả hai scale set vì:
 
-- `ASR` thay đổi distribution của các sample được nhìn thấy trong train,
-- `JSAR` tăng mật độ positive supervision đúng ở tiny faces,
-- hard gain tập trung mạnh ở các bin `[0, 8)` và `[8, 16)`, tức đúng vùng khó nhất của WIDERFace Hard.
+- `ASR` điều chỉnh distribution của crop ratios trong train,
+- `JSAR` tăng mật độ positive supervision đúng vào tiny faces,
+- gain trên Hard luôn tập trung ở `[0, 8)` và `[8, 16)`.
 
-### 7.2. Về default source scale set vs paper SR12 scale set
+Đây là bằng chứng khá trực tiếp rằng cải tiến đang làm đúng điều nó được thiết kế để làm.
 
-Trong setting đang thử nghiệm:
+### 6.2. Về default source scale set và paper SR12
 
-- default source scale set cho kết quả tốt hơn tuyệt đối,
-- vì nó giữ cân bằng tốt hơn giữa `zoom-in` và `zoom-out`,
-- còn `paper_sr12_scale_set` đẩy quá nhiều samples về tiny regime và làm giảm khả năng “promote” tiny faces sang vùng kích thước dễ học hơn.
+Sau khi train lại `paper_sr12_scale_set` với `lr=0.04`:
 
-Nói ngắn gọn:
+- `paper SR12 baseline` mạnh hơn `default baseline`,
+- `paper SR12 ASR+JSAR` gần như ngang và hơi nhỉnh hơn `default ASR+JSAR`,
+- chênh lệch trước đó hóa ra chủ yếu đến từ việc so sánh hai run với learning rate không khớp.
 
-- `ASR+JSAR` là cải tiến có hiệu quả ổn định theo hướng tiny/hard faces.
-- Nhưng chất lượng cuối cùng vẫn phụ thuộc mạnh vào candidate scale pool mà `ASR` được phép redistributes trên đó.
+Vì vậy, kết luận cập nhật là:
+
+- scale set `SR12` của paper **không tệ hơn** trong setting này khi learning rate được khớp đúng,
+- nhưng vì baseline của nó đã rất tiny-oriented, nên `ASR+JSAR` chỉ mang lại gain biên nhỏ hơn so với default scale set,
+- còn cơ chế gain cốt lõi của `ASR+JSAR` thì vẫn nhất quán: tăng supervision và recall đúng ở tiny hard faces.

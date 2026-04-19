@@ -1,6 +1,6 @@
-# SCRFD 2.5G Cosine Scale-Set Results
+﻿# SCRFD 2.5G Cosine Scale-Set Results
 
-- [ANALYSIS_REPORT.md](ANALYSIS_REPORT.md): Báo cáo phân tích vì sao ASR+JSAR tốt hơn baseline và vì sao paper SR12 scale set cho kết quả kém hơn trong setting này.
+- [ANALYSIS_REPORT.md](ANALYSIS_REPORT.md): Báo cáo phân tích vì sao ASR+JSAR tốt hơn baseline ở cả hai scale set và cách hiểu đúng về khác biệt giữa default scale set và paper SR12 sau khi khớp learning rate.
 
 ## Runs
 
@@ -15,8 +15,8 @@
 | --- | --- | ---: | ---: | ---: | ---: |
 | `default_source_scale_set` | Baseline | 0.9140 | 0.8969 | 0.7249 | 0.8453 |
 | `default_source_scale_set` | ASR+JSAR | 0.9039 | 0.8925 | 0.7690 | 0.8551 |
-| `paper_sr12_scale_set` | Baseline | 0.9016 | 0.8842 | 0.7073 | 0.8310 |
-| `paper_sr12_scale_set` | ASR+JSAR | 0.8845 | 0.8720 | 0.7457 | 0.8341 |
+| `paper_sr12_scale_set` | Baseline | 0.9161 | 0.8999 | 0.7371 | 0.8510 |
+| `paper_sr12_scale_set` | ASR+JSAR | 0.9028 | 0.8901 | 0.7738 | 0.8556 |
 
 ## `default_source_scale_set`
 

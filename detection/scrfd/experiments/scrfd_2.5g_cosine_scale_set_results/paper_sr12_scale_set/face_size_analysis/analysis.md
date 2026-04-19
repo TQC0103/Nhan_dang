@@ -8,10 +8,10 @@ It does not simulate image content or face dropping from crop position. The goal
 
 ## Inputs
 
-- Annotation file: `E:\GHuy\Study\Nhận dạng\SCRFD\analysis_artifacts_bundle\dataset_metadata\train\labelv2.txt`
+- Annotation file: `E:\t\ab3\dataset_metadata\train\labelv2.txt`
 - Baseline config: `E:\GHuy\Study\Nhận dạng\SCRFD\insightface\detection\scrfd\configs\scrfd\scrfd_2.5g_80e_cosine_baseline_paper_sr12.py`
 - Improved config: `E:\GHuy\Study\Nhận dạng\SCRFD\insightface\detection\scrfd\configs\scrfd\scrfd_2.5g_80e_cosine_asr_jsar_paper_sr12.py`
-- Improved scale source: `{'source': 'train_log_mean', 'resolved_source': 'E:\\tmp\\ab2\\experiments\\asr_jsar\\work_dir\\adaptive_sr\\scale_prob_history.jsonl', 'num_records': 78, 'warmup_epochs_skipped': 2}`
+- Improved scale source: `{'source': 'train_log_mean', 'resolved_source': 'E:\\t\\ab3\\experiments\\asr_jsar\\work_dir\\adaptive_sr\\scale_prob_history.jsonl', 'num_records': 78, 'warmup_epochs_skipped': 2}`
 
 ## Key Numbers
 
@@ -19,7 +19,7 @@ It does not simulate image content or face dropping from crop position. The goal
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Original | 32.76 | 17.44 | 65.73 | 0.4622 | 0.2737 | 0.2055 | 0.0586 | - | - |
 | Baseline SR | 25.12 | 12.97 | 53.34 | 0.5816 | 0.2191 | 0.1594 | 0.0399 | 0.0920 | 0.0464 |
-| ASR+JSAR | 25.06 | 13.18 | 52.91 | 0.5770 | 0.2237 | 0.1603 | 0.0390 | 0.0808 | 0.0399 |
+| ASR+JSAR | 25.05 | 13.18 | 52.89 | 0.5772 | 0.2236 | 0.1602 | 0.0390 | 0.0808 | 0.0398 |
 
 ## Interpretation Hints
 

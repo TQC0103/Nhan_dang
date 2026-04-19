@@ -1,356 +1,388 @@
-\chapter{Báo cáo thực nghiệm bổ sung cho SCRFD}
+\chapter{PHÂN TÍCH THỰC NGHIỆM BỔ SUNG CHO SCRFD}
 
 \section{Mục tiêu và thiết lập thực nghiệm}
 
-Phần này chuyển nội dung phân tích thực nghiệm từ mã nguồn và báo cáo Markdown sang định dạng LaTeX của báo cáo chính.
-Mục tiêu của cụm thí nghiệm là trả lời hai câu hỏi:
+Phần này tổng hợp và diễn giải lại kết quả thực nghiệm của mô hình SCRFD~2.5G dưới dạng một chương độc lập trong báo cáo.
+Mục tiêu chính là trả lời hai câu hỏi:
 \begin{itemize}
-  \item vì sao cải tiến \textbf{ASR+JSAR} tốt hơn \textbf{baseline} trong cùng kiến trúc SCRFD 2.5G;
-  \item vì sao khi thay static scale pool mặc định bằng scale set \textbf{SR12} lấy từ phần search của bài báo, mô hình lại thay đổi hành vi theo cách khác.
+  \item vì sao mô hình có hai cải tiến đề xuất lại tốt hơn mô hình gốc;
+  \item vì sao khi thay bộ tỉ lệ cắt mặc định bằng bộ 12 mức được chọn từ quá trình tìm kiếm trong bài báo SCRFD, hành vi của mô hình lại thay đổi.
 \end{itemize}
 
-Hai cặp thí nghiệm được so sánh là:
+Trong toàn bộ thí nghiệm, kiến trúc Backbone--Neck--Head của SCRFD~2.5G được giữ nguyên.
+Các mô hình đều được huấn luyện trong \(80\) epoch với lịch học cosine.
+Hai nhóm thí nghiệm được so sánh là:
 \begin{itemize}
-  \item \textbf{Default source scale set}: dùng static scale pool mặc định trong mã nguồn công khai của SCRFD.
-  \item \textbf{Paper SR12 scale set}: thay scale pool tĩnh bằng bộ 12 mức được mô tả ở phần sample redistribution của bài báo SCRFD. \cite{guo2022scrfd}
+  \item \textbf{Bộ tỉ lệ mặc định trong mã nguồn}: dùng đúng tập tỉ lệ cắt xuất hiện trong mã nguồn công khai của SCRFD.
+  \item \textbf{Bộ 12 mức theo kết quả tìm kiếm của bài báo}: thay tập tỉ lệ cắt tĩnh bằng bộ \(12\) mức được mô tả ở phần phân phối lại mẫu của bài báo SCRFD~\cite{guo2022scrfd}.
 \end{itemize}
 
-Trong cả hai cặp, phần Backbone--Neck--Head giữ nguyên, mô hình được huấn luyện trong \(80\) epochs với cosine scheduler.
-Biến độc lập chính chỉ là:
+Trong mỗi nhóm, so sánh được thực hiện giữa:
 \begin{itemize}
-  \item static scale pool ban đầu;
-  \item việc bật hay tắt hai cải tiến \textbf{Adaptive Sample Redistribution (ASR)} và \textbf{Joint SampleAssignment Redistribution (JSAR)}.
+  \item \textbf{mô hình gốc}: dùng cơ chế huấn luyện ban đầu của SCRFD;
+  \item \textbf{mô hình cải tiến}: bổ sung hai thành phần là \emph{phân phối lại mẫu thích nghi} và \emph{phân phối lại phép gán mẫu}.
 \end{itemize}
 
-\section{Phương pháp cải tiến}
+\section{Hai thành phần cải tiến}
 
-\subsection{Adaptive Sample Redistribution (ASR)}
+\subsection{Phân phối lại mẫu thích nghi}
 
-ASR thay việc chọn scale augmentation tĩnh bằng một phân phối xác suất động, được cập nhật trực tiếp từ thống kê của quá trình huấn luyện.
-Ý tưởng trực quan của ASR được minh hoạ trong Hình~\ref{fig:final-term-asr-schematic}.
+Thành phần thứ nhất có nhiệm vụ thay thế cách chọn tỉ lệ cắt ảnh theo xác suất cố định bằng một phân phối xác suất được cập nhật liên tục theo phản hồi của quá trình huấn luyện.
+Ý tưởng trực quan được minh họa ở Hình~\ref{fig:final-term-asr-schematic}.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{final_term_spos_scrfd/asr_schematic.png}
-  \caption{Minh hoạ ý tưởng của ASR. Trái: static scale pool ban đầu và ý nghĩa hình học của scale. Giữa: vòng phản hồi từ thống kê huấn luyện sang difficulty của từng size bin, rồi quay lại cập nhật scale policy. Phải: phân phối kích thước mặt sau phép crop + resize dịch về phía nhiều tiny/small samples hơn.}
+  \caption{Nguyên lý của cơ chế phân phối lại mẫu thích nghi. Từ trái sang phải: tập tỉ lệ cắt ban đầu, tín hiệu phản hồi theo nhóm kích thước khuôn mặt, và sự dịch chuyển của phân phối kích thước mặt sau bước cắt và đổi cỡ ảnh.}
   \label{fig:final-term-asr-schematic}
 \end{figure}
 
-Trong implementation hiện tại, sau mỗi epoch hệ thống gom thống kê theo size bin \(b\):
+Trong cài đặt hiện tại, khuôn mặt trong mỗi ảnh sau tăng cường dữ liệu được chia vào bốn nhóm kích thước: rất nhỏ, nhỏ, vừa và lớn.
+Sau mỗi epoch, hệ thống thu thập các thống kê sau cho từng nhóm \(b\):
 \begin{itemize}
-  \item \(G_b\): số ground-truth faces thuộc bin \(b\);
-  \item \(P_b\): số positive anchors khớp với bin \(b\);
-  \item \(L^{cls}_b\): tổng classification loss;
-  \item \(L^{box}_b\): tổng box loss.
+  \item \(G_b\): số khuôn mặt thật thuộc nhóm \(b\);
+  \item \(P_b\): số anchor dương khớp với nhóm \(b\);
+  \item \(L^{cls}_b\): tổng lỗi phân loại trên nhóm \(b\);
+  \item \(L^{box}_b\): tổng lỗi hồi quy hộp bao trên nhóm \(b\).
 \end{itemize}
 
-Từ đó, ASR tạo ba thành phần difficulty:
+Từ các thống kê này, trước hết ta đo mức thiếu giám sát của từng nhóm thông qua
 \begin{equation}
-r_b = \max\!\left(0,\; 1 - \min\!\left(\frac{P_b}{\max(G_b,1)},\; 1\right)\right)
+r_b = \max\!\left(0,\; 1 - \min\!\left(\frac{P_b}{\max(G_b,1)},\; 1\right)\right),
 \end{equation}
+trong đó \(r_b\) càng lớn thì nhóm \(b\) càng có xu hướng thiếu mẫu dương.
+
+Tiếp theo, ta tính lỗi trung bình trên mỗi mẫu dương:
 \begin{equation}
-c_b = \frac{L^{cls}_b}{\max(P_b,1)}, \qquad
-u_b = \frac{L^{box}_b}{\max(P_b,1)}
+\bar{L}^{cls}_b = \frac{L^{cls}_b}{\max(P_b,1)}, \qquad
+\bar{L}^{box}_b = \frac{L^{box}_b}{\max(P_b,1)}.
 \end{equation}
 
-Trong đó \(r_b\) đóng vai trò recall gap proxy, còn \(c_b\) và \(u_b\) đo loss trung bình trên mỗi positive sample.
-Với chế độ \texttt{loss\_recall}, difficulty của từng bin được tính bằng tổng của ba đại lượng đã chuẩn hoá:
+Để các đại lượng này có cùng thang đo, mỗi đại lượng được chuẩn hóa theo trung bình của các giá trị dương:
 \begin{equation}
-\operatorname{norm}(x)_b = \frac{x_b}{\operatorname{mean}(x_{x>0}) + \varepsilon}
-\end{equation}
-\begin{equation}
-d_b \propto \operatorname{norm}(r_b) + \operatorname{norm}(c_b) + \operatorname{norm}(u_b)
+\operatorname{Norm}(x_b) =
+\frac{x_b}{\operatorname{mean}\!\bigl(\{x_j \mid x_j > 0\}\bigr) + \varepsilon}.
 \end{equation}
 
-Difficulty theo bin sau đó được chiếu sang mỗi scale candidate \(s\) thông qua một support prior:
+Độ khó của nhóm \(b\) được xác định bằng tổng ba thành phần:
 \begin{equation}
-S(s,b) = \exp\!\left(-\frac{|\log s - \log \mu_b|}{0.45}\right)
-\end{equation}
-với \(\mu_b\) là tâm ưu tiên của từng size bin.
-Xác suất thô của mỗi scale được xác định bởi:
-\begin{equation}
-q(s) \propto \sum_b S(s,b)\, d_b
+d_b =
+\operatorname{Norm}(r_b) +
+\operatorname{Norm}(\bar{L}^{cls}_b) +
+\operatorname{Norm}(\bar{L}^{box}_b).
 \end{equation}
 
-Sau bước probability floor và EMA smoothing:
-\begin{equation}
-q'(s) = q(s)(1-Km) + m
-\end{equation}
-\begin{equation}
-p_{t+1}(s) = \alpha\, p_t(s) + (1-\alpha)\, q'(s)
-\end{equation}
-trong đó \(K\) là số scale candidates, \(m\) là xác suất sàn tối thiểu, còn \(\alpha\) là hệ số làm mượt.
+Nói cách khác, một nhóm được xem là ``khó'' khi vừa thiếu anchor dương, vừa có lỗi phân loại cao, vừa có lỗi hồi quy cao.
 
-Điểm quan trọng của pipeline SCRFD là:
+Sau khi có độ khó \(d_b\), hệ thống chiếu thông tin này sang từng tỉ lệ cắt \(s\) bằng một hàm tương hợp:
+\begin{equation}
+S(s,b) =
+\exp\!\left(
+  -\frac{\left|\log s - \log \mu_b\right|}{0.45}
+\right),
+\end{equation}
+trong đó \(\mu_b\) là tỉ lệ cắt được xem là phù hợp nhất với nhóm kích thước \(b\).
+Xác suất thô cho từng tỉ lệ cắt được viết dưới dạng
+\begin{equation}
+q(s) \propto \sum_b S(s,b)\, d_b.
+\end{equation}
+
+Để tránh việc một số tỉ lệ bị triệt tiêu hoàn toàn, phân phối mới được làm trơn bằng hai bước.
+Trước hết, áp đặt một mức xác suất sàn:
+\begin{equation}
+\tilde{q}(s) = q(s)(1-Km) + m,
+\end{equation}
+trong đó \(K\) là số tỉ lệ cắt và \(m\) là mức sàn tối thiểu.
+Sau đó, cập nhật bằng trung bình trượt lũy thừa:
+\begin{equation}
+p_{t+1}(s) = \alpha\, p_t(s) + (1-\alpha)\, \tilde{q}(s),
+\end{equation}
+với \(\alpha\) là hệ số làm trơn theo thời gian.
+
+Điểm cần nhấn mạnh là trong pipeline của SCRFD, tỉ lệ cắt \(s\) không biểu diễn trực tiếp ``khuôn mặt lớn'' hay ``khuôn mặt nhỏ''.
+Thay vào đó:
 \begin{itemize}
-  \item \textbf{scale nhỏ} \(\Rightarrow\) crop nhỏ hơn \(\Rightarrow\) zoom-in \(\Rightarrow\) mặt lớn hơn sau resize;
-  \item \textbf{scale lớn} \(\Rightarrow\) crop rộng hơn \(\Rightarrow\) zoom-out \(\Rightarrow\) mặt nhỏ hơn sau resize.
+  \item \(s\) nhỏ tương ứng với vùng cắt nhỏ hơn, tức là phóng to khuôn mặt sau khi đổi cỡ ảnh;
+  \item \(s\) lớn tương ứng với vùng cắt rộng hơn, tức là làm khuôn mặt nhỏ lại sau khi đổi cỡ ảnh.
 \end{itemize}
 
-Do đó, khi ASR tăng xác suất ở các scale lớn, phân phối mẫu sau augmentation sẽ dịch về phía nhiều tiny faces hơn.
-Nói cách khác, ASR không chỉ đổi cách lấy mẫu trên trục scale, mà đổi cả phân phối khó/dễ của tập huấn luyện mà detector thường xuyên nhìn thấy.
+Vì vậy, thành phần này thực chất điều khiển phân phối kích thước khuôn mặt mà mô hình nhìn thấy trong quá trình huấn luyện.
+Nó không thay đổi kiến trúc mạng, mà thay đổi ``bài toán huấn luyện'' theo hướng ưu tiên nhiều hơn cho những trường hợp khuôn mặt rất nhỏ.
 
-\subsection{Joint SampleAssignment Redistribution (JSAR)}
+\subsection{Phân phối lại phép gán mẫu}
 
-JSAR không thay đổi kiến trúc suy luận, mà chỉ can thiệp vào bước \textit{assignment} trong lúc huấn luyện để tiny/small faces nhận được supervision dày hơn.
-Trực quan của phương pháp được mô tả ở Hình~\ref{fig:final-term-jsar-schematic}.
+Thành phần thứ hai tác động vào bước gán nhãn giữa anchor và khuôn mặt thật trong giai đoạn huấn luyện.
+Mục tiêu là tăng mật độ giám sát cho các khuôn mặt rất nhỏ, vốn thường nhận quá ít anchor dương nếu giữ nguyên quy tắc gán nhãn ban đầu.
+Ý tưởng tổng quát được mô tả ở Hình~\ref{fig:final-term-jsar-schematic}.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{final_term_spos_scrfd/jsar_schematic.png}
-  \caption{Minh hoạ ý tưởng của JSAR. Trái: với tiny GT, ATSS gốc thường chỉ tạo rất ít positives. Giữa: threshold và center gating được nới theo kích thước để nhiều anchors gần tiny GT còn hợp lệ hơn. Phải: nếu số positives vẫn thấp, cơ chế fallback sẽ lấy thêm top-\(k\) anchors nền gần GT nhất theo matching score.}
+  \caption{Nguyên lý của cơ chế phân phối lại phép gán mẫu. Trái: gán nhãn ban đầu thường cho quá ít anchor dương với khuôn mặt rất nhỏ. Giữa: nới điều kiện chấp nhận theo kích thước. Phải: bổ sung một số anchor gần nhất nếu số anchor dương vẫn còn quá ít.}
   \label{fig:final-term-jsar-schematic}
 \end{figure}
 
-JSAR được cài trên \texttt{ATSSAssigner} theo ba bước.
+Cơ chế gán nhãn gốc của SCRFD dựa trên ATSS.
+Với mỗi khuôn mặt thật \(g\), ATSS xây dựng một ngưỡng chấp nhận
+\begin{equation}
+\tau_g = \mu_g + \sigma_g,
+\end{equation}
+trong đó \(\mu_g\) và \(\sigma_g\) lần lượt là trung bình và độ lệch chuẩn của IoU trên tập anchor ứng viên quanh \(g\).
+Một anchor chỉ được xem là dương nếu vừa đủ gần tâm, vừa có IoU lớn hơn ngưỡng này.
 
-\paragraph{Bước 1: nới threshold theo kích thước GT}
-ATSS gốc dùng ngưỡng:
+Phần cải tiến can thiệp theo ba bước.
+
+\paragraph{Nới ngưỡng chấp nhận cho đối tượng nhỏ}
+Với các khuôn mặt có kích thước dưới ngưỡng quy định, ngưỡng chấp nhận được hạ xuống:
 \begin{equation}
-\tau_g = \mu_g + \sigma_g
+\tau'_g = \tau_g - \Delta_g,
 \end{equation}
-JSAR thay bằng:
-\begin{equation}
-\tau'_g = \tau_g - \Delta_g
-\end{equation}
-trong đó:
+trong đó
 \begin{equation}
 \Delta_g =
 \begin{cases}
-\delta_{tiny}, & \text{nếu } \operatorname{size}_g < T_{tiny} \\
-\delta_{small}, & \text{nếu } T_{tiny} \le \operatorname{size}_g < T_{small} \\
-0, & \text{nếu } \operatorname{size}_g \ge T_{small}
+\delta_{\text{rất nhỏ}}, & \text{nếu } \operatorname{size}_g < T_{\text{rất nhỏ}},\\
+\delta_{\text{nhỏ}}, & \text{nếu } T_{\text{rất nhỏ}} \le \operatorname{size}_g < T_{\text{nhỏ}},\\
+0, & \text{nếu } \operatorname{size}_g \ge T_{\text{nhỏ}}.
 \end{cases}
 \end{equation}
 
-\paragraph{Bước 2: center gating theo kích thước}
-Center gating được làm size-aware bằng hệ số:
-\begin{equation}
-c_g = \operatorname{clip}\!\left(\frac{\operatorname{size}_g}{T_{tiny}}, 1, \rho\right)
-\end{equation}
-\begin{equation}
-\operatorname{valid}(a,g):\ d_{min}(a,g)\, c_g > t_{center}
-\end{equation}
-Thiết kế này giúp bớt loại bỏ quá sớm các anchors gần tiny GT.
+Như vậy, với khuôn mặt rất nhỏ, anchor không cần đạt IoU quá cao mới được xem là mẫu dương.
 
-\paragraph{Bước 3: hybrid fallback khi GT vẫn thiếu positives}
-Nếu sau hai bước trên mà tiny/small GT vẫn có quá ít positives:
+\paragraph{Nới điều kiện ràng buộc theo tâm}
+Không chỉ ngưỡng IoU, điều kiện ``anchor phải đủ gần tâm'' cũng được điều chỉnh theo kích thước.
+Hệ số điều chỉnh được viết là
 \begin{equation}
-N_{pos}(g) < N_{min}
-\end{equation}
-thì JSAR lấy thêm anchors nền lân cận theo score:
-\begin{equation}
-\operatorname{score}(a,g) =
-\operatorname{IoU}(a,g) -
-0.05 \cdot \frac{\operatorname{dist}(a,g)}{\max(\operatorname{size}_g,1)}
+c_g =
+\operatorname{clip}\!\left(
+  \frac{\operatorname{size}_g}{T_{\text{rất nhỏ}}},
+  1,\rho
+\right).
 \end{equation}
 
-Trong biến thể soft weighting, trọng số mềm còn có dạng:
+Anchor \(a\) được giữ lại nếu thỏa điều kiện
+\begin{equation}
+d_{\min}(a,g)\, c_g > t_{\text{tâm}},
+\end{equation}
+trong đó \(d_{\min}(a,g)\) là khoảng cách tối thiểu từ anchor đến vùng trung tâm của khuôn mặt \(g\).
+Khi \(g\) rất nhỏ, hệ số \(c_g\) làm điều kiện này bớt khắt khe hơn, nhờ đó một số anchor lân cận vẫn còn được giữ lại.
+
+\paragraph{Bổ sung anchor nếu vẫn thiếu mẫu dương}
+Ngay cả sau hai bước trên, một khuôn mặt rất nhỏ vẫn có thể nhận quá ít mẫu dương.
+Khi đó, nếu
+\begin{equation}
+N_{\text{dương}}(g) < N_{\min},
+\end{equation}
+hệ thống sẽ chọn thêm một số anchor gần nhất theo điểm số
+\begin{equation}
+\operatorname{score}(a,g)
+=
+\operatorname{IoU}(a,g)
+- 0.05 \cdot
+\frac{\operatorname{dist}(a,g)}{\max(\operatorname{size}_g,1)}.
+\end{equation}
+
+Điểm số này ưu tiên những anchor vừa có IoU khá tốt, vừa nằm gần khuôn mặt thật.
+Trong một số biến thể, trọng số mềm còn được mô tả bởi
 \begin{equation}
 w(a,g) =
-\exp\!\left(-\frac{\operatorname{dist}_{norm}}{T}\right)
+\exp\!\left(-\frac{\operatorname{dist}_{\text{chuẩn hóa}}}{T}\right)
 \cdot
-\operatorname{clamp}\!\left(\operatorname{IoU}(a,g)+0.1,\ 0.05,\ 1.0\right)
+\operatorname{clamp}\!\left(\operatorname{IoU}(a,g)+0.1,\ 0.05,\ 1.0\right),
 \end{equation}
+nhưng trong các thực nghiệm báo cáo ở đây, cơ chế chính vẫn là nới ngưỡng và bổ sung một số anchor gần nhất khi cần.
 
-Tuy nhiên trong các run hiện tại, cơ chế chủ đạo là \textit{hybrid fallback}:
-\begin{itemize}
-  \item nới threshold cho tiny/small GT;
-  \item nới center gating theo kích thước;
-  \item nếu GT vẫn thiếu positives thì thêm top-\(k\) anchors nền gần nhất theo score.
-\end{itemize}
+Tóm lại, nếu thành phần thứ nhất làm thay đổi loại dữ liệu mà mô hình thường xuyên nhìn thấy, thì thành phần thứ hai làm tăng trực tiếp lượng tín hiệu giám sát mà đối tượng rất nhỏ nhận được trong quá trình gán nhãn.
 
 \section{Kết quả định lượng}
 
-\subsection{Metric tổng hợp}
+\subsection{So sánh tổng quát}
 
-Hình~\ref{fig:final-term-metrics-by-scale-set} và Bảng~\ref{tab:final-term-scrfd-metrics} tóm tắt kết quả WIDERFace của hai scale set.
+Hình~\ref{fig:final-term-metrics-by-scale-set} và Bảng~\ref{tab:final-term-scrfd-metrics} tóm tắt kết quả trên bộ dữ liệu WIDERFace.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.88\textwidth]{final_term_spos_scrfd/metrics_by_scale_set.png}
-  \caption{So sánh các chỉ số Easy AP, Medium AP, Hard AP và mAP giữa baseline và ASR+JSAR trên hai scale set.}
+  \caption{So sánh chỉ số Easy AP, Medium AP, Hard AP và mAP giữa mô hình gốc và mô hình cải tiến trên hai bộ tỉ lệ cắt.}
   \label{fig:final-term-metrics-by-scale-set}
 \end{figure}
 
 \begin{table}[H]
 \centering
-\caption{Kết quả định lượng giữa baseline và ASR+JSAR trên hai scale set}
+\caption{Kết quả định lượng của mô hình gốc và mô hình cải tiến trên hai bộ tỉ lệ cắt}
 \label{tab:final-term-scrfd-metrics}
 \begingroup
 \renewcommand{\arraystretch}{1.15}
 \small
 \begin{tabular}{lllll}
 \toprule
-\textbf{Scale set} & \textbf{Mô hình} & \textbf{Easy AP} & \textbf{Medium AP} & \textbf{Hard AP / mAP} \\
+\textbf{Bộ tỉ lệ cắt} & \textbf{Mô hình} & \textbf{Easy AP} & \textbf{Medium AP} & \textbf{Hard AP / mAP} \\
 \midrule
-Default source & Baseline & 0.9140 & 0.8969 & 0.7249 / 0.8453 \\
-Default source & ASR+JSAR & 0.9039 & 0.8925 & 0.7690 / 0.8551 \\
-Paper SR12 & Baseline & 0.9161 & 0.8999 & 0.7371 / 0.8510 \\
-Paper SR12 & ASR+JSAR & 0.9028 & 0.8901 & 0.7738 / 0.8556 \\
+Bộ mặc định trong mã nguồn & Gốc & 0.9140 & 0.8969 & 0.7249 / 0.8453 \\
+Bộ mặc định trong mã nguồn & Cải tiến & 0.9039 & 0.8925 & 0.7690 / 0.8551 \\
+Bộ 12 mức theo bài báo & Gốc & 0.9161 & 0.8999 & 0.7371 / 0.8510 \\
+Bộ 12 mức theo bài báo & Cải tiến & 0.9028 & 0.8901 & 0.7738 / 0.8556 \\
 \bottomrule
 \end{tabular}
 \endgroup
 \end{table}
 
-Delta của ASR+JSAR so với baseline được minh hoạ ở Hình~\ref{fig:final-term-asr-delta}.
+Độ chênh giữa mô hình cải tiến và mô hình gốc được thể hiện ở Hình~\ref{fig:final-term-asr-delta}.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.88\textwidth]{final_term_spos_scrfd/asr_delta_by_scale_set.png}
-  \caption{Delta của ASR+JSAR so với baseline trên từng chỉ số. Lợi ích lớn nhất luôn tập trung ở Hard AP, trong khi Easy AP và Medium AP giảm nhẹ.}
+  \caption{Mức tăng hoặc giảm của mô hình cải tiến so với mô hình gốc trên từng chỉ số đánh giá.}
   \label{fig:final-term-asr-delta}
 \end{figure}
 
-\section{Vì sao ASR+JSAR tốt hơn baseline ở cả hai scale set}
+Quan sát chung cho thấy trong cả hai bộ tỉ lệ cắt, phần cải thiện lớn nhất luôn nằm ở chỉ số Hard AP.
+Đây là dấu hiệu đầu tiên cho thấy hai thành phần cải tiến đang tác động đúng vào nhóm trường hợp khó, thay vì chỉ làm tăng điểm trung bình một cách dàn trải.
 
-\subsection{JSAR tăng mật độ supervision cho tiny faces một cách ổn định}
+\section{Vì sao mô hình cải tiến tốt hơn mô hình gốc}
 
-Ở cả hai scale set, JSAR đều làm tăng rõ rệt số positives trên mỗi tiny GT, như Hình~\ref{fig:final-term-jsar-tiny-supervision}.
+\subsection{Mật độ giám sát cho khuôn mặt rất nhỏ tăng lên rõ rệt}
+
+Hình~\ref{fig:final-term-jsar-tiny-supervision} cho thấy sau bước gán nhãn cải tiến, số anchor dương trên mỗi khuôn mặt rất nhỏ tăng lên đáng kể và ổn định ở cả hai bộ tỉ lệ cắt.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.88\textwidth]{final_term_spos_scrfd/jsar_tiny_supervision.png}
-  \caption{Mật độ positive assignment trên tiny GT trước và sau JSAR. Cải tiến này giữ hiệu lực ổn định ở cả default scale set lẫn paper SR12.}
+  \caption{Mật độ anchor dương trên mỗi khuôn mặt rất nhỏ trước và sau khi áp dụng cơ chế gán nhãn cải tiến.}
   \label{fig:final-term-jsar-tiny-supervision}
 \end{figure}
 
-Các trị số chính là:
+Các giá trị chính là:
 \begin{itemize}
-  \item \textbf{Default source}: tiny positives / GT tăng từ \(1.73\) lên \(2.67\), tương ứng boost ratio \(1.542\times\).
-  \item \textbf{Paper SR12}: tiny positives / GT tăng từ \(1.76\) lên \(2.67\), tương ứng boost ratio \(1.520\times\).
+  \item với bộ mặc định trong mã nguồn: số anchor dương trên mỗi khuôn mặt rất nhỏ tăng từ \(1.73\) lên \(2.67\), tức tăng khoảng \(1.542\) lần;
+  \item với bộ 12 mức theo bài báo: số anchor dương trên mỗi khuôn mặt rất nhỏ tăng từ \(1.76\) lên \(2.67\), tức tăng khoảng \(1.520\) lần.
 \end{itemize}
 
-Điều này cho thấy lợi ích của JSAR không đến từ nhiễu ngẫu nhiên trong huấn luyện.
-Nó đến từ việc tiny faces thực sự nhận được supervision dày hơn ở giai đoạn assignment.
+Kết quả này cho thấy phần cải thiện không đến từ may mắn của quá trình huấn luyện, mà đến từ một thay đổi có chủ đích ở đúng nơi trước đây mô hình bị thiếu giám sát nhất.
 
-\subsection{Gain trên hard subset tập trung đúng vào tiny faces}
+\subsection{Phần tăng điểm tập trung vào đúng nhóm khuôn mặt khó}
 
-Hình~\ref{fig:final-term-hard-size-compare} cho thấy recall gain trên hard subset luôn dồn mạnh vào hai bin nhỏ nhất:
-\([0,8)\) và \([8,16)\).
+Hình~\ref{fig:final-term-hard-size-compare} cho thấy mức tăng về khả năng thu hồi trên tập Hard tập trung gần như hoàn toàn vào hai khoảng kích thước nhỏ nhất, tức là những khuôn mặt từ \(0\) đến \(16\) pixel sau khi quy về kích thước đánh giá.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.88\textwidth]{final_term_spos_scrfd/hard_size_gain_by_scale_set.png}
-  \caption{Recall gain theo hard-size bin của ASR+JSAR so với baseline. Ở cả hai scale set, phần lợi ích gần như dồn vào hai vùng mặt rất nhỏ.}
+  \caption{Mức tăng khả năng thu hồi trên tập Hard theo từng khoảng kích thước khuôn mặt.}
   \label{fig:final-term-hard-size-compare}
 \end{figure}
 
-Chi tiết cho từng scale set được thể hiện ở Hình~\ref{fig:final-term-hard-size-solo}.
+Hình~\ref{fig:final-term-hard-size-solo} cho thấy chi tiết theo từng bộ tỉ lệ cắt.
 
 \begin{figure}[H]
   \centering
   \begin{subfigure}[t]{0.48\textwidth}
     \centering
     \includegraphics[width=\textwidth]{final_term_spos_scrfd/default_hard_size_gain.png}
-    \caption{Default source scale set}
+    \caption{Bộ mặc định trong mã nguồn}
   \end{subfigure}
   \hfill
   \begin{subfigure}[t]{0.48\textwidth}
     \centering
     \includegraphics[width=\textwidth]{final_term_spos_scrfd/paper_hard_size_gain.png}
-    \caption{Paper SR12 scale set}
+    \caption{Bộ 12 mức theo bài báo}
   \end{subfigure}
-  \caption{Recall gain theo hard-size bin cho từng scale set.}
+  \caption{Mức tăng khả năng thu hồi trên tập Hard theo từng khoảng kích thước khuôn mặt.}
   \label{fig:final-term-hard-size-solo}
 \end{figure}
 
-Với default scale set:
+Với bộ mặc định trong mã nguồn, phần tăng lớn nhất nằm ở:
 \begin{itemize}
-  \item \([0,8)\): \(+0.138\)
-  \item \([8,16)\): \(+0.119\)
-  \item \([16,32)\): \(+0.009\)
-  \item từ \(32\) px trở lên: gần \(0\) hoặc âm nhẹ.
+  \item khoảng \([0,8)\): tăng \(0.138\);
+  \item khoảng \([8,16)\): tăng \(0.119\).
 \end{itemize}
 
-Với paper SR12:
+Với bộ 12 mức theo bài báo, phần tăng lớn nhất cũng nằm ở hai khoảng tương tự:
 \begin{itemize}
-  \item \([0,8)\): \(+0.108\)
-  \item \([8,16)\): \(+0.104\)
-  \item \([16,32)\): \(+0.003\)
-  \item từ \(32\) px trở lên: âm nhẹ.
+  \item khoảng \([0,8)\): tăng \(0.108\);
+  \item khoảng \([8,16)\): tăng \(0.104\).
 \end{itemize}
 
-Như vậy, lợi ích của ASR+JSAR là lợi ích rất mục tiêu: nó tập trung vào đúng miền dữ liệu mà SCRFD khó nhất, tức là hard tiny faces.
+Từ \(16\) pixel trở lên, phần chênh lệch gần như bằng \(0\) hoặc giảm nhẹ.
+Điều này cho thấy cơ chế cải tiến không làm tăng đồng đều cho mọi loại mẫu, mà tập trung rất đúng vào nhóm khuôn mặt rất nhỏ trên tập Hard, tức là nhóm trường hợp khó nhất của bài toán.
 
-\subsection{ASR và JSAR bổ sung cho nhau}
+\subsection{Hai thành phần cải tiến bổ sung cho nhau}
 
-Từ cơ chế và kết quả trên, có thể nhìn ASR và JSAR như hai thành phần giải quyết hai nút thắt khác nhau:
+Từ cơ chế hoạt động và kết quả định lượng, có thể tóm lược vai trò của hai thành phần như sau:
 \begin{itemize}
-  \item \textbf{ASR} đổi phân phối sample mà detector thường xuyên nhìn thấy trong quá trình train.
-  \item \textbf{JSAR} đổi mật độ target supervision mà tiny faces nhận được tại bước assignment.
+  \item \textbf{Phân phối lại mẫu thích nghi} làm thay đổi phân phối dữ liệu mà mô hình nhìn thấy trong quá trình huấn luyện, theo hướng đưa nhiều trường hợp khuôn mặt rất nhỏ vào học hơn.
+  \item \textbf{Phân phối lại phép gán mẫu} làm tăng trực tiếp số lượng anchor dương gắn với khuôn mặt rất nhỏ, nghĩa là tăng mật độ giám sát đúng tại bước gán nhãn.
 \end{itemize}
 
-Nếu chỉ có ASR, tiny faces có thể vẫn bị under-assigned.
-Nếu chỉ có JSAR, detector chưa chắc đã nhìn thấy đủ nhiều tình huống tiny/hard để khai thác hết lợi ích.
-Hai thành phần chỉ phát huy rõ khi được dùng cùng nhau.
+Nếu chỉ có thành phần thứ nhất, mô hình có thể nhìn thấy nhiều khuôn mặt rất nhỏ hơn nhưng vẫn chưa học được hiệu quả vì số anchor dương còn quá ít.
+Ngược lại, nếu chỉ có thành phần thứ hai, tín hiệu gán nhãn có thể dày hơn nhưng chưa chắc đã được khai thác hết, vì mô hình chưa được buộc nhìn đủ nhiều tình huống khó.
+Khi kết hợp cả hai, một thành phần làm tăng ``độ hiện diện'' của mẫu khó trong dữ liệu, còn thành phần kia làm tăng ``mật độ giám sát'' của chính nhóm mẫu đó.
+Đó là lý do vì sao mô hình cải tiến tốt hơn mô hình gốc ở cả hai bộ tỉ lệ cắt.
 
-\section{Cách hiểu khác biệt giữa default scale set và paper SR12}
+\section{Vì sao bộ 12 mức theo bài báo cho hành vi khác}
 
-\subsection{Paper SR12 có static scale pool tiny-oriented hơn}
+\subsection{Bộ 12 mức theo bài báo vốn đã thiên về khuôn mặt rất nhỏ}
 
-Hình~\ref{fig:final-term-scale-pool} cho thấy hình học của hai scale pool.
+Hình~\ref{fig:final-term-scale-pool} so sánh hình học của hai tập tỉ lệ cắt.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.92\textwidth]{final_term_spos_scrfd/scale_pool_geometry.png}
-  \caption{Hình học của hai scale pool và phân phối xác suất scale. Paper SR12 có xu hướng ít zoom-in mạnh hơn nhưng lại dành nhiều khối lượng hơn cho vùng zoom-out, do đó baseline đã tiny-oriented hơn.}
+  \caption{So sánh hình học của hai tập tỉ lệ cắt và phân phối xác suất tương ứng.}
   \label{fig:final-term-scale-pool}
 \end{figure}
 
-Một số trị số quan trọng:
+Các số liệu tổng hợp cho thấy:
 \begin{itemize}
-  \item \textbf{Default baseline}: \(E[1/\text{scale}] = 1.270\), khối lượng extreme zoom-in \((\text{scale}\le 0.6)\) là \(0.300\), extreme zoom-out \((\text{scale}\ge 2.0)\) là \(0.100\).
-  \item \textbf{Paper SR12 baseline}: \(E[1/\text{scale}] = 0.890\), khối lượng extreme zoom-in là \(0.083\), extreme zoom-out là \(0.250\).
+  \item với bộ mặc định trong mã nguồn, khối lượng xác suất đặt ở vùng phóng to mạnh \((s \le 0.6)\) lớn hơn, còn khối lượng ở vùng thu nhỏ mạnh \((s \ge 2.0)\) nhỏ hơn;
+  \item với bộ 12 mức theo bài báo, khối lượng ở vùng thu nhỏ mạnh lớn hơn đáng kể.
 \end{itemize}
 
-Điều đó cho thấy static scale pool SR12 vốn đã ít zoom-in mạnh hơn nhưng nhiều zoom-out mạnh hơn, nên tự nhiên đẩy train distribution về phía nhiều tiny faces hơn ngay từ baseline.
+Điều đó có nghĩa là ngay từ khi chưa dùng cơ chế thích nghi, bộ 12 mức theo bài báo đã có xu hướng làm xuất hiện nhiều khuôn mặt nhỏ hơn sau bước cắt và đổi cỡ ảnh.
 
-\subsection{Phân phối mặt sau sample redistribution của paper SR12 đã rất tiny-heavy}
+\subsection{Phân phối khuôn mặt sau tăng cường dữ liệu đã dịch mạnh về phía mẫu khó}
 
-Hình~\ref{fig:final-term-distribution-pressure} cho thấy paper SR12 baseline đã nhìn thấy nhiều tiny faces hơn đáng kể so với default baseline.
+Hình~\ref{fig:final-term-distribution-pressure} minh họa rõ hơn tác động này.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.92\textwidth]{final_term_spos_scrfd/distribution_pressure.png}
-  \caption{So sánh áp lực phân phối sau sample redistribution. Paper SR12 baseline đã tiny-oriented hơn rõ rệt, nên khoảng trống để ASR cải thiện thêm trở nên nhỏ hơn.}
+  \caption{So sánh phân phối kích thước khuôn mặt sau bước cắt và đổi cỡ ảnh giữa hai bộ tỉ lệ cắt.}
   \label{fig:final-term-distribution-pressure}
 \end{figure}
 
-So với default scale set:
+So sánh hai mô hình gốc cho thấy:
 \begin{itemize}
-  \item \textbf{Default baseline}: tiny ratio \(=0.475\), median face size \(=17.12\), tiny \(\rightarrow \ge 16\) px promotion ratio \(=0.223\).
-  \item \textbf{Paper SR12 baseline}: tiny ratio \(=0.582\), median face size \(=12.97\), tiny \(\rightarrow \ge 16\) px promotion ratio \(=0.092\).
+  \item với bộ mặc định trong mã nguồn, tỉ lệ khuôn mặt rất nhỏ là \(0.475\), trung vị kích thước khuôn mặt là \(17.12\);
+  \item với bộ 12 mức theo bài báo, tỉ lệ khuôn mặt rất nhỏ tăng lên \(0.582\), còn trung vị kích thước giảm xuống \(12.97\).
 \end{itemize}
 
-Nói cách khác, baseline của paper SR12 vốn đã nhìn thấy nhiều tiny faces hơn, nhưng đồng thời cũng ít ``promote'' tiny faces sang vùng dễ học hơn.
-Đó là lý do vì sao:
+Nói cách khác, chỉ riêng việc thay bộ tỉ lệ cắt đã làm bài toán huấn luyện nghiêng mạnh hơn về nhóm khuôn mặt rất nhỏ.
+Đó là lý do mô hình gốc với bộ 12 mức theo bài báo đã mạnh hơn mô hình gốc với bộ mặc định trong mã nguồn, đặc biệt ở chỉ số Hard AP.
+
+\subsection{Vì sao phần tăng thêm của mô hình cải tiến không còn lớn như trước}
+
+Khi bộ tỉ lệ cắt ban đầu đã đẩy nhiều mẫu về vùng khuôn mặt rất nhỏ, mô hình gốc đã nhận sẵn một phần lợi ích mà trước đây cơ chế cải tiến phải tự tạo ra.
+Nói cách khác, khoảng trống để cải thiện thêm trở nên nhỏ hơn.
+
+Điều này giải thích đồng thời hai hiện tượng:
 \begin{itemize}
-  \item paper SR12 baseline mạnh hơn default baseline trên Hard;
-  \item nhưng gain biên của ASR+JSAR so với baseline lại nhỏ hơn một chút.
+  \item mô hình gốc với bộ 12 mức theo bài báo mạnh hơn mô hình gốc với bộ mặc định trong mã nguồn;
+  \item mô hình cải tiến vẫn tiếp tục tốt hơn mô hình gốc, nhưng phần chênh lệch tăng thêm không còn cách biệt quá lớn như khi bắt đầu từ bộ mặc định trong mã nguồn.
 \end{itemize}
 
-\subsection{Kết luận giữa hai scale set}
-
-Các kết quả hiện tại không ủng hộ nhận định rằng paper SR12 tệ hơn.
-Ngược lại:
-\begin{itemize}
-  \item \textbf{paper SR12 baseline} mạnh hơn \textbf{default baseline};
-  \item \textbf{paper SR12 + ASR+JSAR} gần như ngang và hơi nhỉnh hơn \textbf{default ASR+JSAR};
-  \item phần chênh lệch chính nằm ở chỗ scale pool SR12 đã tiny-oriented hơn ngay từ đầu.
-\end{itemize}
-
-Do đó, khi static scale pool đã mang sẵn thiên hướng tiny-focused, baseline trở nên mạnh hơn và \emph{headroom} để ASR+JSAR cải thiện thêm sẽ nhỏ hơn.
-Tuy nhiên cơ chế gain của phương pháp vẫn giữ nguyên: lợi ích vẫn tập trung vào tiny/hard faces và đến từ việc đổi cả phân phối sample lẫn mật độ assignment.
+Vì vậy, kết quả thực nghiệm không cho thấy bộ 12 mức theo bài báo làm mô hình kém đi.
+Ngược lại, nó tạo ra một điểm xuất phát mạnh hơn cho mô hình gốc.
+Phần cải thiện còn lại của mô hình đề xuất chủ yếu đến từ việc tăng giám sát cho đúng nhóm khuôn mặt rất nhỏ mà bộ tỉ lệ cắt này vẫn còn khó xử lý tốt.
 
 \section{Kết luận}
 
-Phần thực nghiệm bổ sung này đưa ra ba kết luận chính:
-\begin{itemize}
-  \item \textbf{ASR+JSAR} tốt hơn baseline ở cả hai scale set vì tăng training signal đúng vào tiny/hard faces.
-  \item \textbf{JSAR} là thành phần trực tiếp làm tăng mật độ supervision cho tiny faces, còn \textbf{ASR} là thành phần dịch phân phối sample về phía nhiều tình huống tiny/hard hữu ích hơn.
-  \item \textbf{Paper SR12} không làm mô hình tệ đi; ngược lại, nó tạo ra baseline mạnh hơn do static scale pool tiny-oriented hơn, đồng thời làm phần gain biên của ASR+JSAR nhỏ lại vì baseline đã mang sẵn một phần lợi ích đó.
-\end{itemize}
+Từ các kết quả trên có thể rút ra ba nhận xét chính.
 
-Nói ngắn gọn, cải tiến ASR+JSAR là ổn định theo đúng mục tiêu thiết kế: ưu tiên tiny/hard faces.
-Hiệu quả tuyệt đối của phương pháp vẫn phụ thuộc vào static scale pool ban đầu, nhưng cơ chế cải thiện cốt lõi không thay đổi.
+Thứ nhất, mô hình cải tiến tốt hơn mô hình gốc trong cả hai bộ tỉ lệ cắt vì nó đồng thời làm được hai việc: tăng tần suất xuất hiện của các trường hợp khó trong quá trình huấn luyện, và tăng mật độ anchor dương cho chính các trường hợp đó.
+
+Thứ hai, phần tăng điểm không phân bố đều trên mọi loại mẫu mà tập trung rất rõ vào các khuôn mặt rất nhỏ trên tập Hard.
+Đây là bằng chứng cho thấy cải tiến đi đúng vào nút thắt của bài toán phát hiện khuôn mặt nhỏ.
+
+Thứ ba, bộ 12 mức theo bài báo không làm mô hình yếu đi.
+Ngược lại, nó đã thiên sẵn về nhóm khuôn mặt rất nhỏ nên mô hình gốc cũng được hưởng lợi.
+Do đó, khi áp dụng thêm cơ chế cải tiến, mô hình vẫn tốt hơn mô hình gốc, nhưng biên độ tăng thêm sẽ bị thu hẹp hơn so với trường hợp khởi đầu từ bộ tỉ lệ cắt mặc định trong mã nguồn.

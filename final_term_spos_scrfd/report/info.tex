@@ -1,0 +1,62 @@
+\chapter*{Thông tin chung}
+\addcontentsline{toc}{chapter}{Thông tin chung}
+
+\noindent
+\begin{tabular}{@{}l l@{}}
+  \textbf{Tên môn học:} & Nhận dạng \\
+  \textbf{Mã môn học:} & CSC14006 \\
+  \textbf{Lớp:} & 23KHMT \\
+  \textbf{Học kỳ:} & 2 \\
+  \textbf{Năm học:} & 2025--2026 \\
+  \textbf{Mã nguồn:} & \url{https://github.com/TQC0103/Nhan_dang} \\[4pt]
+  \textbf{Giảng viên:} & Thầy Võ Thanh Lâm \\
+  & Thầy Lê Hoàng Thái \\
+  & Thầy Nguyễn Thanh Tình \\[6pt]
+  \textbf{Sinh viên:} & 23127333 Trương Quốc Cường \\
+  & 23127011 Lê Anh Duy \\
+  & 23127199 Trần Gia Huy \\
+\end{tabular}
+
+\section*{Thông tin đề tài}
+\phantomsection
+\addcontentsline{toc}{section}{Thông tin đề tài}
+
+\begin{itemize}
+  \item \textbf{Chủ đề:} phân tích và tái hiện bài báo \textit{Sample and Computation Redistribution for Efficient Face Detection} (SCRFD).
+  \item \textbf{Bài báo nền tảng:} \textit{Sample and Computation Redistribution for Efficient Face Detection} của Jia Guo, Jiankang Deng, Alexandros Lattas và Stefanos Zafeiriou, công bố tại ICLR 2022. \cite{guo2022scrfd}
+  \item \textbf{Mã nguồn dùng để tái hiện:} cây \texttt{detection/scrfd} của InsightFace, cùng các script thí nghiệm ở nhánh \texttt{experiments}. \cite{insightface2026}
+  \item \textbf{Dữ liệu:} WIDER FACE, dùng layout \texttt{data/retinaface/train} và \texttt{data/retinaface/val} với annotation \texttt{labelv2.txt}. \cite{yang2016widerface}
+  \item \textbf{Mục tiêu:} làm rõ động lực, phương pháp và đóng góp của SCRFD; chạy được pipeline official code cho SCRFD 2.5G; mô tả đầy đủ dataset/setup; chỉ ra mapping từ paper sang code; so sánh kết quả thu được với kết quả công bố; và trình bày phần mở rộng đủ chặt chẽ để đánh giá như một cải tiến kỹ thuật.
+  \item \textbf{Phạm vi kế thừa từ giữa kỳ:} chỉ sử dụng phần Chương II liên quan trực tiếp đến bài báo SCRFD.
+  \item \textbf{Phạm vi mở rộng:} \textit{ASR+JSAR} là cải tiến chính trên official code; SPOS-NAS proxy chỉ là phân tích phụ về trực giác Computation Redistribution trong điều kiện tài nguyên giới hạn.
+  \item \textbf{Đầu ra chính:} báo cáo kỹ thuật LaTeX, slide thuyết trình cuối kỳ, bảng so sánh WIDER FACE giữa baseline và phần mở rộng, cùng phần đối chiếu với kết quả mà SCRFD công bố.
+\end{itemize}
+
+\clearpage
+\section*{Phân công thực hiện}
+\phantomsection
+\addcontentsline{toc}{section}{Phân công thực hiện}
+
+\begingroup
+\renewcommand{\arraystretch}{1.20}
+\small
+\begin{longtable}{@{}>{\RaggedRight\arraybackslash}p{0.22\textwidth}>{\RaggedRight\arraybackslash}p{0.74\textwidth}@{}}
+\toprule
+\textbf{Thành viên} & \textbf{Nội dung phụ trách} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Thành viên} & \textbf{Nội dung phụ trách} \\
+\midrule
+\endhead
+Trương Quốc Cường &
+Tổ chức lại cấu trúc report theo hướng báo cáo khoa học, chuẩn hóa template LaTeX, tổng hợp phần setup official reproduction, bảng đối chiếu với paper và pipeline build báo cáo. \\
+\midrule
+Lê Anh Duy &
+Rà soát branch \texttt{experiments}, tổng hợp kết quả WIDER FACE, phân tích baseline, paper-SR12, \textit{ASR+JSAR}, và viết phần so sánh kết quả thực nghiệm. \\
+\midrule
+Trần Gia Huy &
+Đối chiếu paper với code, phân tích các module chính như search config, assigner, loss, evaluation và tóm tắt nhánh SPOS-NAS tài nguyên giới hạn như phần mở rộng. \\
+\bottomrule
+\end{longtable}
+\endgroup

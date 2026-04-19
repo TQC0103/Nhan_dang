@@ -1,0 +1,8 @@
+\chapter*{Tóm tắt}
+\addcontentsline{toc}{chapter}{Tóm tắt}
+
+Báo cáo này phân tích và tái hiện bài báo \textit{Sample and Computation Redistribution for Efficient Face Detection} (SCRFD), một hướng tiếp cận tập trung vào việc tối ưu đánh đổi giữa độ chính xác và chi phí tính toán trong phát hiện khuôn mặt. Khác với các phương pháp chỉ tăng kích thước mô hình, SCRFD đặt trọng tâm vào hai nguyên lý: tái phân bổ FLOPs trong kiến trúc detector và tái phân bổ mẫu huấn luyện theo thang đo để cải thiện hiệu năng trên các khuôn mặt nhỏ, vốn là phần khó nhất của WIDER FACE.
+
+Phần chính của báo cáo bám theo cấu trúc của một nghiên cứu có tái hiện thực nghiệm: trình bày động lực và phương pháp của paper, mô tả official code trong cây \texttt{detection/scrfd}, chỉ ra các module hiện thực hóa ý tưởng chính, chạy lại cấu hình SCRFD 2.5G trên WIDER FACE, rồi so sánh kết quả thu được với số liệu công bố. Baseline paper-SR12 cosine 80e đạt \(91.61/89.99/73.71\) trên Easy/Medium/Hard, thấp hơn official SCRFD-2.5GF \(2.17/2.17/4.16\) điểm. Khoảng cách lớn nhất nằm ở Hard, phù hợp với nhận định rằng tiny faces là vùng nhạy nhất với scale augmentation, assignment và phân bổ compute.
+
+Báo cáo cũng trình bày phần mở rộng \textit{ASR+JSAR}, trong đó chiến lược lấy mẫu và gán positive anchors được điều chỉnh theo độ khó của khuôn mặt nhỏ. Kết quả đạt \(77.38\) Hard AP trên paper-SR12, chỉ còn cách số official \(0.49\) điểm ở split khó nhất. Điều này cho thấy hướng cải tiến không chỉ mang tính minh họa, mà thực sự tác động vào điểm nghẽn cốt lõi của SCRFD: chất lượng supervision cho tiny faces dưới ngân sách tính toán cố định.

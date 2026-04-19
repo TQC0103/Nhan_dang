@@ -1,0 +1,270 @@
+% !TEX root = main.tex
+% !TEX encoding = UTF-8 Unicode
+
+\chapter{Giới thiệu bài báo SCRFD}
+
+\section{Bài toán và động lực nghiên cứu}
+
+Bài báo \textit{Sample and Computation Redistribution for Efficient Face Detection} đặt mục tiêu xây dựng một họ detector khuôn mặt hiệu quả, có thể hoạt động ở nhiều mức ngân sách tính toán khác nhau nhưng vẫn giữ độ chính xác tốt trên các trường hợp khó của WIDER FACE. Trọng tâm của bài báo không nằm ở việc thêm một module phức tạp mới, mà nằm ở câu hỏi hệ thống hơn: với cùng một tổng số FLOPs, nên phân bổ năng lực tính toán và mẫu huấn luyện như thế nào để detector xử lý tốt khuôn mặt nhỏ, mờ, bị che khuất hoặc xuất hiện dày đặc. \cite{guo2022scrfd}
+
+Trong WIDER FACE, split Hard thường là nơi thể hiện rõ nhất điểm yếu của các detector nhẹ. Khuôn mặt nhỏ chỉ chiếm vài pixel trên feature map sâu; nếu kiến trúc dồn quá nhiều tài nguyên vào tầng sâu hoặc nếu quá trình huấn luyện không tạo đủ mẫu dương ở thang nhỏ, detector có thể vẫn đạt điểm tốt trên Easy/Medium nhưng tụt mạnh trên Hard. SCRFD vì vậy xem face detection hiệu quả như một bài toán tối ưu đồng thời giữa \textit{độ chính xác}, \textit{chi phí suy luận} và \textit{phân bố tín hiệu học}.
+
+Với tập các stage backbone \(\mathcal{S}=\{C_2,C_3,C_4,C_5\}\), tổng chi phí suy luận có thể viết:
+\[
+\Phi_{\text{total}}=\sum_{s\in\mathcal{S}}\Phi_s(w_s,d_s,H_s,W_s),
+\]
+trong đó \(w_s\) là số kênh, \(d_s\) là số block và \(H_s\times W_s\) là kích thước không gian ở stage \(s\). Trực giác quan trọng của SCRFD là \textit{tổng FLOPs} không đủ để giải thích chất lượng detector; vị trí đặt FLOPs trong backbone, neck và head mới quyết định detector có giữ được tín hiệu khuôn mặt nhỏ hay không.
+
+\section{Đóng góp chính của bài báo}
+
+SCRFD đề xuất hai ý tưởng bổ trợ nhau. \textit{Computation Redistribution} tái phân bổ chi phí tính toán giữa backbone, neck, head và giữa các stage trong backbone để tìm kiến trúc tốt hơn dưới cùng ngân sách FLOPs. \textit{Sample Redistribution} điều chỉnh phân bố scale augmentation để tăng hiệu quả huấn luyện cho các vùng kích thước quan trọng, đặc biệt là các khuôn mặt rất nhỏ.
+
+Bài báo cũng xây dựng một họ mô hình SCRFD từ mức rất nhỏ đến mức lớn hơn. Trong báo cáo này, nhóm tập trung vào miền \textit{SCRFD-2.5GF} vì đây là điểm cân bằng phù hợp giữa chi phí tái hiện và khả năng quan sát tác động của hai cơ chế chính. Theo số liệu model zoo của InsightFace, \textit{SCRFD-2.5GF} đạt \(93.78/92.16/77.87\) trên Easy/Medium/Hard, trong khi \textit{ResNet-2.5GF} cùng mức FLOPs chỉ đạt \(93.21/91.11/74.47\). Khoảng chênh \(+3.40\) điểm Hard AP cho thấy lợi ích của cách phân bổ tính toán, không chỉ lợi ích của việc tăng tổng dung lượng mạng. \cite{insightface2026}
+
+\section{Phạm vi kế thừa từ báo cáo giữa kỳ}
+
+Từ bản giữa kỳ, nhóm chỉ kế thừa Chương II về SCRFD: kiến trúc Backbone--Neck--Head, Computation Redistribution, Sample Redistribution, đánh giá trên WIDER FACE và các nhận định về điểm mạnh/hạn chế của paper. Cách giới hạn phạm vi này giúp báo cáo cuối kỳ giữ đúng hình thức của một report về một bài báo khoa học cụ thể.
+
+So với bản giữa kỳ, phần SCRFD được hoàn thiện theo ba hướng. Thứ nhất, báo cáo không chỉ dừng ở diễn giải paper mà bổ sung việc chạy mã nguồn chính thức. Thứ hai, các ý tưởng trong paper được đối chiếu với file/module code cụ thể. Thứ ba, kết quả tái hiện được so sánh trực tiếp với số liệu paper/model zoo, kèm phân tích nguyên nhân chênh lệch và ý nghĩa của chênh lệch đó.
+
+\chapter{Phương pháp SCRFD trong paper}
+
+\section{Kiến trúc tổng quan}
+
+SCRFD là một one-stage dense face detector gồm ba khối quen thuộc: \textit{Backbone}, \textit{Neck} và \textit{Head}. Backbone trích xuất đặc trưng phân tầng từ ảnh đầu vào; neck hợp nhất đặc trưng đa tỉ lệ qua PAFPN; head dự đoán classification score và bounding box cho các vị trí trên feature map. Điểm đáng chú ý là SCRFD không cố tạo một kiến trúc hoàn toàn mới từ đầu, mà tối ưu cách phân bổ tài nguyên bên trong khung detector đã quen thuộc này.
+
+Trong bài toán khuôn mặt nhỏ, các stage nông như \(C_2\) và \(C_3\) giữ nhiều thông tin không gian hơn. Tuy nhiên, do kích thước feature map lớn, một thay đổi nhỏ về width/depth ở các stage này có thể làm FLOPs tăng mạnh. Ngược lại, stage sâu rẻ hơn về không gian nhưng lại có nguy cơ làm mất chi tiết vị trí của khuôn mặt rất nhỏ. Computation Redistribution của SCRFD chính là quá trình tìm điểm cân bằng giữa các lực kéo này.
+
+\section{Computation Redistribution}
+
+Computation Redistribution đặt bài toán tìm kiến trúc dưới ràng buộc FLOPs. Thay vì tăng đều width/depth như một backbone phân loại ảnh, SCRFD tìm kiếm số block và số kênh cho từng stage để tối ưu AP, đặc biệt là AP trên Hard set. Không gian tìm kiếm được giảm bậc tự do để có thể thực hiện empirical bootstrap: tìm backbone trước, sau đó mở rộng sang toàn mạng gồm backbone, neck và head. \cite{guo2022scrfd}
+
+Về mặt ý nghĩa, CR cho thấy cùng một ngân sách 2.5 GFLOPs có thể tạo ra nhiều detector rất khác nhau. Một detector dồn quá nhiều tài nguyên về tầng sâu có thể mạnh về ngữ nghĩa nhưng yếu với mặt nhỏ; một detector đặt quá nhiều compute vào feature map đắt đỏ lại dễ vượt ngân sách hoặc gây mất cân bằng. SCRFD tìm cấu hình có lợi nhất cho face detection, thay vì mượn nguyên tỷ lệ thiết kế từ image classification.
+
+\section{Sample Redistribution}
+
+Sample Redistribution xử lý một vấn đề khác: phân bố khuôn mặt theo scale trong huấn luyện không tự động trùng với phân bố hữu ích nhất cho detector. Với face detection, khuôn mặt rất nhỏ cần được nhìn thấy đủ nhiều và được gán đủ positive anchors để model học được tín hiệu phân biệt. Nếu scale augmentation không phù hợp, các mặt nhỏ có thể bị biến thành quá nhỏ, quá lớn hoặc không khớp tốt với mức feature map mong muốn.
+
+SCRFD tìm một tập scale augmentation tốt hơn để cải thiện mật độ mẫu dương tại các mức kích thước quan trọng. Cơ chế này không làm tăng chi phí suy luận vì nó chỉ tác động trong quá trình huấn luyện. Đây là điểm mạnh thực dụng của SR: thay vì làm detector nặng hơn ở inference, paper cải thiện cách model nhìn dữ liệu khi train.
+
+\section{Vai trò của SCRFD-2.5GF trong báo cáo}
+
+Báo cáo chọn \textit{SCRFD-2.5GF} làm cấu hình chính vì miền này đủ nhẹ để tái hiện trong điều kiện tài nguyên nhóm, nhưng vẫn đủ nhạy để thấy tác động của CR và SR. Các so sánh trong phần sau vì vậy tập trung vào baseline 2.5G, paper-SR12 scale set và phần mở rộng ASR+JSAR trên cùng miền FLOPs.
+
+\chapter{Tái hiện mã nguồn SCRFD chính thức}
+
+\section{Mã nguồn, dữ liệu và artifact}
+
+Phần tái hiện chính sử dụng cây \codefile{detection/scrfd} của InsightFace. Nhánh \codefile{experiments} không viết lại detector từ đầu, mà bổ sung config, wrapper train/eval và artifact so sánh xung quanh official code để quá trình tái hiện có thể kiểm tra lại được. \cite{insightface2026}
+
+\begin{table}[H]
+\centering
+\caption{Các thành phần chính của official reproduction.}
+\small
+\begin{tabular}{@{}p{0.26\textwidth}p{0.60\textwidth}@{}}
+\toprule
+\textbf{Thành phần} & \textbf{Nội dung sử dụng} \\
+\midrule
+Repo chính & \codefile{insightface/detection/scrfd} \\
+\midrule
+Dataset & WIDER FACE theo cấu trúc \codefile{data/retinaface/train} và \codefile{data/retinaface/val}, dùng annotation \codefile{labelv2.txt} \\
+\midrule
+Config baseline & \codefile{scrfd_2.5g_80e_cosine_baseline_paper_sr12.py} \\
+\midrule
+Config mở rộng & \codefile{scrfd_2.5g_80e_cosine_asr_jsar_paper_sr12.py} \\
+\midrule
+Script train/eval & \codefile{colab/run_compare_2.5g_paper_sr12_baseline_vs_asr_jsar.sh}, \codefile{tools/test_widerface_enhanced.py} \\
+\midrule
+Script so sánh & \codefile{tools/compare_widerface_results.py} \\
+\midrule
+Artifact kết quả & \codefile{experiments/scrfd_2.5g_cosine_scale_set_results/} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Wrapper \codefile{run_compare_2.5g_paper_sr12_baseline_vs_asr_jsar.sh} huấn luyện baseline và mô hình mở rộng, đánh giá cả hai trên WIDER FACE, rồi sinh bảng so sánh. Guide trong repo hỗ trợ cả Colab GPU runtime và local environment. Artifact đã commit không lưu fingerprint GPU cụ thể trong \codefile{results_summary.json}, nên báo cáo chỉ khẳng định chắc chắn phần mềm, config và hyperparameter; thông tin phần cứng được ghi ở mức phạm vi phần cứng mà script hỗ trợ.
+
+\section{Thiết lập thực nghiệm}
+
+\begin{table}[H]
+\centering
+\caption{Thiết lập thực nghiệm cho SCRFD 2.5G paper-SR12 cosine.}
+\small
+\begin{tabular}{@{}p{0.30\textwidth}p{0.58\textwidth}@{}}
+\toprule
+\textbf{Mục} & \textbf{Giá trị} \\
+\midrule
+Kiến trúc chính & \codefile{SCRFD} với searched 2.5G backbone, PAFPN và \codefile{SCRFDHead} \\
+\midrule
+Kích thước ảnh train/test & \(640 \times 640\) \\
+\midrule
+Số epoch & 80 \\
+\midrule
+Optimizer & SGD, learning rate \(0.01\), momentum \(0.9\), weight decay \(5\times 10^{-4}\) \\
+\midrule
+Scheduler & Cosine annealing, warmup tuyến tính 1500 iterations \\
+\midrule
+Batch size mặc định & 8 ảnh mỗi GPU \\
+\midrule
+Workers mặc định & 2 workers mỗi GPU \\
+\midrule
+Augmentation nền & \codefile{RandomSquareCrop}, resize \(640\times640\), random flip \(0.5\), photometric distortion \\
+\midrule
+Scale set paper-SR12 & \([0.5, 0.7, 0.8, 1.0, 1.1, 1.2, 1.4, 1.5, 1.8, 2.0, 2.3, 2.6]\) \\
+\midrule
+Assigner & \codefile{ATSSAssigner(topk=9, mode=0)} \\
+\midrule
+Head loss & \codefile{QualityFocalLoss} cho classification và \codefile{DIoULoss} cho bbox \\
+\midrule
+Đánh giá & WIDER FACE, \codefile{score_thr=0.02}, NMS IoU \(0.45\) \\
+\midrule
+Tổ chức GPU trong wrapper & 1 GPU nối tiếp hoặc 2 GPU song song qua \codefile{BASELINE_GPU=0}, \codefile{IMPROVED_GPU=1} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Thiết lập trên đáp ứng phần mô tả dataset, hyperparameter và cấu hình chạy. Điểm cần ghi chú trung thực là artifact hiện có chưa nhúng tên GPU cụ thể của từng run, vì vậy báo cáo không phóng đại phần hardware mà chỉ mô tả cách script tổ chức tài nguyên.
+
+\chapter{Từ paper sang code}
+
+\section{Các thành phần hiện thực hóa ý tưởng chính}
+
+Để chứng minh đã hiểu phương pháp ở mức triển khai, báo cáo không chỉ mô tả SCRFD có CR và SR, mà còn chỉ ra các ý tưởng đó nằm ở đâu trong code. Bảng dưới đây đối chiếu các thành phần chính của paper với module tương ứng trong official code và nhánh thí nghiệm.
+
+\begin{table}[H]
+\centering
+\caption{Đối chiếu ý tưởng trong paper với module code tương ứng.}
+\small
+\begin{tabular}{@{}p{0.21\textwidth}p{0.24\textwidth}p{0.24\textwidth}p{0.21\textwidth}@{}}
+\toprule
+\textbf{Ý tưởng trong paper} & \textbf{Module code} & \textbf{Vai trò} & \textbf{Nếu bỏ hoặc sửa} \\
+\midrule
+Computation Redistribution & \codefile{scrfd_2.5g.py}, \codefile{generate_configs_2.5g.py} & Cố định searched backbone 2.5G và quy trình chọn candidate theo Hard AP. & Nếu thay bằng backbone phân bổ FLOPs kém hợp lý, Hard AP giảm; model zoo cho thấy ResNet-2.5GF thấp hơn SCRFD-2.5GF 3.40 điểm Hard. \\
+\midrule
+Sample Redistribution & \codefile{RandomSquareCrop}, paper-SR12 configs & Điều khiển phân phối kích thước mặt mà mô hình thấy trong train. & Nếu scale set ít tiny-oriented hơn, baseline yếu đi trên Hard; paper-SR12 baseline cao hơn default baseline trong thí nghiệm. \\
+\midrule
+Dense head và loss & \codefile{SCRFDHead} & Hiện thực anchor generator, \codefile{QualityFocalLoss}, \codefile{DIoULoss}, projection từ đặc trưng sang box/classification. & Nếu thay đổi head hoặc loss không kiểm soát, cân bằng classification/localization lệch và AP giảm. \\
+\midrule
+Assignment khi train & \codefile{ATSSAssigner} & Chọn positive anchors theo khoảng cách tâm và ngưỡng IoU động. & Nếu assignment không phù hợp, tiny faces nhận quá ít positive anchors và Hard AP bị ảnh hưởng đầu tiên. \\
+\midrule
+Evaluation trên WIDER FACE & \codefile{test_widerface_...py}, \codefile{compare_...py} & Xuất AP Easy/Medium/Hard và tổng hợp delta giữa hai run. & Nếu không dùng đúng script eval, việc so sánh với số liệu WIDER FACE của repo/paper dễ thiếu công bằng. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Lý do các lựa chọn kỹ thuật hợp lý}
+
+Các lựa chọn kỹ thuật trong SCRFD đều hướng về mục tiêu giữ detector nhẹ nhưng không bỏ rơi khuôn mặt rất nhỏ. Backbone 2.5G được search để giữ năng lực biểu diễn ở vùng đầu mạng, vì tiny faces cần độ phân giải không gian tốt. \codefile{RandomSquareCrop} và scale set SR12 giúp mô hình thấy nhiều tình huống scale hơn trong train. \codefile{ATSSAssigner} làm việc chọn positive anchors ít phụ thuộc hơn vào một ngưỡng IoU cứng, còn \codefile{SCRFDHead} giữ đầu dự đoán đủ gọn để phù hợp mục tiêu efficient detection.
+
+Nếu thay các thành phần này bằng lựa chọn đơn giản hơn, model thường không hỏng hoàn toàn, nhưng Hard split sẽ giảm trước. Đây là dấu hiệu hợp lý vì Hard chính là nơi phụ thuộc mạnh nhất vào mật độ positive samples, độ phân giải feature map và cách phân bổ compute.
+
+\chapter{Kết quả thực nghiệm và so sánh với paper}
+
+\section{Kết quả tái hiện baseline}
+
+\begin{table}[H]
+\centering
+\caption{So sánh baseline tái hiện với số liệu \textit{SCRFD-2.5GF} do repo chính thức công bố.}
+\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Thiết lập} & \textbf{Easy} & \textbf{Medium} & \textbf{Hard} & \textbf{Ghi chú} \\
+\midrule
+SCRFD-2.5GF official & 93.78 & 92.16 & 77.87 & Số liệu công bố trên repo/model zoo \\
+Baseline tái hiện (paper-SR12, cosine 80e) & 91.61 & 89.99 & 73.71 & Artifact trong nhánh \codefile{experiments} \\
+\midrule
+Độ lệch so với official & -2.17 & -2.17 & -4.16 & Gap lớn nhất nằm ở Hard \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Nếu lấy trung bình ba split, baseline tái hiện đạt khoảng \(85.10\), trong khi giá trị suy ra từ số liệu official là khoảng \(87.94\). Chênh lệch khoảng \(2.83\) điểm là có thật, nhưng vẫn có thể giải thích trong bối cảnh reproduction: số official là kết quả model zoo hoàn chỉnh, còn artifact của nhóm ưu tiên khả năng lặp lại và so sánh kiểm soát giữa các config trong nhánh thí nghiệm.
+
+\section{Ảnh hưởng của paper-SR12 scale set}
+
+\begin{table}[H]
+\centering
+\caption{Ảnh hưởng của scale set lên baseline SCRFD 2.5G.}
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Baseline} & \textbf{Easy} & \textbf{Medium} & \textbf{Hard} \\
+\midrule
+Default source scale set & 91.40 & 89.69 & 72.49 \\
+Paper-SR12 scale set & 91.61 & 89.99 & 73.71 \\
+\midrule
+Delta (paper-SR12 - default) & +0.21 & +0.31 & +1.22 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Việc quay về đúng 12-scale SR set của paper giúp baseline tăng rõ nhất trên Hard. Điều này phù hợp với giả thuyết của SCRFD: scale augmentation tác động trực tiếp đến lượng tiny faces hữu ích trong huấn luyện, còn Hard split là nơi thay đổi đó thể hiện rõ nhất.
+
+\section{Giải thích độ lệch với kết quả công bố}
+
+Độ lệch giữa reproduction và official number có thể đến từ ba nguyên nhân chính. Thứ nhất, số liệu official phản ánh searched model và pipeline được tác giả tinh chỉnh đầy đủ, trong khi reproduction của nhóm chạy trong một khung train/eval kiểm soát để so sánh baseline và biến thể. Thứ hai, nhánh thí nghiệm không tái tạo toàn bộ quá trình empirical bootstrap, search và chọn checkpoint của tác giả. Thứ ba, artifact không lưu fingerprint GPU cụ thể, nên phần mềm và hyperparameter có thể kiểm chứng tốt hơn phần môi trường phần cứng.
+
+Điểm quan trọng là độ lệch lớn nhất nằm ở Hard, đúng với nơi SCRFD nhắm tới. Vì vậy, gap này không chỉ là một sai khác định lượng; nó cũng chỉ ra vùng mà pipeline tái hiện còn khó bắt kịp nhất: supervision và phân bổ compute cho khuôn mặt nhỏ trong các cảnh đông, mờ hoặc bị che khuất.
+
+\chapter{Mở rộng và thảo luận}
+
+\section{ASR+JSAR như cải tiến trên official code}
+
+Nhánh \codefile{experiments} bổ sung một mở rộng không có trong paper gốc:
+\begin{itemize}
+  \item \textbf{ASR (Adaptive Sample Redistribution):} cập nhật động xác suất lấy sample scale từ thống kê difficulty theo từng size bin.
+  \item \textbf{JSAR (Joint Sample--Assignment Redistribution):} nới assignment cho tiny/small faces bằng cách giảm ngưỡng, nới center gating và thêm fallback positives khi cần.
+\end{itemize}
+
+Về mặt kỹ thuật, ASR+JSAR là một cải tiến có ý nghĩa vì nó thay đổi chiến lược train và target assignment mà không làm tăng chi phí suy luận của backbone/head.
+
+\begin{table}[H]
+\centering
+\caption{Kết quả của phần mở rộng ASR+JSAR trên hai scale set.}
+\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Thiết lập} & \textbf{Easy} & \textbf{Medium} & \textbf{Hard} & \textbf{Delta Hard} \\
+\midrule
+Default baseline & 91.40 & 89.69 & 72.49 & -- \\
+Default ASR+JSAR & 90.39 & 89.25 & 76.90 & +4.40 \\
+Paper-SR12 baseline & 91.61 & 89.99 & 73.71 & -- \\
+Paper-SR12 ASR+JSAR & 90.28 & 89.01 & 77.38 & +3.67 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+ASR+JSAR không làm mọi split tăng đồng đều. Nó chấp nhận giảm nhẹ Easy/Medium để đổi lấy cải thiện lớn trên Hard. Với paper-SR12, mô hình mở rộng đạt \(77.38\) Hard AP, chỉ còn cách số official \(77.87\) khoảng \(0.49\) điểm ở split khó nhất. Nhật ký assignment cũng củng cố nhận định này: tiny positives trên mỗi GT tăng từ khoảng \(1.76\) lên \(2.67\) với paper-SR12, và từ \(1.73\) lên \(2.67\) với default scale set.
+
+\section{SPOS-NAS proxy như phân tích phụ}
+
+Song song với official reproduction, nhóm giữ lại một nhánh SPOS-NAS proxy để quan sát trực giác \textit{Computation Redistribution} trong điều kiện tài nguyên giới hạn. Phần này không phải trục chính của báo cáo cuối kỳ, nhưng có ích như một thí nghiệm phụ: nếu chỉ có một phiên Kaggle T4 khoảng 6 giờ, weight-sharing NAS vẫn cho phép khảo sát nhiều cấu hình và kiểm tra xem các kiến trúc tốt có xu hướng ưu tiên stage nông hay không.
+
+\begin{table}[H]
+\centering
+\caption{Kiến trúc ứng viên tốt nhất trong nhánh SPOS-NAS proxy.}
+\small
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+\textbf{Arch ID} & \textbf{\(C_2\)} & \textbf{\(C_3\)} & \textbf{\(C_4\)} & \textbf{\(C_5\)} \\
+\midrule
+980 & \((48,3)\) & \((32,1)\) & \((72,4)\) & \((80,4)\) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.92\textwidth]{fig2_nas_leaderboard.png}
+  \caption{Phân bố validation loss của 1\,000 kiến trúc NAS trong nhánh proxy tài nguyên giới hạn.}
+\end{figure}
+
+Quan sát từ proxy NAS nhất quán với SCRFD ở mức trực giác: các cấu hình tốt không dùng FLOPs dàn đều, mà tìm một cách phân bổ có lợi hơn cho feature cascade. Tuy nhiên, báo cáo vẫn đặt kết quả này ở vai trò phụ vì proxy heatmap task không thay thế được AP thật trên WIDER FACE. Giá trị chính của nhánh này là cung cấp một kiểm chứng nhỏ, rẻ và dễ lặp lại cho ý tưởng rằng kiến trúc tốt không chỉ phụ thuộc vào tổng FLOPs mà còn phụ thuộc vào nơi FLOPs được sử dụng.
+
+\chapter{Kết luận}
+
+Báo cáo cuối kỳ đã chuyển trục về đúng hình thức một report khoa học cho bài báo SCRFD. Phần chính của báo cáo trình bày động lực, phương pháp, mã nguồn, thiết lập thực nghiệm, kết quả tái hiện và so sánh với số liệu công bố. Phần kế thừa từ giữa kỳ chỉ giữ nội dung Chương II liên quan đến SCRFD.
+
+Về kết quả, baseline paper-SR12 cosine 80e đạt \(91.61/89.99/73.71\) trên Easy/Medium/Hard, còn cách official \textit{SCRFD-2.5GF} \(2.17/2.17/4.16\) điểm. Chênh lệch này được giải thích bởi khác biệt giữa pipeline reproduction và pipeline model zoo hoàn chỉnh. Phần mở rộng ASR+JSAR đạt \(77.38\) Hard AP trên paper-SR12, gần số official \(77.87\) ở split khó nhất và cho thấy việc điều chỉnh sample/assignment có thể cải thiện mạnh tiny-face supervision.
+
+So với bản giữa kỳ, báo cáo đã bổ sung các phần còn thiếu: chạy official code, mô tả dataset và setup, đối chiếu paper với code, so sánh kết quả với paper/model zoo, và tách phần mở rộng khỏi phần reproduction chính. Nhờ vậy, báo cáo vừa giữ cấu trúc học thuật của một bài phân tích paper, vừa có đủ bằng chứng thực nghiệm để bảo vệ các nhận định kỹ thuật.

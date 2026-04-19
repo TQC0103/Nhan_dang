@@ -294,7 +294,15 @@ NaN/Inf batches are additionally detected and skipped entirely to prevent checkp
 
 Each architecture evaluation required approximately **5–8 seconds**.
 
-### 6.2 NAS Leaderboard — Top 10 Architectures
+### 6.2 Search Space Uniformity vs. FLOP Constraint
+
+Before analyzing the highest-performing configurations, we must examine the intrinsic bias of the search space. Although the 1,000 architectures were randomly sampled uniformly from the valid set, the valid set itself is heavily bounded by the $\leq 2.5$ GFLOPs filter. 
+
+![Search Space Uniformity](fig_search_space_uniformity.png)
+
+*Figure 2a. Configuration index frequency across all 1,000 evaluated candidates. The red dashed line represents the hypothetical rate of perfectly uniform sampling (no FLOP constraints). The empirical distribution reveals a massive left-skew preference—higher configuration indices (wider/deeper models) are exponentially rarer because combinations of multiple heavy blocks frequently violate the 2.5G limit and are therefore pruned prior to sampling.*
+
+### 6.3 NAS Leaderboard — Top 10 Architectures
 
 | Rank | Arch ID | C2 (w, d) | C3 (w, d) | C4 (w, d) | C5 (w, d) | Val Loss |
 |------|---------|-----------|-----------|-----------|-----------|----------|
@@ -311,7 +319,7 @@ Each architecture evaluation required approximately **5–8 seconds**.
 
 **Key observation:** 8 of the Top-10 architectures share **C2=(48ch, depth=3)**, representing a clear NAS-confirmed consensus for moderate-width, 3-block early-stage representation. This is directly attributable to the SR hard-sample training forcing C2/C3 sensitivity.
 
-### 6.3 NAS Leaderboard Distribution
+### 6.4 NAS Leaderboard Distribution
 
 ![NAS Architecture Evaluation Scatter and Distribution](fig2_nas_leaderboard.png)
 
@@ -502,6 +510,14 @@ as_leaderboard_edge_focus.csv). As expected, filtering for the top-100 winners w
 ![Computation Cost: Edge-Detection Proxy Task](fig_appendix_edge_funnel.png)
 
 *Figure B.1. Computation Cost (GFLOPs) for the Edge-Focus optimization target. Compare this to Figure 3: Compute has been siphoned out of C2 and violently thrust into C3, C4, and C5 to acquire the massive receptive field necessary to construct long geometric borders.*
+
+### Distribution of Configuration Indices
+
+To provide a granular view into the structural modifications induced by the target shift, we visualize the frequency of configuration indices (values ranging from 0 to 59, mapping to the combinations of width ranging from 8 to 120 and depth from 1 to 4) chosen by the Top-100 winners for both the Center-Focus and Edge-Focus tasks:
+
+![Index Configuration Distribution](fig_index_distribution.png)
+
+*Figure B.2. Frequency histogram of the block structure indices selected by the Top-100 architectures across stages. The Center-Focus (Main) models cluster heavily on specific indices at C2 while aggressively restricting C3 and C4 configurations to the lowest possible indices (lower complexity). Conversely, the Edge-Focus models redistribute these selections, pulling away from optimal C2 peaks and introducing a prominent frequency shift toward higher indices (heavier structures) in stages C3 and C4.*
 
 ### Conclusion: 'C3 Trap' Repurposed
 

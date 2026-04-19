@@ -22,6 +22,12 @@ Trong cả hai cặp, cùng một kiến trúc `SCRFD 2.5G` được train `80 e
 
 ![ASR schematic](report_assets/asr_schematic.png)
 
+Hình trên chỉ minh hoạ ý tưởng của ASR:
+
+- bên trái: static scale pool ban đầu và ý nghĩa hình học của từng `scale`
+- ở giữa: vòng phản hồi từ thống kê train sang difficulty của từng size bin, rồi quay lại cập nhật scale policy
+- bên phải: phân phối face size sau `crop + resize` dịch về phía nhiều tiny / small cases hơn
+
 Trong implementation hiện tại, hook thu thống kê theo size bin `b`:
 
 - `G_b`: số ground-truth faces
@@ -31,37 +37,46 @@ Trong implementation hiện tại, hook thu thống kê theo size bin `b`:
 
 Từ đó tính ba thành phần độ khó:
 
-```text
-recall_gap_b = max(0, 1 - min(P_b / max(G_b, 1), 1))
-cls_norm_b   = L^cls_b / max(P_b, 1)
-box_norm_b   = L^box_b / max(P_b, 1)
-```
+$$
+r_b = \max\!\left(0,\; 1 - \min\!\left(\frac{P_b}{\max(G_b,1)},\; 1\right)\right)
+$$
+
+$$
+c_b = \frac{L^{cls}_b}{\max(P_b,1)}, \qquad
+u_b = \frac{L^{box}_b}{\max(P_b,1)}
+$$
 
 Với `ADAPTIVE_SR_DIFFICULTY_MODE='loss_recall'`, độ khó của từng bin được cộng từ ba thành phần đã chuẩn hóa:
 
-```text
-norm(x)_b    = x_b / ( mean(x_{x>0}) + eps )
-difficulty_b ∝ norm(recall_gap_b) + norm(cls_norm_b) + norm(box_norm_b)
-```
+$$
+\operatorname{norm}(x)_b = \frac{x_b}{\operatorname{mean}(x_{x>0}) + \varepsilon}
+$$
+
+$$
+d_b \propto \operatorname{norm}(r_b) + \operatorname{norm}(c_b) + \operatorname{norm}(u_b)
+$$
 
 Sau đó difficulty theo bin được chiếu sang scale candidates thông qua ma trận support:
 
-```text
-S(s, b) = exp( - |log(s) - log(mu_b)| / 0.45 )
-```
+$$
+S(s,b) = \exp\!\left(-\frac{|\log s - \log \mu_b|}{0.45}\right)
+$$
 
 với `mu_b` là tâm ưu tiên cho từng bin. Xác suất thô của mỗi scale là:
 
-```text
-q(s) ∝ Σ_b S(s, b) · difficulty_b
-```
+$$
+q(s) \propto \sum_b S(s,b)\, d_b
+$$
 
 Sau bước probability floor và EMA smoothing:
 
-```text
-q'(s)   = q(s) · (1 - K·m) + m
-p_{t+1} = α · p_t + (1 - α) · q'
-```
+$$
+q'(s) = q(s)(1-Km) + m
+$$
+
+$$
+p_{t+1}(s) = \alpha\, p_t(s) + (1-\alpha)\, q'(s)
+$$
 
 trong đó:
 
@@ -82,29 +97,38 @@ Nên khi `ASR` tăng xác suất ở các scale lớn, distribution sau SR sẽ 
 
 ![JSAR schematic](report_assets/jsar_schematic.png)
 
+Hình trên minh hoạ ba ý chính của JSAR:
+
+- trái: với tiny GT, ATSS gốc thường chỉ giữ rất ít positives
+- giữa: `JSAR` nới threshold và center gating để nhiều anchors gần tiny GT còn hợp lệ
+- phải: nếu vẫn thiếu positives thì kích hoạt fallback, lấy thêm `top-k` anchors nền gần GT nhất theo một matching score
+
 `JSAR` được cài trên `ATSSAssigner` theo ba bước.
 
 #### Bước 1: nới threshold theo kích thước GT
 
 ATSS gốc dùng:
 
-```text
-tau_g = mean(IoU_candidates,g) + std(IoU_candidates,g)
-```
+$$
+\tau_g = \mu_g + \sigma_g
+$$
 
 `JSAR` thay bằng:
 
-```text
-tau'_g = tau_g - Delta_g
-```
+$$
+\tau'_g = \tau_g - \Delta_g
+$$
 
 trong đó:
 
-```text
-Delta_g = delta_tiny   nếu size_g < T_tiny
-Delta_g = delta_small  nếu T_tiny <= size_g < T_small
-Delta_g = 0            nếu size_g >= T_small
-```
+$$
+\Delta_g =
+\begin{cases}
+\delta_{tiny}, & \text{nếu } \operatorname{size}_g < T_{tiny} \\
+\delta_{small}, & \text{nếu } T_{tiny} \le \operatorname{size}_g < T_{small} \\
+0, & \text{nếu } \operatorname{size}_g \ge T_{small}
+\end{cases}
+$$
 
 Điều này làm tiny/small GT dễ nhận positives hơn ngay từ bước thresholding.
 
@@ -112,10 +136,13 @@ Delta_g = 0            nếu size_g >= T_small
 
 Center gating cũng được làm size-aware bằng hệ số:
 
-```text
-c_g = clip( size_g / T_tiny, 1, rho )
-valid(a, g): d_min(a, g) · c_g > t_center
-```
+$$
+c_g = \operatorname{clip}\!\left(\frac{\operatorname{size}_g}{T_{tiny}}, 1, \rho\right)
+$$
+
+$$
+\operatorname{valid}(a,g):\ d_{min}(a,g)\, c_g > t_{center}
+$$
 
 `rho` ở đây là `JSAR_CENTER_RADIUS_SCALE`. Mục đích là bớt loại bỏ quá sớm các anchors gần tiny GT.
 
@@ -123,21 +150,26 @@ valid(a, g): d_min(a, g) · c_g > t_center
 
 Nếu sau hai bước trên, tiny/small GT vẫn có quá ít positives:
 
-```text
-N_pos(g) < N_min
-```
+$$
+N_{pos}(g) < N_{min}
+$$
 
 thì `JSAR` lấy thêm một vài anchors nền lân cận, theo score:
 
-```text
-score(a, g) = IoU(a, g) - 0.05 · dist(a, g) / max(size_g, 1)
-```
+$$
+\operatorname{score}(a,g) =
+\operatorname{IoU}(a,g) -
+0.05 \cdot \frac{\operatorname{dist}(a,g)}{\max(\operatorname{size}_g,1)}
+$$
 
 và thêm `top-k` anchors tốt nhất vào tập positive. Trong chế độ `soft_weight`, các positives này còn có trọng số mềm:
 
-```text
-w(a, g) = exp( - dist_norm / T ) · clamp(IoU(a, g) + 0.1, 0.05, 1.0)
-```
+$$
+w(a,g) =
+\exp\!\left(-\frac{\operatorname{dist}_{norm}}{T}\right)
+\cdot
+\operatorname{clamp}\!\left(\operatorname{IoU}(a,g)+0.1,\ 0.05,\ 1.0\right)
+$$
 
 Nhưng trong các run hiện tại, chế độ chính là `hybrid_fallback`, tức là:
 

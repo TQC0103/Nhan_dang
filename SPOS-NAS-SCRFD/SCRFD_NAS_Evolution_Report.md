@@ -474,3 +474,32 @@ The present study demonstrates that:
 ---
 
 *Report generated from experimental notebooks: `spos-supernet-for-scrf-dynamic-block.ipynb`, `scrfd-spos-nas-and-inference-dynamic-block (2).ipynb`, and the NAS leaderboard `nas_leaderboard-dynamic.csv`.*
+ 
+ 
+---
+
+## Appendix B: Task-Driven Architecture — Geometric Sensitivity of NAS
+
+A supplementary experiment was conducted to verify the hypothesis that NAS search outcomes are fundamentally constrained by the geometric nature of the optimization target. In the original experiment (Section 7.2), the target proxy task was to generate a single small **center point** representing a face. Because predicting a monolithic dot does not require extensive structural context, the NAS overwhelmingly allocated its budget to C2 (to catch tiny faces).
+
+In this follow-up experiment, the proxy task was transformed to predict the **edges (borders)** of the face bounding box (with a smooth gradient decaying inward). Predicting interconnected borders extending across the spatial plane naturally requires a strictly larger **Receptive Field** (global understanding of the object silhouette).
+
+### Computation Cost Shift: Center-Focus vs. Edge-Focus
+
+A fresh supernet was trained using the Edge-Focus heatmap dataset, followed by a new 1,000-architecture search (
+as_leaderboard_edge_focus.csv). As expected, filtering for the top-100 winners with a rigidly controlled budget (~2.44 GFLOPs) reveals a complete architectural paradigm shift:
+
+| Stage | Center-Focus Winners | Edge-Focus Winners | Shift Behavior |
+|-------|----------------------|--------------------|----------------|
+| **C2** (160x160) | **1.124 GFLOPs** (Peak) | 0.729 GFLOPs | Massively Divested (-35%) |
+| **C3** (80x80)  | 0.655 GFLOPs | **0.886 GFLOPs** (Peak)| **Aggressively Reinvested (+35%)** |
+| **C4** (40x40)  | 0.226 GFLOPs | 0.392 GFLOPs | Dramatically Increased (+73%) |
+| **C5** (20x20)  | 0.078 GFLOPs | 0.114 GFLOPs | Increased (+46%) |
+
+![Computation Cost: Edge-Detection Proxy Task](fig_appendix_edge_funnel.png)
+
+*Figure B.1. Computation Cost (GFLOPs) for the Edge-Focus optimization target. Compare this to Figure 3: Compute has been siphoned out of C2 and violently thrust into C3, C4, and C5 to acquire the massive receptive field necessary to construct long geometric borders.*
+
+### Conclusion: 'C3 Trap' Repurposed
+
+In the Center-Focus task, over-investing in C3 was designated the 'C3 Trap' because it wasted FLOPs on structural depth when simple local textures (C2) sufficed, leading to starvation. However, when the task explicitly demanded structural reasoning (Edge-Focus), NAS intelligently determined that the high cost of C3 was **mandatory**. It voluntarily relinquished C2's budget to fund a robust C3 stage, and almost doubled C4's budget, explicitly proving that SPOS architecture search is not statically memorizing a blueprint, but dynamically tailoring the feature cascade to the geometric demands of the labels.

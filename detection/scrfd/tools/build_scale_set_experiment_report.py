@@ -8,7 +8,7 @@ from typing import Dict, List
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+from matplotlib.patches import Circle, FancyArrowPatch, FancyBboxPatch, Rectangle
 
 
 def load_json(path):
@@ -328,42 +328,153 @@ def draw_arrow(ax, x1, y1, x2, y2):
 
 
 def plot_asr_schematic(out_path: str):
-    fig, ax = plt.subplots(figsize=(11, 3.8))
+    fig, axes = plt.subplots(1, 2, figsize=(13.5, 5.4), gridspec_kw={'width_ratios': [1.2, 1.0]})
+    ax = axes[0]
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.axis('off')
-    draw_box(ax, 0.03, 0.28, 0.18, 0.42, 'Static scale pool\n(candidate crop ratios)', '#eef4fb')
-    draw_box(ax, 0.29, 0.28, 0.16, 0.42, 'Epoch statistics\nGT / positives /\ncls loss / box loss', '#fdf4e7')
-    draw_box(ax, 0.53, 0.28, 0.17, 0.42, 'Difficulty by\nface-size bins\n(tiny / small / ...)', '#eef8e8')
-    draw_box(ax, 0.78, 0.28, 0.17, 0.42, 'Updated scale\nprobabilities\nfor next epoch', '#fbeaea')
-    draw_arrow(ax, 0.21, 0.49, 0.29, 0.49)
-    draw_arrow(ax, 0.45, 0.49, 0.53, 0.49)
-    draw_arrow(ax, 0.70, 0.49, 0.78, 0.49)
-    ax.text(0.5, 0.08,
-            'ASR replaces static uniform SR with a feedback loop: if tiny/small faces remain difficult,\n'
-            'probability mass is shifted toward scale choices that expose those faces more often.',
-            ha='center', va='center', fontsize=11)
+
+    draw_box(ax, 0.02, 0.66, 0.24, 0.24, 'Epoch statistics\n$G_b, P_b, L^{cls}_b, L^{box}_b$', '#eef4fb')
+    draw_box(ax, 0.34, 0.62, 0.28, 0.32,
+             "Difficulty terms\n"
+             r"$r_b=\max(0,1-\min(\frac{P_b}{\max(G_b,1)},1))$" "\n"
+             r"$c_b=\frac{L^{cls}_b}{\max(P_b,1)}$" "\n"
+             r"$u_b=\frac{L^{box}_b}{\max(P_b,1)}$",
+             '#fdf4e7')
+    draw_box(ax, 0.70, 0.62, 0.26, 0.32,
+             "Bin difficulty\n"
+             r"$d_b \propto \mathrm{norm}(r_b)$" "\n"
+             r"$\quad +\ \mathrm{norm}(c_b)$" "\n"
+             r"$\quad +\ \mathrm{norm}(u_b)$",
+             '#eef8e8')
+    draw_box(ax, 0.16, 0.18, 0.32, 0.24,
+             "Scale support prior\n"
+             r"$S(s,b)=\exp(-|\log s-\log \mu_b| / 0.45)$",
+             '#eef8e8')
+    draw_box(ax, 0.56, 0.16, 0.38, 0.28,
+             "Probability update\n"
+             r"$q(s)\propto \sum_b S(s,b)\,d_b$" "\n"
+             r"$q'(s)=q(s)(1-Km)+m$" "\n"
+             r"$p_{t+1}=\alpha p_t+(1-\alpha)q'$",
+             '#fbeaea')
+    draw_arrow(ax, 0.26, 0.78, 0.34, 0.78)
+    draw_arrow(ax, 0.62, 0.78, 0.70, 0.78)
+    draw_arrow(ax, 0.80, 0.62, 0.78, 0.44)
+    draw_arrow(ax, 0.48, 0.30, 0.56, 0.30)
+    ax.text(
+        0.52,
+        0.04,
+        "ASR dùng phản hồi theo size bin để học lại phân phối scale. "
+        "Nếu tiny/small bins vẫn khó, xác suất được dịch về các crop ratio "
+        "có support lớn hơn cho các bin đó.",
+        ha='center',
+        va='bottom',
+        fontsize=10,
+        wrap=True,
+    )
+
+    ax2 = axes[1]
+    scale_candidates = np.array([0.35, 0.45, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0], dtype=float)
+    target_scale = np.array([1.8, 1.35, 1.0, 0.72], dtype=float)
+    support = np.exp(-np.abs(np.log(scale_candidates[:, None]) - np.log(target_scale[None, :])) / 0.45)
+    support[scale_candidates >= 1.0, 0] *= 1.15
+    support[scale_candidates >= 1.0, 1] *= 1.05
+    support[scale_candidates <= 1.0, 2] *= 1.05
+    support[scale_candidates <= 1.0, 3] *= 1.15
+    im = ax2.imshow(support, cmap='YlGnBu', aspect='auto')
+    ax2.set_xticks(np.arange(4))
+    ax2.set_xticklabels(['tiny', 'small', 'medium', 'large'])
+    ax2.set_yticks(np.arange(scale_candidates.shape[0]))
+    ax2.set_yticklabels([f'{s:.2f}' for s in scale_candidates])
+    ax2.set_xlabel('face-size bin')
+    ax2.set_ylabel('scale candidate')
+    ax2.set_title('ASR support matrix $S(s,b)$')
+    for i in range(support.shape[0]):
+        for j in range(support.shape[1]):
+            ax2.text(j, i, f'{support[i, j]:.2f}', ha='center', va='center', fontsize=8)
+    cb = fig.colorbar(im, ax=ax2, fraction=0.046, pad=0.04)
+    cb.set_label('support strength')
+    ax2.text(
+        -0.02,
+        -0.22,
+        "Trục dọc là scale candidate. Trục ngang là size bin. "
+        "Giá trị lớn nghĩa là scale đó được ưu tiên hơn nếu bin tương ứng đang khó.",
+        transform=ax2.transAxes,
+        fontsize=9.5,
+        va='top',
+        wrap=True,
+    )
     fig.tight_layout()
     fig.savefig(out_path, dpi=180)
     plt.close(fig)
 
 
 def plot_jsar_schematic(out_path: str):
-    fig, ax = plt.subplots(figsize=(11, 4.1))
+    fig, axes = plt.subplots(1, 2, figsize=(13.5, 5.4), gridspec_kw={'width_ratios': [1.0, 1.15]})
+
+    ax = axes[0]
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.axis('off')
-    draw_box(ax, 0.04, 0.25, 0.18, 0.48, 'Tiny / small GT face', '#eef4fb')
-    draw_box(ax, 0.31, 0.25, 0.22, 0.48, 'Original ATSS assignment\nmay produce too few\npositive anchors', '#fdf4e7')
-    draw_box(ax, 0.64, 0.25, 0.22, 0.48, 'JSAR fallback:\nexpand or recover\nextra positives', '#eef8e8')
-    draw_box(ax, 0.88, 0.25, 0.08, 0.48, 'Denser\ntiny-face\nsupervision', '#fbeaea')
-    draw_arrow(ax, 0.22, 0.49, 0.31, 0.49)
-    draw_arrow(ax, 0.53, 0.49, 0.64, 0.49)
-    draw_arrow(ax, 0.86, 0.49, 0.88, 0.49)
-    ax.text(0.5, 0.08,
-            'JSAR does not change inference. It changes training targets so that tiny faces receive\n'
-            'more positive anchors when the standard assigner would otherwise under-supervise them.',
-            ha='center', va='center', fontsize=11)
+    gt = Rectangle((0.38, 0.28), 0.24, 0.24, linewidth=2, edgecolor='#333', facecolor='none')
+    ax.add_patch(gt)
+    ax.text(0.50, 0.55, 'tiny GT', ha='center', va='bottom', fontsize=12)
+
+    base_pos = [(0.42, 0.34), (0.58, 0.44)]
+    added_pos = [(0.31, 0.38), (0.68, 0.35), (0.50, 0.22)]
+    neutral = [(0.25, 0.55), (0.75, 0.55), (0.22, 0.24), (0.78, 0.22), (0.50, 0.68)]
+
+    for x, y in neutral:
+        ax.add_patch(Circle((x, y), 0.022, facecolor='#d8d8d8', edgecolor='#666', linewidth=1))
+    for x, y in base_pos:
+        ax.add_patch(Circle((x, y), 0.028, facecolor='#4c78a8', edgecolor='white', linewidth=1.5))
+    for x, y in added_pos:
+        ax.add_patch(Circle((x, y), 0.028, facecolor='#f58518', edgecolor='white', linewidth=1.5))
+
+    ax.text(0.14, 0.87, 'ATSS positives', color='#4c78a8', fontsize=11, fontweight='bold')
+    ax.text(0.14, 0.81, 'JSAR added positives', color='#f58518', fontsize=11, fontweight='bold')
+    ax.text(0.50, 0.08,
+            'JSAR giữ lại positives gốc của ATSS (xanh) và bổ sung thêm\n'
+            'một số anchor gần tiny GT (cam) khi GT đó đang thiếu supervision.',
+            ha='center', va='bottom', fontsize=10, wrap=True)
+
+    ax2 = axes[1]
+    ax2.set_xlim(0, 1)
+    ax2.set_ylim(0, 1)
+    ax2.axis('off')
+    draw_box(ax2, 0.04, 0.66, 0.40, 0.26,
+             "Threshold relaxation\n"
+             r"$\tau_g = \mu_g + \sigma_g - \Delta_g$" "\n"
+             r"$\Delta_g=\delta_{tiny},\ \delta_{small},\ 0$",
+             '#eef4fb')
+    draw_box(ax2, 0.54, 0.66, 0.40, 0.26,
+             "Center gating\n"
+             r"$c_g=\mathrm{clip}(\frac{\mathrm{size}_g}{T_{tiny}},1,\rho)$" "\n"
+             r"$\mathrm{valid}(a,g): d_{min}(a,g)\cdot c_g > t_{center}$",
+             '#fdf4e7')
+    draw_box(ax2, 0.04, 0.28, 0.40, 0.26,
+             "Fallback score\n"
+             r"$\mathrm{score}(a,g)=\mathrm{IoU}(a,g)$" "\n"
+             r"$\qquad -\ 0.05\cdot\frac{\mathrm{dist}(a,g)}{\max(\mathrm{size}_g,1)}$",
+             '#eef8e8')
+    draw_box(ax2, 0.54, 0.28, 0.40, 0.26,
+             "Hybrid fallback rule\n"
+             r"$N_{pos}(g) < N_{min}$  $\Rightarrow$  add top-$k$" "\n"
+             "background anchors by score",
+             '#fbeaea')
+    draw_arrow(ax2, 0.44, 0.79, 0.54, 0.79)
+    draw_arrow(ax2, 0.24, 0.66, 0.24, 0.54)
+    draw_arrow(ax2, 0.74, 0.66, 0.74, 0.54)
+    ax2.text(
+        0.50,
+        0.07,
+        "JSAR trong code hiện tại = nới threshold cho tiny/small GT + center gating size-aware\n"
+        "và nếu vẫn thiếu positives thì lấy thêm top-k anchors nền gần nhất theo score.",
+        ha='center',
+        va='bottom',
+        fontsize=10,
+        wrap=True,
+    )
     fig.tight_layout()
     fig.savefig(out_path, dpi=180)
     plt.close(fig)

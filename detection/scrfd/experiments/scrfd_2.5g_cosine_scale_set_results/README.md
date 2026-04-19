@@ -1,6 +1,6 @@
 ﻿# SCRFD 2.5G Cosine Scale-Set Results
 
-- [ANALYSIS_REPORT.md](ANALYSIS_REPORT.md): Báo cáo phân tích vì sao ASR+JSAR tốt hơn baseline ở cả hai scale set và cách hiểu đúng về khác biệt giữa default scale set và paper SR12 sau khi khớp learning rate.
+- [ANALYSIS_REPORT.md](ANALYSIS_REPORT.md): Báo cáo phân tích phương pháp ASR, JSAR bằng công thức và giải thích vì sao ASR+JSAR tốt hơn baseline ở cả hai scale set.
 
 ## Runs
 

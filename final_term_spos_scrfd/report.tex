@@ -1,0 +1,356 @@
+\chapter{Báo cáo thực nghiệm bổ sung cho SCRFD}
+
+\section{Mục tiêu và thiết lập thực nghiệm}
+
+Phần này chuyển nội dung phân tích thực nghiệm từ mã nguồn và báo cáo Markdown sang định dạng LaTeX của báo cáo chính.
+Mục tiêu của cụm thí nghiệm là trả lời hai câu hỏi:
+\begin{itemize}
+  \item vì sao cải tiến \textbf{ASR+JSAR} tốt hơn \textbf{baseline} trong cùng kiến trúc SCRFD 2.5G;
+  \item vì sao khi thay static scale pool mặc định bằng scale set \textbf{SR12} lấy từ phần search của bài báo, mô hình lại thay đổi hành vi theo cách khác.
+\end{itemize}
+
+Hai cặp thí nghiệm được so sánh là:
+\begin{itemize}
+  \item \textbf{Default source scale set}: dùng static scale pool mặc định trong mã nguồn công khai của SCRFD.
+  \item \textbf{Paper SR12 scale set}: thay scale pool tĩnh bằng bộ 12 mức được mô tả ở phần sample redistribution của bài báo SCRFD. \cite{guo2022scrfd}
+\end{itemize}
+
+Trong cả hai cặp, phần Backbone--Neck--Head giữ nguyên, mô hình được huấn luyện trong \(80\) epochs với cosine scheduler.
+Biến độc lập chính chỉ là:
+\begin{itemize}
+  \item static scale pool ban đầu;
+  \item việc bật hay tắt hai cải tiến \textbf{Adaptive Sample Redistribution (ASR)} và \textbf{Joint SampleAssignment Redistribution (JSAR)}.
+\end{itemize}
+
+\section{Phương pháp cải tiến}
+
+\subsection{Adaptive Sample Redistribution (ASR)}
+
+ASR thay việc chọn scale augmentation tĩnh bằng một phân phối xác suất động, được cập nhật trực tiếp từ thống kê của quá trình huấn luyện.
+Ý tưởng trực quan của ASR được minh hoạ trong Hình~\ref{fig:final-term-asr-schematic}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{final_term_spos_scrfd/asr_schematic.png}
+  \caption{Minh hoạ ý tưởng của ASR. Trái: static scale pool ban đầu và ý nghĩa hình học của scale. Giữa: vòng phản hồi từ thống kê huấn luyện sang difficulty của từng size bin, rồi quay lại cập nhật scale policy. Phải: phân phối kích thước mặt sau phép crop + resize dịch về phía nhiều tiny/small samples hơn.}
+  \label{fig:final-term-asr-schematic}
+\end{figure}
+
+Trong implementation hiện tại, sau mỗi epoch hệ thống gom thống kê theo size bin \(b\):
+\begin{itemize}
+  \item \(G_b\): số ground-truth faces thuộc bin \(b\);
+  \item \(P_b\): số positive anchors khớp với bin \(b\);
+  \item \(L^{cls}_b\): tổng classification loss;
+  \item \(L^{box}_b\): tổng box loss.
+\end{itemize}
+
+Từ đó, ASR tạo ba thành phần difficulty:
+\begin{equation}
+r_b = \max\!\left(0,\; 1 - \min\!\left(\frac{P_b}{\max(G_b,1)},\; 1\right)\right)
+\end{equation}
+\begin{equation}
+c_b = \frac{L^{cls}_b}{\max(P_b,1)}, \qquad
+u_b = \frac{L^{box}_b}{\max(P_b,1)}
+\end{equation}
+
+Trong đó \(r_b\) đóng vai trò recall gap proxy, còn \(c_b\) và \(u_b\) đo loss trung bình trên mỗi positive sample.
+Với chế độ \texttt{loss\_recall}, difficulty của từng bin được tính bằng tổng của ba đại lượng đã chuẩn hoá:
+\begin{equation}
+\operatorname{norm}(x)_b = \frac{x_b}{\operatorname{mean}(x_{x>0}) + \varepsilon}
+\end{equation}
+\begin{equation}
+d_b \propto \operatorname{norm}(r_b) + \operatorname{norm}(c_b) + \operatorname{norm}(u_b)
+\end{equation}
+
+Difficulty theo bin sau đó được chiếu sang mỗi scale candidate \(s\) thông qua một support prior:
+\begin{equation}
+S(s,b) = \exp\!\left(-\frac{|\log s - \log \mu_b|}{0.45}\right)
+\end{equation}
+với \(\mu_b\) là tâm ưu tiên của từng size bin.
+Xác suất thô của mỗi scale được xác định bởi:
+\begin{equation}
+q(s) \propto \sum_b S(s,b)\, d_b
+\end{equation}
+
+Sau bước probability floor và EMA smoothing:
+\begin{equation}
+q'(s) = q(s)(1-Km) + m
+\end{equation}
+\begin{equation}
+p_{t+1}(s) = \alpha\, p_t(s) + (1-\alpha)\, q'(s)
+\end{equation}
+trong đó \(K\) là số scale candidates, \(m\) là xác suất sàn tối thiểu, còn \(\alpha\) là hệ số làm mượt.
+
+Điểm quan trọng của pipeline SCRFD là:
+\begin{itemize}
+  \item \textbf{scale nhỏ} \(\Rightarrow\) crop nhỏ hơn \(\Rightarrow\) zoom-in \(\Rightarrow\) mặt lớn hơn sau resize;
+  \item \textbf{scale lớn} \(\Rightarrow\) crop rộng hơn \(\Rightarrow\) zoom-out \(\Rightarrow\) mặt nhỏ hơn sau resize.
+\end{itemize}
+
+Do đó, khi ASR tăng xác suất ở các scale lớn, phân phối mẫu sau augmentation sẽ dịch về phía nhiều tiny faces hơn.
+Nói cách khác, ASR không chỉ đổi cách lấy mẫu trên trục scale, mà đổi cả phân phối khó/dễ của tập huấn luyện mà detector thường xuyên nhìn thấy.
+
+\subsection{Joint SampleAssignment Redistribution (JSAR)}
+
+JSAR không thay đổi kiến trúc suy luận, mà chỉ can thiệp vào bước \textit{assignment} trong lúc huấn luyện để tiny/small faces nhận được supervision dày hơn.
+Trực quan của phương pháp được mô tả ở Hình~\ref{fig:final-term-jsar-schematic}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{final_term_spos_scrfd/jsar_schematic.png}
+  \caption{Minh hoạ ý tưởng của JSAR. Trái: với tiny GT, ATSS gốc thường chỉ tạo rất ít positives. Giữa: threshold và center gating được nới theo kích thước để nhiều anchors gần tiny GT còn hợp lệ hơn. Phải: nếu số positives vẫn thấp, cơ chế fallback sẽ lấy thêm top-\(k\) anchors nền gần GT nhất theo matching score.}
+  \label{fig:final-term-jsar-schematic}
+\end{figure}
+
+JSAR được cài trên \texttt{ATSSAssigner} theo ba bước.
+
+\paragraph{Bước 1: nới threshold theo kích thước GT}
+ATSS gốc dùng ngưỡng:
+\begin{equation}
+\tau_g = \mu_g + \sigma_g
+\end{equation}
+JSAR thay bằng:
+\begin{equation}
+\tau'_g = \tau_g - \Delta_g
+\end{equation}
+trong đó:
+\begin{equation}
+\Delta_g =
+\begin{cases}
+\delta_{tiny}, & \text{nếu } \operatorname{size}_g < T_{tiny} \\
+\delta_{small}, & \text{nếu } T_{tiny} \le \operatorname{size}_g < T_{small} \\
+0, & \text{nếu } \operatorname{size}_g \ge T_{small}
+\end{cases}
+\end{equation}
+
+\paragraph{Bước 2: center gating theo kích thước}
+Center gating được làm size-aware bằng hệ số:
+\begin{equation}
+c_g = \operatorname{clip}\!\left(\frac{\operatorname{size}_g}{T_{tiny}}, 1, \rho\right)
+\end{equation}
+\begin{equation}
+\operatorname{valid}(a,g):\ d_{min}(a,g)\, c_g > t_{center}
+\end{equation}
+Thiết kế này giúp bớt loại bỏ quá sớm các anchors gần tiny GT.
+
+\paragraph{Bước 3: hybrid fallback khi GT vẫn thiếu positives}
+Nếu sau hai bước trên mà tiny/small GT vẫn có quá ít positives:
+\begin{equation}
+N_{pos}(g) < N_{min}
+\end{equation}
+thì JSAR lấy thêm anchors nền lân cận theo score:
+\begin{equation}
+\operatorname{score}(a,g) =
+\operatorname{IoU}(a,g) -
+0.05 \cdot \frac{\operatorname{dist}(a,g)}{\max(\operatorname{size}_g,1)}
+\end{equation}
+
+Trong biến thể soft weighting, trọng số mềm còn có dạng:
+\begin{equation}
+w(a,g) =
+\exp\!\left(-\frac{\operatorname{dist}_{norm}}{T}\right)
+\cdot
+\operatorname{clamp}\!\left(\operatorname{IoU}(a,g)+0.1,\ 0.05,\ 1.0\right)
+\end{equation}
+
+Tuy nhiên trong các run hiện tại, cơ chế chủ đạo là \textit{hybrid fallback}:
+\begin{itemize}
+  \item nới threshold cho tiny/small GT;
+  \item nới center gating theo kích thước;
+  \item nếu GT vẫn thiếu positives thì thêm top-\(k\) anchors nền gần nhất theo score.
+\end{itemize}
+
+\section{Kết quả định lượng}
+
+\subsection{Metric tổng hợp}
+
+Hình~\ref{fig:final-term-metrics-by-scale-set} và Bảng~\ref{tab:final-term-scrfd-metrics} tóm tắt kết quả WIDERFace của hai scale set.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.88\textwidth]{final_term_spos_scrfd/metrics_by_scale_set.png}
+  \caption{So sánh các chỉ số Easy AP, Medium AP, Hard AP và mAP giữa baseline và ASR+JSAR trên hai scale set.}
+  \label{fig:final-term-metrics-by-scale-set}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Kết quả định lượng giữa baseline và ASR+JSAR trên hai scale set}
+\label{tab:final-term-scrfd-metrics}
+\begingroup
+\renewcommand{\arraystretch}{1.15}
+\small
+\begin{tabular}{lllll}
+\toprule
+\textbf{Scale set} & \textbf{Mô hình} & \textbf{Easy AP} & \textbf{Medium AP} & \textbf{Hard AP / mAP} \\
+\midrule
+Default source & Baseline & 0.9140 & 0.8969 & 0.7249 / 0.8453 \\
+Default source & ASR+JSAR & 0.9039 & 0.8925 & 0.7690 / 0.8551 \\
+Paper SR12 & Baseline & 0.9161 & 0.8999 & 0.7371 / 0.8510 \\
+Paper SR12 & ASR+JSAR & 0.9028 & 0.8901 & 0.7738 / 0.8556 \\
+\bottomrule
+\end{tabular}
+\endgroup
+\end{table}
+
+Delta của ASR+JSAR so với baseline được minh hoạ ở Hình~\ref{fig:final-term-asr-delta}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.88\textwidth]{final_term_spos_scrfd/asr_delta_by_scale_set.png}
+  \caption{Delta của ASR+JSAR so với baseline trên từng chỉ số. Lợi ích lớn nhất luôn tập trung ở Hard AP, trong khi Easy AP và Medium AP giảm nhẹ.}
+  \label{fig:final-term-asr-delta}
+\end{figure}
+
+\section{Vì sao ASR+JSAR tốt hơn baseline ở cả hai scale set}
+
+\subsection{JSAR tăng mật độ supervision cho tiny faces một cách ổn định}
+
+Ở cả hai scale set, JSAR đều làm tăng rõ rệt số positives trên mỗi tiny GT, như Hình~\ref{fig:final-term-jsar-tiny-supervision}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.88\textwidth]{final_term_spos_scrfd/jsar_tiny_supervision.png}
+  \caption{Mật độ positive assignment trên tiny GT trước và sau JSAR. Cải tiến này giữ hiệu lực ổn định ở cả default scale set lẫn paper SR12.}
+  \label{fig:final-term-jsar-tiny-supervision}
+\end{figure}
+
+Các trị số chính là:
+\begin{itemize}
+  \item \textbf{Default source}: tiny positives / GT tăng từ \(1.73\) lên \(2.67\), tương ứng boost ratio \(1.542\times\).
+  \item \textbf{Paper SR12}: tiny positives / GT tăng từ \(1.76\) lên \(2.67\), tương ứng boost ratio \(1.520\times\).
+\end{itemize}
+
+Điều này cho thấy lợi ích của JSAR không đến từ nhiễu ngẫu nhiên trong huấn luyện.
+Nó đến từ việc tiny faces thực sự nhận được supervision dày hơn ở giai đoạn assignment.
+
+\subsection{Gain trên hard subset tập trung đúng vào tiny faces}
+
+Hình~\ref{fig:final-term-hard-size-compare} cho thấy recall gain trên hard subset luôn dồn mạnh vào hai bin nhỏ nhất:
+\([0,8)\) và \([8,16)\).
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.88\textwidth]{final_term_spos_scrfd/hard_size_gain_by_scale_set.png}
+  \caption{Recall gain theo hard-size bin của ASR+JSAR so với baseline. Ở cả hai scale set, phần lợi ích gần như dồn vào hai vùng mặt rất nhỏ.}
+  \label{fig:final-term-hard-size-compare}
+\end{figure}
+
+Chi tiết cho từng scale set được thể hiện ở Hình~\ref{fig:final-term-hard-size-solo}.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{final_term_spos_scrfd/default_hard_size_gain.png}
+    \caption{Default source scale set}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{final_term_spos_scrfd/paper_hard_size_gain.png}
+    \caption{Paper SR12 scale set}
+  \end{subfigure}
+  \caption{Recall gain theo hard-size bin cho từng scale set.}
+  \label{fig:final-term-hard-size-solo}
+\end{figure}
+
+Với default scale set:
+\begin{itemize}
+  \item \([0,8)\): \(+0.138\)
+  \item \([8,16)\): \(+0.119\)
+  \item \([16,32)\): \(+0.009\)
+  \item từ \(32\) px trở lên: gần \(0\) hoặc âm nhẹ.
+\end{itemize}
+
+Với paper SR12:
+\begin{itemize}
+  \item \([0,8)\): \(+0.108\)
+  \item \([8,16)\): \(+0.104\)
+  \item \([16,32)\): \(+0.003\)
+  \item từ \(32\) px trở lên: âm nhẹ.
+\end{itemize}
+
+Như vậy, lợi ích của ASR+JSAR là lợi ích rất mục tiêu: nó tập trung vào đúng miền dữ liệu mà SCRFD khó nhất, tức là hard tiny faces.
+
+\subsection{ASR và JSAR bổ sung cho nhau}
+
+Từ cơ chế và kết quả trên, có thể nhìn ASR và JSAR như hai thành phần giải quyết hai nút thắt khác nhau:
+\begin{itemize}
+  \item \textbf{ASR} đổi phân phối sample mà detector thường xuyên nhìn thấy trong quá trình train.
+  \item \textbf{JSAR} đổi mật độ target supervision mà tiny faces nhận được tại bước assignment.
+\end{itemize}
+
+Nếu chỉ có ASR, tiny faces có thể vẫn bị under-assigned.
+Nếu chỉ có JSAR, detector chưa chắc đã nhìn thấy đủ nhiều tình huống tiny/hard để khai thác hết lợi ích.
+Hai thành phần chỉ phát huy rõ khi được dùng cùng nhau.
+
+\section{Cách hiểu khác biệt giữa default scale set và paper SR12}
+
+\subsection{Paper SR12 có static scale pool tiny-oriented hơn}
+
+Hình~\ref{fig:final-term-scale-pool} cho thấy hình học của hai scale pool.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.92\textwidth]{final_term_spos_scrfd/scale_pool_geometry.png}
+  \caption{Hình học của hai scale pool và phân phối xác suất scale. Paper SR12 có xu hướng ít zoom-in mạnh hơn nhưng lại dành nhiều khối lượng hơn cho vùng zoom-out, do đó baseline đã tiny-oriented hơn.}
+  \label{fig:final-term-scale-pool}
+\end{figure}
+
+Một số trị số quan trọng:
+\begin{itemize}
+  \item \textbf{Default baseline}: \(E[1/\text{scale}] = 1.270\), khối lượng extreme zoom-in \((\text{scale}\le 0.6)\) là \(0.300\), extreme zoom-out \((\text{scale}\ge 2.0)\) là \(0.100\).
+  \item \textbf{Paper SR12 baseline}: \(E[1/\text{scale}] = 0.890\), khối lượng extreme zoom-in là \(0.083\), extreme zoom-out là \(0.250\).
+\end{itemize}
+
+Điều đó cho thấy static scale pool SR12 vốn đã ít zoom-in mạnh hơn nhưng nhiều zoom-out mạnh hơn, nên tự nhiên đẩy train distribution về phía nhiều tiny faces hơn ngay từ baseline.
+
+\subsection{Phân phối mặt sau sample redistribution của paper SR12 đã rất tiny-heavy}
+
+Hình~\ref{fig:final-term-distribution-pressure} cho thấy paper SR12 baseline đã nhìn thấy nhiều tiny faces hơn đáng kể so với default baseline.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.92\textwidth]{final_term_spos_scrfd/distribution_pressure.png}
+  \caption{So sánh áp lực phân phối sau sample redistribution. Paper SR12 baseline đã tiny-oriented hơn rõ rệt, nên khoảng trống để ASR cải thiện thêm trở nên nhỏ hơn.}
+  \label{fig:final-term-distribution-pressure}
+\end{figure}
+
+So với default scale set:
+\begin{itemize}
+  \item \textbf{Default baseline}: tiny ratio \(=0.475\), median face size \(=17.12\), tiny \(\rightarrow \ge 16\) px promotion ratio \(=0.223\).
+  \item \textbf{Paper SR12 baseline}: tiny ratio \(=0.582\), median face size \(=12.97\), tiny \(\rightarrow \ge 16\) px promotion ratio \(=0.092\).
+\end{itemize}
+
+Nói cách khác, baseline của paper SR12 vốn đã nhìn thấy nhiều tiny faces hơn, nhưng đồng thời cũng ít ``promote'' tiny faces sang vùng dễ học hơn.
+Đó là lý do vì sao:
+\begin{itemize}
+  \item paper SR12 baseline mạnh hơn default baseline trên Hard;
+  \item nhưng gain biên của ASR+JSAR so với baseline lại nhỏ hơn một chút.
+\end{itemize}
+
+\subsection{Kết luận giữa hai scale set}
+
+Các kết quả hiện tại không ủng hộ nhận định rằng paper SR12 tệ hơn.
+Ngược lại:
+\begin{itemize}
+  \item \textbf{paper SR12 baseline} mạnh hơn \textbf{default baseline};
+  \item \textbf{paper SR12 + ASR+JSAR} gần như ngang và hơi nhỉnh hơn \textbf{default ASR+JSAR};
+  \item phần chênh lệch chính nằm ở chỗ scale pool SR12 đã tiny-oriented hơn ngay từ đầu.
+\end{itemize}
+
+Do đó, khi static scale pool đã mang sẵn thiên hướng tiny-focused, baseline trở nên mạnh hơn và \emph{headroom} để ASR+JSAR cải thiện thêm sẽ nhỏ hơn.
+Tuy nhiên cơ chế gain của phương pháp vẫn giữ nguyên: lợi ích vẫn tập trung vào tiny/hard faces và đến từ việc đổi cả phân phối sample lẫn mật độ assignment.
+
+\section{Kết luận}
+
+Phần thực nghiệm bổ sung này đưa ra ba kết luận chính:
+\begin{itemize}
+  \item \textbf{ASR+JSAR} tốt hơn baseline ở cả hai scale set vì tăng training signal đúng vào tiny/hard faces.
+  \item \textbf{JSAR} là thành phần trực tiếp làm tăng mật độ supervision cho tiny faces, còn \textbf{ASR} là thành phần dịch phân phối sample về phía nhiều tình huống tiny/hard hữu ích hơn.
+  \item \textbf{Paper SR12} không làm mô hình tệ đi; ngược lại, nó tạo ra baseline mạnh hơn do static scale pool tiny-oriented hơn, đồng thời làm phần gain biên của ASR+JSAR nhỏ lại vì baseline đã mang sẵn một phần lợi ích đó.
+\end{itemize}
+
+Nói ngắn gọn, cải tiến ASR+JSAR là ổn định theo đúng mục tiêu thiết kế: ưu tiên tiny/hard faces.
+Hiệu quả tuyệt đối của phương pháp vẫn phụ thuộc vào static scale pool ban đầu, nhưng cơ chế cải thiện cốt lõi không thay đổi.

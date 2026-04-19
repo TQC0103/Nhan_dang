@@ -109,6 +109,8 @@
 
 \makeatletter
 \renewcommand*\l@chapter{\@dottedtocline{0}{0em}{2.3em}}
+\renewcommand*\l@figure{\@dottedtocline{1}{1.5em}{4.2em}}
+\renewcommand*\l@table{\@dottedtocline{1}{1.5em}{4.2em}}
 \renewcommand\tableofcontents{%
   \chapter*{\contentsname}%
   \@starttoc{toc}%
@@ -152,8 +154,6 @@
 \input{preface.tex}
 \clearpage
 \input{info.tex}
-\clearpage
-\input{abstract.tex}
 \clearpage
 
 \tableofcontents

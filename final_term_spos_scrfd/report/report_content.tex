@@ -7,7 +7,7 @@
 
 Bài báo \textit{Sample and Computation Redistribution for Efficient Face Detection} đặt mục tiêu xây dựng một họ detector khuôn mặt hiệu quả, có thể hoạt động ở nhiều mức ngân sách tính toán khác nhau nhưng vẫn giữ độ chính xác tốt trên các trường hợp khó của WIDER FACE. Trọng tâm của bài báo không nằm ở việc thêm một module phức tạp mới, mà nằm ở câu hỏi hệ thống hơn: với cùng một tổng số FLOPs, nên phân bổ năng lực tính toán và mẫu huấn luyện như thế nào để detector xử lý tốt khuôn mặt nhỏ, mờ, bị che khuất hoặc xuất hiện dày đặc. \cite{guo2022scrfd}
 
-Trong WIDER FACE, split Hard thường là nơi thể hiện rõ nhất điểm yếu của các detector nhẹ. Khuôn mặt nhỏ chỉ chiếm vài pixel trên feature map sâu; nếu kiến trúc dồn quá nhiều tài nguyên vào tầng sâu hoặc nếu quá trình huấn luyện không tạo đủ mẫu dương ở thang nhỏ, detector có thể vẫn đạt điểm tốt trên Easy/Medium nhưng tụt mạnh trên Hard. SCRFD vì vậy xem face detection hiệu quả như một bài toán tối ưu đồng thời giữa \textit{độ chính xác}, \textit{chi phí suy luận} và \textit{phân bố tín hiệu học}.
+Trong WIDER FACE \cite{yang2016widerface}, split Hard thường là nơi thể hiện rõ nhất điểm yếu của các detector nhẹ. Khuôn mặt nhỏ chỉ chiếm vài pixel trên feature map sâu; nếu kiến trúc dồn quá nhiều tài nguyên vào tầng sâu hoặc nếu quá trình huấn luyện không tạo đủ mẫu dương ở thang nhỏ, detector có thể vẫn đạt điểm tốt trên Easy/Medium nhưng tụt mạnh trên Hard. SCRFD vì vậy xem face detection hiệu quả như một bài toán tối ưu đồng thời giữa \textit{độ chính xác}, \textit{chi phí suy luận} và \textit{phân bố tín hiệu học}.
 
 Với tập các stage backbone \(\mathcal{S}=\{C_2,C_3,C_4,C_5\}\), tổng chi phí suy luận có thể viết:
 \[
@@ -19,7 +19,7 @@ trong đó \(w_s\) là số kênh, \(d_s\) là số block và \(H_s\times W_s\) 
 
 SCRFD đề xuất hai ý tưởng bổ trợ nhau. \textit{Computation Redistribution} tái phân bổ chi phí tính toán giữa backbone, neck, head và giữa các stage trong backbone để tìm kiến trúc tốt hơn dưới cùng ngân sách FLOPs. \textit{Sample Redistribution} điều chỉnh phân bố scale augmentation để tăng hiệu quả huấn luyện cho các vùng kích thước quan trọng, đặc biệt là các khuôn mặt rất nhỏ.
 
-Bài báo cũng xây dựng một họ mô hình SCRFD từ mức rất nhỏ đến mức lớn hơn. Trong báo cáo này, nhóm tập trung vào miền \textit{SCRFD-2.5GF} vì đây là điểm cân bằng phù hợp giữa chi phí tái hiện và khả năng quan sát tác động của hai cơ chế chính. Theo số liệu model zoo của InsightFace, \textit{SCRFD-2.5GF} đạt \(93.78/92.16/77.87\) trên Easy/Medium/Hard, trong khi \textit{ResNet-2.5GF} cùng mức FLOPs chỉ đạt \(93.21/91.11/74.47\). Khoảng chênh \(+3.40\) điểm Hard AP cho thấy lợi ích của cách phân bổ tính toán, không chỉ lợi ích của việc tăng tổng dung lượng mạng. \cite{insightface2026}
+Bài báo cũng xây dựng một họ mô hình SCRFD từ mức rất nhỏ đến mức lớn hơn. Trong báo cáo này, nhóm tập trung vào miền \textit{SCRFD-2.5GF} vì đây là điểm cân bằng phù hợp giữa chi phí tái hiện và khả năng quan sát tác động của hai cơ chế chính. Theo số liệu model zoo của InsightFace, \textit{SCRFD-2.5GF} đạt \(93.78/92.16/77.87\) trên Easy/Medium/Hard, trong khi \textit{ResNet-2.5GF} \cite{he2016resnet} cùng mức FLOPs chỉ đạt \(93.21/91.11/74.47\). Khoảng chênh \(+3.40\) điểm Hard AP cho thấy lợi ích của cách phân bổ tính toán, không chỉ lợi ích của việc tăng tổng dung lượng mạng. \cite{insightface2026}
 
 \section{Phạm vi của báo cáo này}
 
@@ -54,7 +54,7 @@ Backbone tạo ra chuỗi đặc trưng \(C_2 \rightarrow C_5\), trong đó các
 
 \subsection{Neck PAFPN}
 
-Neck của SCRFD sử dụng PAFPN để kết hợp đặc trưng theo cả hướng trên-xuống và dưới-lên. Hướng trên-xuống truyền ngữ nghĩa từ tầng sâu về tầng nông; hướng dưới-lên giúp củng cố thông tin định vị và cấu trúc không gian. Cơ chế này phù hợp với face detection vì khuôn mặt xuất hiện ở nhiều thang đo, từ mặt lớn rõ nét đến mặt rất nhỏ chỉ chiếm vài pixel.
+Neck của SCRFD sử dụng PAFPN \cite{liu2018panet} để kết hợp đặc trưng theo cả hướng trên-xuống và dưới-lên. Hướng trên-xuống truyền ngữ nghĩa từ tầng sâu về tầng nông; hướng dưới-lên giúp củng cố thông tin định vị và cấu trúc không gian. Cơ chế này phù hợp với face detection vì khuôn mặt xuất hiện ở nhiều thang đo, từ mặt lớn rõ nét đến mặt rất nhỏ chỉ chiếm vài pixel.
 
 Trong Computation Redistribution, neck cũng nằm trong không gian cần cân bằng. Nếu neck quá rộng, FLOPs bị tiêu tốn ở khâu hợp nhất đặc trưng; nếu quá hẹp, thông tin từ backbone không được truyền hiệu quả đến head. SCRFD vì vậy không chỉ search backbone mà còn xét số kênh neck như một phần của toàn bộ detector.
 
@@ -151,7 +151,7 @@ Nói ngắn gọn, SR điều khiển phân bố các trường hợp mà detect
 
 \section{Kết quả và nhận định trong paper gốc}
 
-Paper SCRFD báo cáo kết quả trên WIDER FACE theo ba split Easy/Medium/Hard, đồng thời so sánh với các detector cùng hoặc khác mức chi phí. Một điểm nổi bật là SCRFD cải thiện mạnh ở Hard, tức vùng có nhiều khuôn mặt nhỏ, đông và khó. Ở chế độ VGA, paper cho thấy SCRFD-34GF đạt Hard AP 86.21, cao hơn TinaFace 81.43 trong khi chi phí tính toán thấp hơn đáng kể; cùng lúc, các cấu hình nhẹ như SCRFD-0.5GF vẫn giữ được lợi thế so với các baseline MobileNet-like trên Hard set. \cite{guo2022scrfd}
+Paper SCRFD báo cáo kết quả trên WIDER FACE theo ba split Easy/Medium/Hard, đồng thời so sánh với các detector cùng hoặc khác mức chi phí. Một điểm nổi bật là SCRFD cải thiện mạnh ở Hard, tức vùng có nhiều khuôn mặt nhỏ, đông và khó. Ở chế độ VGA, paper cho thấy SCRFD-34GF đạt Hard AP 86.21, cao hơn TinaFace 81.43 trong khi chi phí tính toán thấp hơn đáng kể; cùng lúc, các cấu hình nhẹ như SCRFD-0.5GF vẫn giữ được lợi thế so với các baseline MobileNet-like \cite{howard2018mobilenetv2} trên Hard set. \cite{guo2022scrfd}
 
 Những kết quả này cho thấy đóng góp của SCRFD không chỉ nằm ở một con số AP đơn lẻ, mà nằm ở đường cong đánh đổi accuracy--efficiency. Họ mô hình SCRFD tạo ra nhiều điểm làm việc khác nhau: cấu hình nhỏ cho thiết bị biên, cấu hình 2.5GF cho cân bằng chi phí/chất lượng, và cấu hình lớn hơn cho tình huống cần độ chính xác cao. Đây là lý do báo cáo cuối kỳ chọn 2.5GF làm miền tái hiện chính: nó đủ nhẹ để kiểm chứng trong điều kiện tài nguyên nhóm, nhưng vẫn đủ nhạy để quan sát tác động của CR và SR.
 
@@ -388,7 +388,7 @@ Quá trình này được minh họa cụ thể qua Hình \ref{fig:spos_workflow
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{SPOS-Workflow-viz.png}
-\caption{Minh họa luồng làm việc của SPOS (hình gốc từ bài báo SPOS): (a) Tại mỗi stage có nhiều "khối lựa chọn", trong mỗi lượt truyền (forward pass), supernet sẽ chọn ngẫu nhiên một khối để kích hoạt; (b) Cơ chế cắt trọng số (weight slicing) được kích hoạt khi hai khối ở hai tầng liên tiếp có kích thước in/out khác nhau, khối lớn hơn sẽ tự động cắt bớt số kênh cho tương thích; (c) Kỹ thuật mixed precision được tích hợp trong quá trình huấn luyện nhằm tối ưu bộ nhớ và thời gian.}
+\caption[Minh họa luồng làm việc của SPOS]{Minh họa luồng làm việc của SPOS (hình gốc từ bài báo SPOS \cite{guo2020spos}): (a) Tại mỗi stage có nhiều "khối lựa chọn", trong mỗi lượt truyền (forward pass), supernet sẽ chọn ngẫu nhiên một khối để kích hoạt; (b) Cơ chế cắt trọng số (weight slicing) được kích hoạt khi hai khối ở hai tầng liên tiếp có kích thước in/out khác nhau, khối lớn hơn sẽ tự động cắt bớt số kênh cho tương thích; (c) Kỹ thuật mixed precision \cite{micikevicius2018mixed} được tích hợp trong quá trình huấn luyện nhằm tối ưu bộ nhớ và thời gian.}
 \label{fig:spos_workflow}
 \end{figure}
 
@@ -418,7 +418,7 @@ Optimizer & AdamW, learning rate \(2\times10^{-4}\), weight decay \(10^{-4}\) \\
 \midrule
 Schedule & Cosine annealing với \(\eta_{\min}=10^{-6}\) \\
 \midrule
-Batch size hiệu dụng & 64 nhờ mixed precision \\
+Batch size hiệu dụng & 64 nhờ mixed precision \cite{micikevicius2018mixed} \\
 \midrule
 Loss & Proxy focal loss, \(\alpha=0.25,\gamma=2.0\) \\
 \midrule
@@ -522,7 +522,7 @@ Bảng phân bố GFLOPs làm rõ hơn ý nghĩa của Computation Redistributio
 
 \subsection{BatchNorm recalibration và độ tin cậy của xếp hạng}
 
-Một chi tiết quan trọng để xếp hạng NAS đáng tin hơn là BatchNorm recalibration. Trong SPOS, running mean và running variance của BatchNorm được tích lũy trên phân phối hỗn hợp của rất nhiều sub-network. Nếu lấy trực tiếp các thống kê trung bình đó để đánh giá một kiến trúc cụ thể, dự đoán có thể bị lệch vì kiến trúc đang test có width/depth khác với ``kiến trúc trung bình'' mà BatchNorm đã thấy trong quá trình train. Vì vậy, trước khi chấm proxy loss cho từng candidate, cần chạy vài batch calibration để cập nhật lại thống kê BatchNorm cho riêng candidate đó, rồi mới chuyển sang chế độ đánh giá.
+Một chi tiết quan trọng để xếp hạng NAS đáng tin hơn là BatchNorm recalibration. Trong SPOS \cite{guo2020spos}, running mean và running variance của BatchNorm được tích lũy trên phân phối hỗn hợp của rất nhiều sub-network. Nếu lấy trực tiếp các thống kê trung bình đó để đánh giá một kiến trúc cụ thể, dự đoán có thể bị lệch vì kiến trúc đang test có width/depth khác với ``kiến trúc trung bình'' mà BatchNorm đã thấy trong quá trình train. Vì vậy, trước khi chấm proxy loss cho từng candidate, cần chạy vài batch calibration để cập nhật lại thống kê BatchNorm cho riêng candidate đó, rồi mới chuyển sang chế độ đánh giá.
 
 Nếu bỏ bước này, lỗi xếp hạng có thể tăng mạnh với các kiến trúc có dung lượng lệch nhiều so với trung bình của supernet. Đây là lý do trong protocol search, mỗi candidate không chỉ được forward một lần để lấy loss, mà còn cần một bước đồng bộ thống kê ngắn. Điểm này làm phần cải tiến đáng tin hơn: kết quả Top-100 không chỉ phản ánh noise của weight sharing, mà đã giảm bớt sai lệch do BatchNorm dùng thống kê không phù hợp.
 

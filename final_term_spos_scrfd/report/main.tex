@@ -60,11 +60,8 @@
 \renewcommand{\tablename}{Bảng}
 \renewcommand{\chaptername}{Chương}
 
-\usepackage[backend=biber,style=ieee]{biblatex}
-\addbibresource{../references.bib}
-\setcounter{biburlnumpenalty}{100}
-\setcounter{biburlucpenalty}{100}
-\setcounter{biburllcpenalty}{100}
+% Chuyển sang dùng classic BibTeX thay vì biblatex/biber để biên dịch dễ dàng hơn
+\usepackage{cite}
 
 \newif\ifhascites
 \hascitesfalse
@@ -171,11 +168,14 @@
 
 \input{report_content.tex}
 \clearpage
-\chapter*{Tài liệu tham khảo}
+\phantomsection
+\renewcommand{\bibname}{Tài liệu tham khảo}
 \addcontentsline{toc}{chapter}{Tài liệu tham khảo}
 \ifhascites
-  \printbibliography[heading=none]
+  \bibliographystyle{ieeetr}
+  \bibliography{references}
 \else
+  \chapter*{Tài liệu tham khảo}
   \noindent Không có trích dẫn nào trong nội dung, nên danh mục tài liệu tham khảo đang rỗng.
 \fi
 

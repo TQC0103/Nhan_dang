@@ -106,17 +106,19 @@
 \end{frame}
 
 \begin{frame}{Kiến trúc nền Backbone--Neck--Head}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.56\textwidth}
-    \includegraphics[width=\linewidth]{scrfd_backbone_neck_head.png}
-    \column{0.44\textwidth}
-    \begin{itemize}
-      \item \textbf{Backbone}: tạo chuỗi đặc trưng \(C_2 \rightarrow C_5\).
-      \item \textbf{PAFPN}: hợp nhất thông tin nhiều mức để vừa giữ vị trí vừa giữ ngữ nghĩa.
-      \item \textbf{Dense head}: dự đoán classification và bbox trên các feature map.
-      \item Trọng tâm của SCRFD là làm cho cấu trúc này phù hợp hơn với tiny-face detection thay vì bê nguyên detector phân loại ảnh sang.
-    \end{itemize}
-  \end{columns}
+  \begin{itemize}
+    \item \textbf{Backbone}: tạo chuỗi đặc trưng \(C_2 \rightarrow C_5\).
+    \item \textbf{PAFPN}: hợp nhất thông tin nhiều mức để vừa giữ vị trí vừa giữ ngữ nghĩa.
+    \item \textbf{Dense head}: dự đoán classification và bbox trên các feature map.
+    \item Trọng tâm của SCRFD là làm cho cấu trúc này phù hợp hơn với tiny-face detection thay vì bê nguyên detector phân loại ảnh sang.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Minh họa kiến trúc Backbone--Neck--Head}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.98\linewidth,height=0.82\textheight,keepaspectratio]{scrfd_backbone_neck_head.png}
+  \end{figure}
 \end{frame}
 
 \begin{frame}{Computation Redistribution được làm theo hai pha}
@@ -124,8 +126,15 @@
     \item \textbf{Pha 1: search backbone.} Ở bước này paper cố định phần còn lại tương đối ổn định để trả lời câu hỏi riêng cho backbone: trong khung 4 stage \(C_2,C_3,C_4,C_5\), độ sâu và độ rộng nên dồn vào đâu.
     \item Các candidate backbone được sinh ra từ một template có sẵn, đo lại FLOPs, rồi chỉ những cấu hình còn nằm trong cùng vùng chi phí mới được đem đi train và so sánh.
     \item \textbf{Pha 2: search toàn mạng.} Từ backbone template thắng ở pha 1, paper mới mở rộng sang detector đầy đủ: backbone vẫn được dao động trong phạm vi hợp lý, đồng thời neck và head cũng được tinh chỉnh.
-    \item Ý nghĩa của cách tách này là tránh để neck/head che mờ tác động thật sự của backbone ngay từ đầu, đồng thời giữ search space đủ lớn nhưng vẫn kiểm soát được chi phí.
+    \item Ý nghĩa của cách tách này là tránh để neck/head che mờ tác động thật sự của backbone ngay từ đầu.
   \end{itemize}
+\end{frame}
+
+\begin{frame}{Quy trình tìm kiếm kiến trúc CR}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.98\linewidth,height=0.82\textheight,keepaspectratio]{scrfd_two_step_nas_flow.png}
+  \end{figure}
 \end{frame}
 
 \begin{frame}{Critical thinking về các assumption của CR}
@@ -279,17 +288,67 @@
     \item Huấn luyện supernet theo kiểu single-path để mỗi mini-batch chỉ kích hoạt một đường con.
     \item Sau khi supernet đủ ổn định, lấy mẫu \textbf{1,000} candidate trong cùng vùng 2.5 GFLOPs.
     \item Với mỗi candidate, chạy BatchNorm recalibration rồi đo proxy score trên validation.
-    \item Từ bảng xếp hạng đó, phân tích cấu hình của Top-10, Top-100 và nhóm thua để rút ra quy luật CR.
+    \item Phân tích cấu hình Top-10 / thua để rút ra quy luật.
   \end{enumerate}
+\end{frame}
+
+\begin{frame}{Minh họa luồng làm việc của SPOS}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.98\linewidth,height=0.82\textheight,keepaspectratio]{SPOS-Workflow-viz.png}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Đánh giá Supernet và Proxy NAS}
+  \begin{itemize}
+    \item Cả supernet center-focus và edge-focus đều hội tụ ổn định sau khi giảm LR.
+    \item Quá trình lấy mẫu sinh ra không gian biến thể bao phủ rất đều đặn, rải rác công bằng cơ hội thay đổi cấu trúc cho mọi tầng.
+    \item Bảng xếp hạng 1,000 candidates cho thấy sự phân hóa rõ rệt dù cùng GFLOPs, tạo cơ sở mạnh để chọn lọc cấu hình tối ưu.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Tính đồng đều của không gian Search (Uniformity)}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.98\linewidth,height=0.82\textheight,keepaspectratio]{fig_search_space_uniformity.png}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Đường cong hội tụ của Supernet}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.98\linewidth,height=0.82\textheight,keepaspectratio]{fig1_training_curve.png}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Leaderboard 1,000 Candidate}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.98\linewidth,height=0.82\textheight,keepaspectratio]{fig2_nas_leaderboard.png}
+  \end{figure}
 \end{frame}
 
 \begin{frame}{Kết quả chính của SPOS-NAS}
   \begin{itemize}
-    \item Nhóm tốt không phân bổ compute đồng đều; winner có xu hướng \textbf{đầu tư mạnh vào \(C_2\)} và tránh làm \(C_3\) phình quá mức.
+    \item Nhóm tốt có xu hướng \textbf{đầu tư mạnh vào \(C_2\)} và tránh làm \(C_3\) phình quá mức.
     \item \(C_2\) giữ chi tiết không gian cho tiny faces, còn \(C_5\) bổ sung ngữ nghĩa đủ mạnh cho head.
-    \item \(C_3\) là vùng dễ thành bẫy chi phí: feature map vẫn còn lớn nên FLOPs đắt, nhưng gain tăng không tương xứng nếu mở quá rộng.
-    \item Khi đổi proxy target từ center-focus sang edge-focus, phân bố compute lại dịch đi, cho thấy search phản ứng với \textbf{hình học của task} chứ không chỉ học thuộc một template cố định.
+    \item \(C_3\) là vùng dễ thành bẫy chi phí: feature map vẫn còn lớn nên chi phí đắt, nhưng gain tăng không tương xứng.
+    \item Khi đổi proxy từ center-focus sang edge-focus, phân bố học dịch chuyển (giảm C2 tăng C3) \(\rightarrow\) phản ứng linh hoạt với hình học task.
   \end{itemize}
+\end{frame}
+
+\begin{frame}{Phân tích cơ cấu phân bố: Tránh bẫy FLOPs ở C3}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.98\linewidth,height=0.82\textheight,keepaspectratio]{fig3_funnel_analysis.png}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Phân tích cơ cấu phân bố: Tập trung vào biên (Edge-focus)}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.98\linewidth,height=0.82\textheight,keepaspectratio]{fig_appendix_edge_funnel.png}
+  \end{figure}
 \end{frame}
 
 \begin{frame}{Insight chốt lại từ SPOS-NAS}

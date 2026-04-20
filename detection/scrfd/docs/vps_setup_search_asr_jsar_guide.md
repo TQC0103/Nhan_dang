@@ -114,82 +114,58 @@ ls data/retinaface/train/labelv2.txt
 ls data/retinaface/val/gt | head
 ```
 
-## 4. Generate config cho các phiên bản 500M, 1.0G, 2.5G, 10G, 34G
+## 4. Generate config nguyên bản bằng script gốc
 
-### 4.1. Quy ước quan trọng của search scripts
+Phần này chỉ dùng script gốc [generate_configs_2.5g.py](../search_tools/generate_configs_2.5g.py).
 
-Các script search trong thư mục [search_tools](../search_tools) dùng quy ước:
+Không dùng:
+
+- `kernel search`
+- `parallel_generate.py`
+- các wrapper mở rộng
+
+Lưu ý quan trọng:
+
+- script gốc này phù hợp với flow search nguyên bản của SCRFD cho các cấu hình kiểu ResNet
+- trong repo hiện tại, phần đó tương ứng thực tế với các mức như `1.0G`, `2.5G`, `10G`, `34G`
+- `500M` trong repo này thuộc MobileNet family; để search `500M` đúng kiểu MobileNet, repo đang dùng nhánh mở rộng có `kernel search`
+
+Vì vậy, trong mục này:
+
+- tôi chỉ hướng dẫn generate config nguyên bản cho `1.0G`, `2.5G`, `10G`, `34G`
+- `500M` sẽ không đưa vào phần generator gốc để tránh nhầm với flow MobileNet mở rộng
+
+### 4.1. Quy ước đặt tên group config
+
+Script gốc dùng quy ước:
 
 - thư mục config group nằm trong `configs/<group_name>`
-- file config phải có dạng:
+- file seed đầu tiên phải có dạng:
 
 ```text
 configs/<group_name>/<group_name>_0.py
+```
+
+Sau khi generate, script sẽ tiếp tục tạo:
+
+```text
 configs/<group_name>/<group_name>_1.py
+configs/<group_name>/<group_name>_2.py
 ...
 ```
 
-Script train/test search cũng dùng chính `group_name` làm prefix:
+Script train/test search cũng dùng đúng `group_name` làm prefix, nên hãy luôn đặt tên thư mục và tên file seed theo cùng một prefix.
 
-- `search_train.sh <group_name> ...`
-- `search_test_parallel.sh <group_name> ...`
-
-Vì vậy, khi tạo một group mới, hãy luôn đặt tên thư mục và tên file seed theo cùng một prefix.
-
-### 4.2. Search generator nên dùng
-
-Trong repo này có hai hướng:
-
-1. [generate_configs_2.5g.py](../search_tools/generate_configs_2.5g.py)
-2. [generate_configs_2.5g_kernel_search.py](../search_tools/generate_configs_2.5g_kernel_search.py)
-
-Trên thực tế, nên dùng `generate_configs_2.5g_kernel_search.py` cho cả hai trường hợp:
-
-- ResNet family: không truyền `--kernel-search`
-- MobileNet 500M: truyền `--kernel-search`
-
-Lý do:
-
-- script này hỗ trợ `--template-config`
-- tiện cho việc search trên nhiều mức FLOPs khác nhau
-- tương thích với `parallel_generate.py`
-
-### 4.3. Seed configs gợi ý
+### 4.2. Seed configs gợi ý
 
 | Mức FLOPs | Seed config gợi ý | Ghi chú |
 | --- | --- | --- |
-| 500M | `configs/scrfdgen500m/scrfdgen500m_0.py` | MobileNet family |
 | 1.0G | `configs/scrfd/base_1g.py` | ResNet family |
 | 2.5G | `configs/scrfdgen2.5g/scrfdgen2.5g_0.py` hoặc `configs/scrfd/base_2.5g.py` | ResNet family |
 | 10G | `configs/scrfd/base_10g.py` | ResNet family |
 | 34G | `configs/scrfd/base_34g.py` | ResNet family |
 
-### 4.4. Ví dụ generate cho từng phiên bản
-
-#### 500M
-
-Tạo group mới và copy seed:
-
-```bash
-mkdir -p configs/scrfdgen500m_search
-cp configs/scrfdgen500m/scrfdgen500m_0.py \
-   configs/scrfdgen500m_search/scrfdgen500m_search_0.py
-```
-
-Generate 16 configs song song:
-
-```bash
-python search_tools/parallel_generate.py \
-  --group configs/scrfdgen500m_search \
-  --template-config configs/scrfdgen500m_search/scrfdgen500m_search_0.py \
-  --mode 1 \
-  --kernel-search \
-  --gflops 0.5 \
-  --num-configs 16 \
-  --workers 8 \
-  --oversample-factor 2.0 \
-  --keep-workdir
-```
+### 4.3. Ví dụ generate cho từng phiên bản
 
 #### 1.0G
 
@@ -197,10 +173,8 @@ python search_tools/parallel_generate.py \
 mkdir -p configs/scrfdgen1g
 cp configs/scrfd/base_1g.py configs/scrfdgen1g/scrfdgen1g_0.py
 
-python search_tools/generate_configs_2.5g_kernel_search.py \
+python search_tools/generate_configs_2.5g.py \
   --group configs/scrfdgen1g \
-  --template-config configs/scrfdgen1g/scrfdgen1g_0.py \
-  --mode 1 \
   --gflops 1.0 \
   --num-configs 16
 ```
@@ -212,10 +186,8 @@ mkdir -p configs/scrfdgen2.5g_search
 cp configs/scrfdgen2.5g/scrfdgen2.5g_0.py \
    configs/scrfdgen2.5g_search/scrfdgen2.5g_search_0.py
 
-python search_tools/generate_configs_2.5g_kernel_search.py \
+python search_tools/generate_configs_2.5g.py \
   --group configs/scrfdgen2.5g_search \
-  --template-config configs/scrfdgen2.5g_search/scrfdgen2.5g_search_0.py \
-  --mode 1 \
   --gflops 2.5 \
   --num-configs 16
 ```
@@ -226,10 +198,8 @@ python search_tools/generate_configs_2.5g_kernel_search.py \
 mkdir -p configs/scrfdgen10g
 cp configs/scrfd/base_10g.py configs/scrfdgen10g/scrfdgen10g_0.py
 
-python search_tools/generate_configs_2.5g_kernel_search.py \
+python search_tools/generate_configs_2.5g.py \
   --group configs/scrfdgen10g \
-  --template-config configs/scrfdgen10g/scrfdgen10g_0.py \
-  --mode 1 \
   --gflops 10.0 \
   --num-configs 16
 ```
@@ -240,34 +210,17 @@ python search_tools/generate_configs_2.5g_kernel_search.py \
 mkdir -p configs/scrfdgen34g
 cp configs/scrfd/base_34g.py configs/scrfdgen34g/scrfdgen34g_0.py
 
-python search_tools/generate_configs_2.5g_kernel_search.py \
+python search_tools/generate_configs_2.5g.py \
   --group configs/scrfdgen34g \
-  --template-config configs/scrfdgen34g/scrfdgen34g_0.py \
-  --mode 1 \
   --gflops 34.0 \
   --num-configs 16
 ```
 
-### 4.5. Search step 2 sau khi chọn best candidate
+Lưu ý:
 
-Sau khi train/test xong mode 1, giả sử config tốt nhất là `scrfdgen2.5g_search_7.py`:
-
-```bash
-mkdir -p configs/scrfdgen2.5g_search_all
-cp configs/scrfdgen2.5g_search/scrfdgen2.5g_search_7.py \
-   configs/scrfdgen2.5g_search_all/scrfdgen2.5g_search_all_0.py
-```
-
-Sinh cấu hình mode 2:
-
-```bash
-python search_tools/generate_configs_2.5g_kernel_search.py \
-  --group configs/scrfdgen2.5g_search_all \
-  --template-config configs/scrfdgen2.5g_search_all/scrfdgen2.5g_search_all_0.py \
-  --mode 2 \
-  --gflops 2.5 \
-  --num-configs 16
-```
+- script gốc mặc định sẽ dùng file `<group_name>_0.py` làm template
+- vì vậy chỉ cần copy đúng file seed vào group rồi chạy lệnh trên
+- tài liệu này không dùng kernel search và cũng không trình bày flow mở rộng khác
 
 ## 5. Chạy search từ generated configs
 
@@ -375,6 +328,16 @@ Script [run_search_500m_16configs_bundle.sh](../run_search_500m_16configs_bundle
 - test các candidate
 - vẽ biểu đồ search
 - đóng gói toàn bộ artifact thành bundle zip để tải về
+
+Nếu bạn chỉ muốn flow nguyên bản, có thể bỏ qua script này và dùng trực tiếp các lệnh ở Mục 4 và Mục 5.
+
+Nếu bạn cần search `500M` trong repo hiện tại, đây là ngoại lệ:
+
+- không đi theo generator gốc `generate_configs_2.5g.py`
+- phải dùng flow mở rộng dành cho MobileNet / kernel-search
+- phần đó nằm ở:
+  - [run_search_500m_16configs_bundle.sh](../run_search_500m_16configs_bundle.sh)
+  - [EXPERIMENTS_README.md](../EXPERIMENTS_README.md)
 
 ## 7. Chạy cải tiến ASR+JSAR
 

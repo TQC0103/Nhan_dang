@@ -72,6 +72,7 @@
 
 \begin{frame}{SCRFD nên được nhìn như pipeline 3 bước}
   \centering
+  \resizebox{0.94\textwidth}{!}{%
   \begin{tikzpicture}[
     node distance=1.2cm,
     box/.style={draw, rounded corners, minimum width=0.28\textwidth, minimum height=1.9cm, align=center, fill=blue!4},
@@ -82,7 +83,8 @@
     \node[box, right=of sr] (train) {\textbf{Bước 3: Train / Evaluate}\\Train cấu hình đã chọn và đo AP};
     \draw[arrow] (cr) -- (sr);
     \draw[arrow] (sr) -- (train);
-  \end{tikzpicture}
+  \end{tikzpicture}%
+  }
 
   \vspace{0.6cm}
   \begin{itemize}
@@ -344,6 +346,13 @@
   \end{figure}
 \end{frame}
 
+\begin{frame}{Top winners dành compute cho C2 và C5}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.98\linewidth,height=0.82\textheight,keepaspectratio]{fig5_c2_c5_distributions.png}
+  \end{figure}
+\end{frame}
+
 \begin{frame}{Phân tích cơ cấu phân bố: Tập trung vào biên (Edge-focus)}
   \begin{figure}
     \centering
@@ -398,6 +407,21 @@
   \end{columns}
 \end{frame}
 
+\begin{frame}{Scale pool và áp lực phân phối của ASR}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.49\textwidth}
+    \begin{figure}
+      \centering
+      \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/scale_pool_geometry.png}
+    \end{figure}
+    \column{0.49\textwidth}
+    \begin{figure}
+      \centering
+      \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/distribution_pressure.png}
+    \end{figure}
+  \end{columns}
+\end{frame}
+
 \begin{frame}{Protocol thực nghiệm cho ASR+JSAR}
   \begin{itemize}
     \item Cả baseline và cải tiến đều dùng \textbf{SCRFD-2.5GF}, input \(640\times640\), 80 epoch, cosine scheduler.
@@ -414,17 +438,19 @@
 \end{frame}
 
 \begin{frame}{Kết quả ASR+JSAR trên WIDER FACE}
-  \small
+  \scriptsize
+  \resizebox{\textwidth}{!}{%
   \begin{tabular}{@{}lcccc@{}}
     \toprule
     Thiết lập & Easy & Medium & Hard & mAP \\
     \midrule
-    Default baseline & 93.62 & 91.81 & 72.49 & 85.97 \\
+    Default baseline & 91.40 & 89.69 & 72.49 & 84.53 \\
     Default ASR+JSAR & 90.39 & 89.25 & 76.90 & 85.51 \\
-    Paper-SR12 baseline & 93.82 & 91.90 & 73.71 & 86.48 \\
+    Paper-SR12 baseline & 91.61 & 89.99 & 73.71 & 85.10 \\
     Paper-SR12 ASR+JSAR & 90.28 & 89.01 & 77.38 & 85.56 \\
     \bottomrule
   \end{tabular}
+  }
 
   \vspace{0.35cm}
   \begin{itemize}
@@ -433,14 +459,43 @@
   \end{itemize}
 \end{frame}
 
+\begin{frame}{Metric và delta của ASR+JSAR}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.49\textwidth}
+    \begin{figure}
+      \centering
+      \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/metrics_by_scale_set.png}
+    \end{figure}
+    \column{0.49\textwidth}
+    \begin{figure}
+      \centering
+      \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/asr_delta_by_scale_set.png}
+    \end{figure}
+  \end{columns}
+\end{frame}
+
 \begin{frame}{ASR+JSAR đang sửa đúng cái gì}
   \begin{itemize}
     \item Về \textbf{dữ liệu train}, ASR làm thay đổi face-size distribution theo hướng detector còn thiếu.
     \item Về \textbf{supervision}, JSAR làm tiny positives/GT tăng từ khoảng \(1.76\) lên \(2.67\), tức gần \(1.52\times\).
     \item Về \textbf{kết quả}, gain tập trung ở Hard subset, nghĩa là phần cải tiến đúng là đang chạm vào vùng tiny/hard faces thay vì cải thiện đồng đều mọi split.
-    \item Trên nhánh paper-SR12, ASR không đẩy phân phối về tiny một cách cực đoan hơn nữa; nó chủ yếu làm mềm các scale cực đoan và giữ tiny supervision ở mức hiệu quả hơn.
     \item Trade-off vẫn tồn tại: Easy/Medium giảm nhẹ, nhưng đó là đánh đổi có chủ đích để đẩy training signal về đúng nhóm khó nhất.
   \end{itemize}
+\end{frame}
+
+\begin{frame}{JSAR và gain theo nhóm khuôn mặt khó}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.49\textwidth}
+    \begin{figure}
+      \centering
+      \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/jsar_tiny_supervision.png}
+    \end{figure}
+    \column{0.49\textwidth}
+    \begin{figure}
+      \centering
+      \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/hard_size_gain_by_scale_set.png}
+    \end{figure}
+  \end{columns}
 \end{frame}
 
 \section{Kết luận}

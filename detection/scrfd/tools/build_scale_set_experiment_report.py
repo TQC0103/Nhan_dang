@@ -328,171 +328,201 @@ def draw_arrow(ax, x1, y1, x2, y2):
 
 
 def plot_asr_schematic(out_path: str):
-    fig, axes = plt.subplots(1, 3, figsize=(15.5, 5.4), gridspec_kw={'width_ratios': [1.0, 1.15, 1.0]})
+    fig, axes = plt.subplots(1, 3, figsize=(16.5, 5.9), gridspec_kw={'width_ratios': [1.25, 1.1, 1.0]})
 
-    # Panel 1: static pool and zoom semantics
+    def draw_scene(ax, x, y, w, h, crop_w, face_r, title, note, color):
+        outer = Rectangle((x, y), w, h, facecolor='#fcfcfc', edgecolor='#444', linewidth=1.2)
+        ax.add_patch(outer)
+        face_center = (x + w * 0.55, y + h * 0.50)
+        ax.add_patch(Circle(face_center, face_r, facecolor='#333', edgecolor='none'))
+        crop = Rectangle((face_center[0] - crop_w / 2, face_center[1] - crop_w / 2),
+                         crop_w, crop_w, fill=False, edgecolor=color, linewidth=2.0)
+        ax.add_patch(crop)
+        ax.text(x + w / 2, y + h + 0.03, title, ha='center', va='bottom', fontsize=10, fontweight='bold')
+        ax.text(x + w / 2, y - 0.045, note, ha='center', va='top', fontsize=9, color=color)
+
+        draw_arrow(ax, x + w + 0.015, y + h / 2, x + w + 0.09, y + h / 2)
+        resized = Rectangle((x + w + 0.10, y), 0.16, h, facecolor='#ffffff', edgecolor='#444', linewidth=1.2)
+        ax.add_patch(resized)
+        ax.add_patch(Circle((x + w + 0.18, face_center[1]), face_r * (0.16 / crop_w) * 1.4,
+                            facecolor='#333', edgecolor='none'))
+        ax.text(x + w + 0.18, y - 0.045, 'sau đổi cỡ về 640×640', ha='center', va='top', fontsize=8.5)
+
     ax = axes[0]
-    scale_candidates = np.array([0.35, 0.45, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0], dtype=float)
-    uniform = np.full(scale_candidates.shape[0], 1.0 / scale_candidates.shape[0])
-    ax.bar(scale_candidates, uniform, width=0.11, color='#cfd8e3', edgecolor='#51647b', linewidth=1)
-    ax.axvline(1.0, color='#333', linestyle='--', linewidth=1)
-    ax.text(0.48, 0.124, 'zoom-in\nface larger', color='#4c78a8', ha='center', va='top', fontsize=10)
-    ax.text(1.55, 0.124, 'zoom-out\nface smaller', color='#e45756', ha='center', va='top', fontsize=10)
-    ax.annotate('', xy=(0.45, 0.114), xytext=(0.92, 0.114),
-                arrowprops=dict(arrowstyle='->', color='#4c78a8', linewidth=1.4))
-    ax.annotate('', xy=(1.9, 0.114), xytext=(1.08, 0.114),
-                arrowprops=dict(arrowstyle='->', color='#e45756', linewidth=1.4))
-    ax.set_title('Static scale pool')
-    ax.set_xlabel('crop ratio / scale candidate')
-    ax.set_ylabel('sampling probability')
-    ax.set_ylim(0, 0.14)
-    ax.grid(axis='y', linestyle='--', alpha=0.25)
-    ax.text(
-        0.5,
-        -0.23,
-        'Trước ASR, mỗi crop ratio được lấy gần như đồng đều.\n'
-        'Với pipeline SCRFD, scale lớn hơn tương ứng với crop rộng hơn và ảnh mặt nhỏ hơn sau resize.',
-        transform=ax.transAxes,
-        ha='center',
-        va='top',
-        fontsize=9.5,
-        wrap=True,
-    )
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.axis('off')
+    ax.set_title('Bước 1. Tỉ lệ cắt quyết định kích thước mặt sau tăng cường dữ liệu', fontsize=12, pad=10)
+    draw_scene(ax, 0.03, 0.60, 0.18, 0.22, crop_w=0.10, face_r=0.020,
+               title='Tỉ lệ nhỏ', note='vùng cắt hẹp hơn → mặt lớn hơn', color='#4c78a8')
+    draw_scene(ax, 0.03, 0.33, 0.18, 0.22, crop_w=0.18, face_r=0.020,
+               title='Tỉ lệ trung bình', note='mức thay đổi vừa phải', color='#72b7b2')
+    draw_scene(ax, 0.03, 0.06, 0.18, 0.22, crop_w=0.26, face_r=0.020,
+               title='Tỉ lệ lớn', note='vùng cắt rộng hơn → mặt nhỏ hơn', color='#e45756')
+    ax.text(0.58, 0.92,
+            'Trong SCRFD, tỉ lệ cắt không biểu diễn trực tiếp\n"khuôn mặt lớn" hay "khuôn mặt nhỏ".\n'
+            'Nó điều khiển vùng ảnh được cắt ra trước khi đổi cỡ.',
+            ha='center', va='top', fontsize=10)
 
-    # Panel 2: feedback loop
     ax = axes[1]
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.axis('off')
-    draw_box(ax, 0.04, 0.67, 0.28, 0.16, '1. Train epoch\nwith current policy', '#eef4fb', fontsize=10)
-    draw_box(ax, 0.60, 0.67, 0.28, 0.16, '2. Aggregate\nGT / positives / loss\nper size bin', '#fdf4e7', fontsize=10)
-    draw_box(ax, 0.04, 0.38, 0.28, 0.16, '3. Hard bins remain:\nusually tiny / small', '#eef8e8', fontsize=10)
-    draw_box(ax, 0.60, 0.38, 0.28, 0.16, '4. Update policy:\nmore mass on helpful scales', '#fbeaea', fontsize=10)
-    draw_arrow(ax, 0.32, 0.75, 0.60, 0.75)
-    draw_arrow(ax, 0.74, 0.67, 0.22, 0.54)
-    draw_arrow(ax, 0.32, 0.46, 0.60, 0.46)
-    draw_arrow(ax, 0.74, 0.38, 0.22, 0.67)
+    ax.set_title('Bước 2. Dùng phản hồi huấn luyện để cập nhật xác suất lấy mẫu', fontsize=12, pad=10)
+    draw_box(ax, 0.05, 0.73, 0.24, 0.14, 'Huấn luyện 1 epoch\nvới phân phối hiện tại', '#eef4fb', fontsize=10)
+    draw_box(ax, 0.38, 0.73, 0.24, 0.14, 'Thống kê theo nhóm kích thước:\n'
+                                        'số mặt, số anchor dương,\n'
+                                        'lỗi phân loại, lỗi hồi quy', '#fdf4e7', fontsize=9.5)
+    draw_box(ax, 0.71, 0.73, 0.24, 0.14, 'Tính độ khó:\nnhóm nào đang thiếu giám sát\nvà còn lỗi cao', '#eef8e8', fontsize=9.5)
+    draw_arrow(ax, 0.29, 0.80, 0.38, 0.80)
+    draw_arrow(ax, 0.62, 0.80, 0.71, 0.80)
 
-    x = np.arange(4)
-    diff = np.array([0.95, 0.72, 0.32, 0.16])
-    face_bins = ['tiny', 'small', 'medium', 'large']
-    inset = ax.inset_axes([0.05, 0.06, 0.30, 0.18])
-    inset.bar(x, diff, color=['#e45756', '#f58518', '#72b7b2', '#9d9da1'])
-    inset.set_xticks(x)
-    inset.set_xticklabels(face_bins, fontsize=8)
+    draw_box(ax, 0.18, 0.46, 0.26, 0.14, 'Chiếu độ khó sang từng\n'
+                                         'tỉ lệ cắt ứng viên', '#fbeaea', fontsize=10)
+    draw_box(ax, 0.56, 0.46, 0.26, 0.14, 'Tăng xác suất ở những tỉ lệ cắt\n'
+                                         'giúp mô hình nhìn thấy nhiều\n'
+                                         'mẫu khó hữu ích hơn', '#eef4fb', fontsize=10)
+    draw_arrow(ax, 0.78, 0.73, 0.31, 0.60)
+    draw_arrow(ax, 0.44, 0.53, 0.56, 0.53)
+
+    bins = ['rất nhỏ', 'nhỏ', 'vừa', 'lớn']
+    hard = np.array([0.95, 0.72, 0.34, 0.15])
+    inset = ax.inset_axes([0.05, 0.08, 0.34, 0.22])
+    inset.bar(np.arange(4), hard, color=['#e45756', '#f58518', '#72b7b2', '#b0b0b0'])
+    inset.set_xticks(np.arange(4))
+    inset.set_xticklabels(bins, fontsize=8)
     inset.set_yticks([])
-    inset.set_title('hard bins', fontsize=9)
+    inset.set_title('độ khó theo nhóm kích thước', fontsize=8.5)
     inset.spines[['top', 'right', 'left']].set_visible(False)
 
-    inset2 = ax.inset_axes([0.58, 0.05, 0.33, 0.20])
-    adapted = np.array([0.05, 0.06, 0.085, 0.112, 0.13, 0.12, 0.118, 0.112, 0.108, 0.105])
-    inset2.plot(scale_candidates, uniform, color='#9d9da1', linewidth=1.5, label='static')
-    inset2.plot(scale_candidates, adapted, color='#4c78a8', linewidth=2.0, label='adaptive')
-    inset2.axvline(1.0, color='#555', linestyle='--', linewidth=1)
+    scale_candidates = np.array([0.35, 0.45, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0], dtype=float)
+    uniform = np.full(scale_candidates.shape[0], 1.0 / scale_candidates.shape[0])
+    adapted = np.array([0.047, 0.059, 0.085, 0.112, 0.130, 0.120, 0.118, 0.112, 0.109, 0.108])
+    inset2 = ax.inset_axes([0.55, 0.07, 0.37, 0.24])
+    inset2.plot(scale_candidates, uniform, color='#9d9da1', linewidth=1.8, label='ban đầu')
+    inset2.plot(scale_candidates, adapted, color='#4c78a8', linewidth=2.2, label='sau cập nhật')
+    inset2.axvline(1.0, color='#666', linestyle='--', linewidth=1)
     inset2.set_xticks([0.35, 0.8, 1.0, 1.6, 2.0])
     inset2.set_yticks([])
-    inset2.set_title('learned scale policy', fontsize=9)
-    inset2.legend(fontsize=7, loc='upper left', frameon=False)
+    inset2.set_title('xác suất lấy mẫu theo tỉ lệ cắt', fontsize=8.5)
+    inset2.legend(fontsize=7.5, frameon=False, loc='upper left')
     inset2.spines[['top', 'right', 'left']].set_visible(False)
 
-    # Panel 3: effect on face-size distribution
     ax = axes[2]
     raw = np.array([0.46, 0.27, 0.21, 0.06])
-    asr = np.array([0.52, 0.23, 0.19, 0.06])
+    improved = np.array([0.52, 0.23, 0.19, 0.06])
     xx = np.arange(4)
     width = 0.34
-    ax.bar(xx - width / 2, raw, width, label='static SR', color='#cfd8e3', edgecolor='#51647b')
-    ax.bar(xx + width / 2, asr, width, label='ASR', color='#4c78a8')
+    ax.bar(xx - width / 2, raw, width, label='mô hình gốc', color='#cfd8e3', edgecolor='#51647b')
+    ax.bar(xx + width / 2, improved, width, label='có phân phối thích nghi', color='#4c78a8')
     ax.set_xticks(xx)
-    ax.set_xticklabels(['tiny', 'small', 'medium', 'large'])
-    ax.set_ylabel('ratio after SR')
-    ax.set_title('Training distribution after crop + resize')
+    ax.set_xticklabels(['rất nhỏ', 'nhỏ', 'vừa', 'lớn'])
+    ax.set_ylabel('tỉ lệ trong dữ liệu huấn luyện')
+    ax.set_title('Bước 3. Phân phối huấn luyện dịch về phía nhiều mặt nhỏ hơn')
     ax.grid(axis='y', linestyle='--', alpha=0.25)
-    ax.legend(fontsize=8)
-    ax.annotate('more tiny/small training cases', xy=(0.2, 0.52), xytext=(1.25, 0.58),
-                arrowprops=dict(arrowstyle='->', color='#e45756', linewidth=1.5),
+    ax.legend(fontsize=8, loc='upper right')
+    ax.annotate('nhiều mẫu rất nhỏ hơn', xy=(0.18, improved[0]), xytext=(1.15, 0.57),
+                arrowprops=dict(arrowstyle='->', color='#e45756', linewidth=1.6),
                 fontsize=10, color='#e45756')
-    ax.text(
-        0.5,
-        -0.23,
-        'Ý tưởng cốt lõi của ASR: dùng phản hồi từ các size bin đang khó để dịch xác suất sample '
-        'sang những crop ratio tạo ra nhiều tình huống tiny / hard hữu ích hơn trong train.',
-        transform=ax.transAxes,
-        ha='center',
-        va='top',
-        fontsize=9.5,
-        wrap=True,
-    )
+    ax.text(0.5, -0.20,
+            'Cốt lõi của cơ chế này là: nếu mô hình đang học kém ở nhóm khuôn mặt rất nhỏ,\n'
+            'xác suất lấy các tỉ lệ cắt tạo ra nhiều tình huống đó sẽ tăng lên ở epoch sau.',
+            transform=ax.transAxes, ha='center', va='top', fontsize=9.5)
     fig.tight_layout()
     fig.savefig(out_path, dpi=180)
     plt.close(fig)
 
 
 def plot_jsar_schematic(out_path: str):
-    fig, axes = plt.subplots(1, 3, figsize=(15.5, 5.4), gridspec_kw={'width_ratios': [1.0, 1.0, 1.05]})
+    fig, axes = plt.subplots(1, 3, figsize=(16.3, 5.9), gridspec_kw={'width_ratios': [1.0, 1.0, 1.05]})
 
-    def draw_assignment_panel(ax, title, threshold_radius, center_radius, added_indices=None):
+    def draw_assignment_panel(ax, title, subtitle, threshold_radius, center_radius, added_indices=None):
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
         ax.axis('off')
-        gt = Rectangle((0.43, 0.40), 0.14, 0.14, linewidth=2, edgecolor='#333', facecolor='none')
+        anchors = [(0.22, 0.74), (0.50, 0.74), (0.78, 0.74),
+                   (0.22, 0.50), (0.50, 0.50), (0.78, 0.50),
+                   (0.22, 0.26), (0.50, 0.26), (0.78, 0.26)]
+
+        gt = Rectangle((0.44, 0.44), 0.12, 0.12, linewidth=2, edgecolor='#333', facecolor='none')
         ax.add_patch(gt)
-        ax.add_patch(Circle((0.50, 0.47), center_radius, facecolor='#fbeaea', edgecolor='none', alpha=0.7))
-        ax.add_patch(Circle((0.50, 0.47), threshold_radius, facecolor='none', edgecolor='#e45756',
-                            linewidth=1.5, linestyle='--'))
-        anchors = [(0.28, 0.67), (0.50, 0.67), (0.72, 0.67),
-                   (0.28, 0.47), (0.50, 0.47), (0.72, 0.47),
-                   (0.28, 0.27), (0.50, 0.27), (0.72, 0.27)]
+        ax.add_patch(Circle((0.50, 0.50), center_radius, facecolor='#fbeaea', edgecolor='none', alpha=0.70))
+        ax.add_patch(Circle((0.50, 0.50), threshold_radius, facecolor='none', edgecolor='#e45756',
+                            linewidth=1.8, linestyle='--'))
+
         base_indices = {4}
         added_indices = set(added_indices or [])
         for idx, (x, y) in enumerate(anchors):
-            color = '#d9d9d9'
-            radius = 0.028
-            edge = '#666'
+            ax.add_patch(Circle((x, y), 0.030, facecolor='#d9d9d9', edgecolor='#777', linewidth=1.1))
             if idx in base_indices:
-                color = '#4c78a8'
-                radius = 0.034
-                edge = 'white'
+                ax.add_patch(Circle((x, y), 0.036, facecolor='#4c78a8', edgecolor='white', linewidth=1.6))
             elif idx in added_indices:
-                color = '#f58518'
-                radius = 0.034
-                edge = 'white'
-            ax.add_patch(Circle((x, y), radius, facecolor=color, edgecolor=edge, linewidth=1.4))
-        ax.text(0.50, 0.87, title, ha='center', va='center', fontsize=12, fontweight='bold')
-        ax.text(0.50, 0.14, 'tiny GT', ha='center', va='center', fontsize=10)
-        ax.text(0.50, 0.08, 'đỏ đứt: IoU threshold\nvùng hồng: center gating',
-                ha='center', va='center', fontsize=9)
+                ax.add_patch(Circle((x, y), 0.036, facecolor='#f58518', edgecolor='white', linewidth=1.6))
 
-    # Panel 1: baseline ATSS
-    draw_assignment_panel(axes[0], 'Baseline ATSS', threshold_radius=0.16, center_radius=0.11, added_indices=[])
-    axes[0].text(0.50, 0.94, 'Ít positive anchors cho tiny GT', ha='center', va='top', fontsize=10, color='#4c78a8')
+        ax.text(0.50, 0.94, title, ha='center', va='top', fontsize=12, fontweight='bold')
+        ax.text(0.50, 0.885, subtitle, ha='center', va='top', fontsize=9.5, color='#555')
+        ax.text(0.50, 0.14, 'hình chữ nhật đen: khuôn mặt rất nhỏ', ha='center', va='center', fontsize=9)
+        ax.text(0.50, 0.08, 'vòng đỏ đứt: điều kiện IoU\nvùng hồng: điều kiện gần tâm',
+                ha='center', va='center', fontsize=8.7)
 
-    # Panel 2: JSAR after threshold + center expansion
-    draw_assignment_panel(axes[1], 'JSAR after size-aware relaxation', threshold_radius=0.24, center_radius=0.18,
-                          added_indices=[1, 3, 5, 7])
-    axes[1].text(0.50, 0.94, 'Threshold thấp hơn và vùng center hợp lệ rộng hơn',
+        legend_y = 0.985
+        ax.add_patch(Circle((0.18, legend_y), 0.015, facecolor='#4c78a8', edgecolor='white', linewidth=1))
+        ax.text(0.22, legend_y, 'anchor dương ban đầu', va='center', fontsize=8.5)
+        ax.add_patch(Circle((0.64, legend_y), 0.015, facecolor='#f58518', edgecolor='white', linewidth=1))
+        ax.text(0.68, legend_y, 'anchor được thêm', va='center', fontsize=8.5)
+
+    draw_assignment_panel(
+        axes[0],
+        'Bước 1. Gán nhãn ban đầu',
+        'Khuôn mặt rất nhỏ thường chỉ nhận rất ít anchor dương',
+        threshold_radius=0.15,
+        center_radius=0.09,
+        added_indices=[],
+    )
+    axes[0].text(0.50, 0.84, 'Ví dụ: chỉ có 1 anchor dương',
+                 ha='center', va='top', fontsize=10, color='#4c78a8')
+
+    draw_assignment_panel(
+        axes[1],
+        'Bước 2. Nới điều kiện cho đối tượng nhỏ',
+        'Hạ ngưỡng IoU và nới vùng gần tâm cho mặt rất nhỏ',
+        threshold_radius=0.24,
+        center_radius=0.18,
+        added_indices=[1, 3, 5, 7],
+    )
+    axes[1].text(0.50, 0.84, 'Nhiều anchor lân cận được giữ lại hơn',
                  ha='center', va='top', fontsize=10, color='#e45756')
 
-    # Panel 3: fallback completion
     ax = axes[2]
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.axis('off')
-    draw_box(ax, 0.10, 0.69, 0.80, 0.16, '1) Relax tiny/small threshold\n2) Size-aware center gating', '#eef4fb')
-    draw_box(ax, 0.10, 0.43, 0.80, 0.16, 'Nếu $N_{pos}(g)$ vẫn thấp:\nchấm điểm anchors nền lân cận', '#fdf4e7')
-    draw_box(ax, 0.10, 0.17, 0.80, 0.16, 'Thêm top-k anchors gần nhất\nvào positive set của tiny GT', '#eef8e8')
-    draw_arrow(ax, 0.50, 0.69, 0.50, 0.59)
-    draw_arrow(ax, 0.50, 0.43, 0.50, 0.33)
+    ax.set_title('Bước 3. Bổ sung anchor nếu vẫn còn thiếu', fontsize=12, pad=10)
+    draw_box(ax, 0.08, 0.73, 0.84, 0.14,
+             'Nếu số anchor dương của khuôn mặt rất nhỏ vẫn nhỏ hơn ngưỡng yêu cầu,\n'
+             'hệ thống sẽ tìm thêm một số anchor nền lân cận.',
+             '#eef4fb', fontsize=10)
+    draw_box(ax, 0.08, 0.49, 0.84, 0.14,
+             'Các anchor ứng viên được chấm điểm theo hai yếu tố:\n'
+             'độ chồng lắp với khuôn mặt và khoảng cách tới khuôn mặt.',
+             '#fdf4e7', fontsize=10)
+    draw_box(ax, 0.08, 0.16, 0.84, 0.16,
+             'Chọn thêm một vài anchor có điểm cao nhất vào tập dương.\n'
+             'Nhờ đó, khuôn mặt rất nhỏ vẫn nhận đủ tín hiệu giám sát để học.',
+             '#eef8e8', fontsize=10)
+    draw_arrow(ax, 0.50, 0.73, 0.50, 0.63)
+    draw_arrow(ax, 0.50, 0.49, 0.50, 0.39)
 
-    score_x = np.array([0.18, 0.34, 0.50, 0.66, 0.82])
-    score_h = [0.52, 0.64, 0.78, 0.57, 0.45]
+    score_x = np.array([0.16, 0.32, 0.48, 0.64, 0.80])
+    score_h = [0.32, 0.48, 0.70, 0.57, 0.42]
     for idx, (x, h) in enumerate(zip(score_x, score_h)):
         color = '#f58518' if idx < 3 else '#d9d9d9'
-        ax.add_patch(Rectangle((x - 0.045, 0.36), 0.09, h * 0.08, facecolor=color, edgecolor='#666'))
-    ax.text(0.50, 0.35, 'fallback score ranking', ha='center', va='top', fontsize=9)
-    ax.text(0.50, 0.06,
-            'Ý tưởng cốt lõi của JSAR: tiny GT không chỉ được giữ positives gốc của ATSS,\n'
-            'mà còn được nới điều kiện matching và bổ sung thêm positives gần GT khi cần.',
+        ax.add_patch(Rectangle((x - 0.05, 0.36), 0.10, h * 0.18, facecolor=color, edgecolor='#666'))
+        ax.text(x, 0.34, f'a{idx+1}', ha='center', va='top', fontsize=8.5)
+    ax.text(0.50, 0.31, 'ví dụ xếp hạng anchor ứng viên theo điểm số', ha='center', va='top', fontsize=9)
+    ax.text(0.50, 0.05,
+            'Tóm lại, cơ chế này làm tăng số anchor dương đúng ở những khuôn mặt rất nhỏ,\n'
+            'nơi quy tắc gán nhãn ban đầu của SCRFD thường còn quá khắt khe.',
             ha='center', va='bottom', fontsize=9.5, wrap=True)
 
     fig.tight_layout()

@@ -514,6 +514,8 @@ Quan sát quan trọng nhất từ leaderboard là 8/10 kiến trúc đứng đ�
 
 Bảng phân bố GFLOPs làm rõ hơn ý nghĩa của Computation Redistribution. Nhóm thắng không đơn giản là ``dùng nhiều compute ở stage nông hơn'' một cách mù quáng; chúng tăng mạnh \(C_2\) nhưng kiểm soát \(C_3\), vì \(C_3\) vẫn còn ở độ phân giải \(80\times80\) nên mọi tăng width/depth đều rất đắt. Nhóm thua rơi vào một dạng \textit{C3 trap}: đổ \(1.102\) GFLOPs vào \(C_3\), khiến \(C_2\) chỉ còn \(0.643\) GFLOPs và làm yếu tầng nền tảng cho mặt nhỏ. Ngược lại, Top-100 winners dành \(1.124\) GFLOPs cho \(C_2\), giữ \(C_3\) vừa đủ, và vẫn còn một phần nhỏ cho \(C_5\) để duy trì ngữ nghĩa toàn cục.
 
+Một chi tiết đáng giá của Hình Funnel là đây không phải so sánh giữa nhóm mạnh hơn và nhóm yếu hơn ở hai mức chi phí khác nhau, mà là so sánh giữa hai nhóm gần như cùng ngân sách, quanh khoảng 2.44 GFLOPs. Vì vậy, chênh lệch \(+0.481\) GFLOPs ở \(C_2\) gần như được bù trực tiếp bởi \(-0.447\) GFLOPs ở \(C_3\), còn \(C_4\) và \(C_5\) chỉ thay đổi nhỏ. Điều đó cho thấy Top-100 winners không thắng nhờ được phép dùng thêm compute, mà thắng vì chuyển compute từ chỗ rất đắt nhưng hiệu quả kém cho tiny faces sang chỗ đắt nhưng đúng mục tiêu hơn. Đây chính là bằng chứng định lượng mạnh nhất trong toàn bộ nhánh SPOS cho luận điểm Computation Redistribution.
+
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.88\textwidth]{fig5_c2_c5_distributions.png}
@@ -606,17 +608,31 @@ Trong các thí nghiệm cuối cùng, ASR dùng warm-up 2 epoch, cập nhật m
 \caption{Scale pool dùng trong thí nghiệm ASR+JSAR}
 \label{tab:asr_scale_pool}
 \small
-\begin{tabular}{@{}p{0.24\textwidth}p{0.09\textwidth}p{0.28\textwidth}p{0.29\textwidth}@{}}
+\begin{tabular}{@{}p{0.23\textwidth}p{0.09\textwidth}p{0.28\textwidth}p{0.30\textwidth}@{}}
 \toprule
 Thiết lập & Số scale & Khoảng scale & Ghi chú \\
 \midrule
-Default source / default-adaptive & 10 & baseline: \(0.3 \rightarrow 2.0\), ASR pool: \(0.35 \rightarrow 2.0\) & Giữ tinh thần source code nhưng làm nhẹ scale cực trái khi cập nhật động \\
+Default source /\newline default-adaptive & 10 & baseline: \(0.3 \rightarrow 2.0\), ASR pool: \(0.35 \rightarrow 2.0\) & Giữ tinh thần source code nhưng làm nhẹ scale cực trái khi cập nhật động \\
 Paper-SR12 scale set & 12 & \(0.5 \rightarrow 2.6\) & Bám sát hơn searched scale policy được paper mô tả \\
 \bottomrule
 \end{tabular}
 \end{table}
 
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.88\textwidth]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/scale_pool_geometry.png}
+  \caption{Hình học của hai scale pool trong thí nghiệm ASR: scale nhỏ tạo zoom-in mạnh hơn, scale lớn tạo zoom-out mạnh hơn.}
+\end{figure}
+
 Điểm cần đọc kỹ ở đây là baseline mặc định của source và ASR mặc định không hoàn toàn trùng nhau. Baseline gốc bắt đầu từ một scale cực trái mạnh hơn, còn ASR dịch nhẹ điểm đầu đó để tránh việc policy động sụp quá nhanh về zoom-in cực đoan. Trên nhánh paper-SR12, cả baseline và ASR đều dùng đúng cùng một 12-scale set theo paper, nên khác biệt còn lại chủ yếu đến từ cơ chế adaptive redistribution và JSAR.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.88\textwidth]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/distribution_pressure.png}
+  \caption{Áp lực phân bố do scale policy tạo ra lên face-size distribution sau crop và resize.}
+\end{figure}
+
+Hai hình trên giúp nhìn rõ hơn điều mà chỉ đọc bảng scale pool thì vẫn còn trừu tượng. Scale pool không chỉ là danh sách các con số, mà chính là cơ chế quyết định detector sẽ nhìn thấy loại khuôn mặt nào nhiều hơn trong train. Default source đặt nhiều khối lượng hơn ở vùng zoom-in mạnh, nên dễ kéo một phần tiny faces sang dải kích thước lớn hơn sau resize. Paper-SR12 phân bố nhiều hơn về phía zoom-out, vì vậy giữ lại được nhiều tình huống tiny/small thật sự hơn trong dữ liệu huấn luyện. ASR đứng giữa hai cực này: nó không phá bỏ hình học của scale pool, mà cập nhật xác suất trên chính hình học đó để tạo áp lực mạnh hơn vào những size bins còn khó.
 
 \subsection{Cơ chế Joint Sample--Assignment Redistribution}
 
@@ -659,6 +675,12 @@ Paper-SR12 ASR+JSAR & 90.28 & 89.01 & 77.38 & 85.56 \\
 \end{tabular}
 \end{table}
 
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.84\textwidth]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/metrics_by_scale_set.png}
+  \caption{So sánh Easy, Medium, Hard và mAP giữa baseline và ASR+JSAR trên hai scale set.}
+\end{figure}
+
 \begin{table}[H]
 \centering
 \caption{Delta của ASR+JSAR so với baseline.}
@@ -673,7 +695,15 @@ Paper-SR12 & -1.33 & -0.98 & +3.67 & +0.45 \\
 \end{tabular}
 \end{table}
 
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.78\textwidth]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/asr_delta_by_scale_set.png}
+  \caption{Delta của ASR+JSAR so với baseline trên từng split của WIDER FACE.}
+\end{figure}
+
 Mẫu hình kết quả rất rõ: ASR+JSAR không tối ưu đồng đều mọi split, mà tập trung vào Hard. Easy và Medium giảm nhẹ vì phương pháp chấp nhận dịch training signal về tiny/hard faces; đổi lại Hard AP tăng \(+4.40\) điểm với default scale set và \(+3.67\) điểm với paper-SR12. Với paper-SR12, Hard AP đạt \(77.38\), chỉ còn cách số official SCRFD-2.5GF \(77.87\) khoảng \(0.49\) điểm ở split khó nhất. Đây cũng là lý do report xem baseline + ASR+JSAR là nhánh có sức nặng thực nghiệm chính: nó có đối chứng rõ, có biến can thiệp cụ thể và có bằng chứng định lượng bám rất sát vùng khó nhất của benchmark.
+
+Điểm đáng chú ý từ hai hình tổng quan là lợi ích của ASR+JSAR có cấu trúc rất ổn định giữa hai scale set. Trong cả hai trường hợp, đường cải thiện gần như chỉ bật lên ở Hard, còn Easy và Medium hoặc đi ngang, hoặc giảm nhẹ. Điều đó làm cho phần thực nghiệm này đáng tin hơn nhiều so với một kết quả tăng đều mọi split: nó đúng với cơ chế mà cải tiến muốn tác động, tức là ưu tiên tiny faces và hard scenes, chứ không phải vô tình làm cả detector mạnh lên ở mọi nơi.
 
 \subsection{JSAR tăng supervision cho tiny faces}
 
@@ -694,6 +724,12 @@ Paper-SR12 & Small & 6.04 & 6.04 & \(1.00\times\) \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.78\textwidth]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/jsar_tiny_supervision.png}
+  \caption{Tiny positives trên mỗi ground-truth trước và sau JSAR ở hai scale set.}
+\end{figure}
 
 Từ góc nhìn cơ chế, đây là kết quả quan trọng hơn việc chỉ nhìn AP. Nó chứng minh phần code JSAR thực sự tác động đúng vào vùng cần tác động: tiny faces vốn bị under-assigned được tăng số positives, còn các bin lớn không bị thay đổi đáng kể. Điều này cũng giải thích vì sao Hard AP tăng mạnh hơn Easy/Medium.
 
@@ -718,6 +754,12 @@ Phân tích hard subset cho thấy gain recall proxy tập trung gần như hoà
 \bottomrule
 \end{tabular}
 \end{table}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.80\textwidth]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/hard_size_gain_by_scale_set.png}
+  \caption{Delta recall proxy trên hard subset theo size bin của hai scale set.}
+\end{figure}
 
 Trên paper-SR12, hard recall proxy tổng thể tăng từ \(0.8357\) lên \(0.8690\), precision proxy tăng từ \(0.0167\) lên \(0.0196\), trong khi số prediction giảm từ \(1\,595\,279\) xuống \(1\,416\,440\). Trên default scale set, hard recall proxy tăng từ \(0.8243\) lên \(0.8659\), precision proxy tăng từ \(0.0153\) lên \(0.0182\), prediction count giảm từ \(1\,725\,098\) xuống \(1\,522\,654\). Vì vậy ASR+JSAR không chỉ tạo thêm nhiều dự đoán; nó còn làm kết quả trên hard subset gọn hơn ở ngưỡng đánh giá.
 

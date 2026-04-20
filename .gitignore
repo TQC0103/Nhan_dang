@@ -86,3 +86,6 @@ Desktop.ini
 # Local datasets (keep only placeholder guide)
 data/*
 !data/README.md
+
+# Local submission packages
+submission_ready/

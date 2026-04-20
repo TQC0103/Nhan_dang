@@ -74,12 +74,12 @@
   \centering
   \resizebox{0.94\textwidth}{!}{%
   \begin{tikzpicture}[
-    node distance=1.2cm,
-    box/.style={draw, rounded corners, minimum width=0.28\textwidth, minimum height=1.9cm, align=center, fill=blue!4},
+    node distance=0.5cm,
+    box/.style={draw, rounded corners, text width=0.29\textwidth, minimum height=1.9cm, align=center, fill=blue!4, font=\footnotesize},
     arrow/.style={-{Latex[length=3mm]}, thick}
   ]
-    \node[box] (cr) {\textbf{Bước 1: Computation Redistribution}\\Tìm cấu hình detector tốt trong cùng vùng FLOPs};
-    \node[box, right=of cr] (sr) {\textbf{Bước 2: Sample Redistribution}\\Điều chỉnh phân bố scale khi huấn luyện};
+    \node[box] (cr) {\textbf{Bước 1: Computation Redistribution}\\Tìm cấu hình detector ổn trong cùng vùng FLOPs};
+    \node[box, right=of cr] (sr) {\textbf{Bước 2: Sample Redistribution}\\Đổi phân bố scale crop khi huấn luyện};
     \node[box, right=of sr] (train) {\textbf{Bước 3: Train / Evaluate}\\Train cấu hình đã chọn và đo AP};
     \draw[arrow] (cr) -- (sr);
     \draw[arrow] (sr) -- (train);
@@ -512,7 +512,7 @@
 
 \begin{frame}{Cảm ơn thầy và các bạn đã lắng nghe}
   \centering
-  {\Large Sẵn sàng cho phần câu hỏi}
+  {\Large Trả lời câu hỏi}
 \end{frame}
 
 \end{document}

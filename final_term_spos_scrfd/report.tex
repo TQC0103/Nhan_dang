@@ -350,6 +350,25 @@ Hình~\ref{fig:final-term-distribution-pressure} minh họa rõ hơn tác độn
   \label{fig:final-term-distribution-pressure}
 \end{figure}
 
+Để thấy trực tiếp phân phối kích thước mà mô hình thực sự nhìn thấy trong quá trình huấn luyện, Hình~\ref{fig:final-term-face-histogram} biểu diễn histogram kích thước khuôn mặt sau bước cắt ảnh và đổi cỡ.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{final_term_spos_scrfd/default_face_size_histogram.png}
+    \caption{Bộ mặc định trong mã nguồn}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{final_term_spos_scrfd/paper_sr12_face_size_histogram.png}
+    \caption{Bộ 12 mức theo bài báo}
+  \end{subfigure}
+  \caption{Histogram kích thước khuôn mặt sau bước tăng cường dữ liệu.}
+  \label{fig:final-term-face-histogram}
+\end{figure}
+
 So sánh hai mô hình gốc cho thấy:
 \begin{itemize}
   \item với bộ mặc định trong mã nguồn, tỉ lệ khuôn mặt rất nhỏ là \(0.475\), trung vị kích thước khuôn mặt là \(17.12\);
@@ -358,6 +377,8 @@ So sánh hai mô hình gốc cho thấy:
 
 Nói cách khác, chỉ riêng việc thay bộ tỉ lệ cắt đã làm bài toán huấn luyện nghiêng mạnh hơn về nhóm khuôn mặt rất nhỏ.
 Đây là nguyên nhân khiến mô hình gốc với bộ 12 mức theo bài báo đã mạnh hơn mô hình gốc với bộ mặc định trong mã nguồn, đặc biệt ở chỉ số Hard AP.
+
+Hình~\ref{fig:final-term-face-histogram} cũng cho thấy khác biệt quan trọng giữa hai scale set. Với bộ mặc định trong mã nguồn, histogram của mô hình cải tiến lệch sang trái rõ hơn baseline: tỉ lệ khuôn mặt rất nhỏ tăng từ \(0.475\) lên \(0.523\), còn trung vị kích thước giảm từ \(17.12\) xuống \(15.09\). Ngược lại, với bộ 12 mức theo bài báo, baseline và mô hình cải tiến gần nhau hơn đáng kể: tỉ lệ khuôn mặt rất nhỏ chỉ thay đổi từ \(0.582\) xuống \(0.577\), còn trung vị kích thước gần như giữ nguyên, từ \(12.97\) lên \(13.18\).
 
 \subsection{Hệ quả đối với biên độ cải thiện của phương pháp đề xuất}
 

@@ -1,4 +1,4 @@
-% !TEX root = main.tex
+﻿% !TEX root = main.tex
 % !TEX encoding = UTF-8 Unicode
 
 \chapter{Giới thiệu bài báo SCRFD}
@@ -805,3 +805,4 @@ Phần mở rộng có sức nặng nhất của report là baseline + ASR+JSAR.
 SPOS-NAS đi theo một vai trò khác: nó không phải bằng chứng chính để khẳng định report đã tái hiện xong SCRFD, mà là một phân tích bổ sung giúp soi lại nguyên lý Computation Redistribution. Kết quả proxy cho thấy các cấu hình tốt có xu hướng đầu tư mạnh vào \(C_2\), kiểm soát \(C_3\), tránh \(C_5\) quá rộng và phản ứng khác đi khi đổi proxy target sang edge-focus. Vì vậy, Computation Redistribution không nên hiểu như một công thức cố định tăng compute cho stage nông, mà là nguyên tắc phân bổ compute theo yêu cầu hình học của task.
 
 Giới hạn quan trọng nhất là reproduction chưa tái tạo toàn bộ pipeline model zoo và phần SPOS-NAS vẫn dùng proxy heatmap loss thay vì AP end-to-end. Tuy nhiên, các kết quả hiện có đã tạo thành một bức tranh nhất quán: SCRFD mạnh vì nó tối ưu đồng thời \textit{nơi mô hình đặt năng lực biểu diễn} và \textit{nơi dữ liệu tạo tín hiệu học}. Hướng tiếp theo hợp lý là train end-to-end các kiến trúc NAS tốt nhất bằng full SCRFD head, làm ablation riêng ASR-only/JSAR-only, và kiểm tra các cơ chế này trên dataset hoặc mức FLOPs khác để đánh giá tính tổng quát ngoài WIDER FACE.
+

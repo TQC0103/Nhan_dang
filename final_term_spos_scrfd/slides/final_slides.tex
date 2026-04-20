@@ -65,7 +65,7 @@
     \item Từ đó nhóm mở rộng theo đúng hai mắt xích quan trọng của SCRFD:
   \end{itemize}
   \begin{block}{Hai hướng mở rộng}
-    \textbf{SPOS-NAS} cho bước \textbf{Computation Redistribution}; \quad
+    \textbf{SPOS-NAS} cho bước \textbf{Computation Redistribution};\\[0.15cm]
     \textbf{ASR+JSAR} cho bước \textbf{Sample Redistribution} và assignment khi train.
   \end{block}
 \end{frame}
@@ -107,6 +107,13 @@
   \end{block}
 \end{frame}
 
+\begin{frame}{Minh họa WIDER FACE Hard và tiny faces}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.98\linewidth,height=0.82\textheight,keepaspectratio]{widerface_hard_example.jpg}
+  \end{figure}
+\end{frame}
+
 \begin{frame}{Kiến trúc nền Backbone--Neck--Head}
   \begin{itemize}
     \item \textbf{Backbone}: tạo chuỗi đặc trưng \(C_2 \rightarrow C_5\).
@@ -125,10 +132,22 @@
 
 \begin{frame}{Computation Redistribution được làm theo hai pha}
   \begin{itemize}
-    \item \textbf{Pha 1: search backbone.} Ở bước này paper cố định phần còn lại tương đối ổn định để trả lời câu hỏi riêng cho backbone: trong khung 4 stage \(C_2,C_3,C_4,C_5\), độ sâu và độ rộng nên dồn vào đâu.
-    \item Các candidate backbone được sinh ra từ một template có sẵn, đo lại FLOPs, rồi chỉ những cấu hình còn nằm trong cùng vùng chi phí mới được đem đi train và so sánh.
-    \item \textbf{Pha 2: search toàn mạng.} Từ backbone template thắng ở pha 1, paper mới mở rộng sang detector đầy đủ: backbone vẫn được dao động trong phạm vi hợp lý, đồng thời neck và head cũng được tinh chỉnh.
-    \item Ý nghĩa của cách tách này là tránh để neck/head che mờ tác động thật sự của backbone ngay từ đầu.
+    \item \textbf{Pha 1: search backbone.} Mục tiêu là cô lập câu hỏi riêng cho backbone: trong khung 4 stage \(C_2,C_3,C_4,C_5\), compute nên dồn nhiều hơn vào stage nào.
+    \item Ở repo public demo, bước này mặc định sinh \textbf{64 candidate backbone}; paper mô tả quy mô đầy đủ là \textbf{320 candidate}.
+    \item Mỗi candidate đều bị lọc lại theo cùng vùng chi phí, trong code là khoảng \textbf{target FLOPs \(\pm\) 2\%}, nên chỉ những cấu hình còn quanh 2.5G mới được giữ lại để train và so sánh.
+    \item Các cấu hình hợp lệ sau đó được \textbf{train rút gọn 80 epoch}, đánh giá bằng \textbf{Hard mAP}, rồi chọn \textbf{config tốt nhất} làm template cho pha 2.
+    \item \textbf{Không có bước lấy top 10\% hay khoảng tin cậy thống kê}; đây là ranking-based search: sinh candidate \(\rightarrow\) lọc FLOPs \(\rightarrow\) train ngắn \(\rightarrow\) chọn config thắng.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[shrink=8]{Các bậc tự do mà CR thực sự đi tìm}
+  \begin{itemize}
+    \item \textbf{Pha 1 -- search backbone:} không search từ số 0, mà đi trong một khung 4 stage cố định rồi thay đổi các bậc tự do chính của backbone.
+    \item Các bậc tự do ở bước này là: \textbf{loại block}, \textbf{base width ban đầu}, \textbf{độ sâu từng stage}, và \textbf{tỉ lệ độ rộng giữa các stage}.
+    \item Nói ngắn gọn, pha 1 đang đi tìm \textbf{hình dạng backbone}: stage nào sâu hơn, stage nào rộng hơn, và độ dốc tăng width giữa \(C_2 \rightarrow C_5\) nên như thế nào.
+    \item \textbf{Pha 2 -- search toàn mạng:} từ backbone template thắng ở pha 1, paper không mở toàn bộ detector một cách tự do, mà chỉ cho backbone dao động quanh template đó rồi tinh chỉnh tiếp \textbf{neck} và \textbf{head}.
+    \item Các bậc tự do ở bước này là: \textbf{mức scale lại độ sâu backbone}, \textbf{mức scale lại độ rộng backbone}, \textbf{số kênh của neck}, \textbf{số kênh của head}, và \textbf{độ sâu của head}.
+    \item Ý nghĩa của cách tách này là tránh để neck/head che mờ tín hiệu thật sự của backbone ở đầu quy trình, rồi chỉ sau đó mới phân bổ nốt compute cho toàn detector.
   \end{itemize}
 \end{frame}
 
@@ -139,7 +158,7 @@
   \end{figure}
 \end{frame}
 
-\begin{frame}{Critical thinking về các assumption của CR}
+\begin{frame}{Giả định và giới hạn của CR}
   \begin{itemize}
     \item CR không search từ số 0. Paper giả định trước một \textbf{khung detector cố định}: backbone 4 stage, PAFPN, dense head, các mức stride chính vẫn giữ nguyên.
     \item Trong pha backbone, search thực chất là phân bổ lại depth/width quanh template ban đầu, chứ không mở tự do mọi loại module.
@@ -160,7 +179,7 @@
   \end{block}
 \end{frame}
 
-\begin{frame}{Critical thinking về các assumption của SR}
+\begin{frame}{Giả định và giới hạn của SR}
   \begin{itemize}
     \item SR cũng không tối ưu trực tiếp positive supervision; paper chỉ search trên một \textbf{tập scale rời rạc} rồi để pipeline crop/resize biến nó thành tín hiệu học.
     \item Nghĩa là paper tối ưu một biến gián tiếp: scale set, chứ không tối ưu trực tiếp số positives hay gradient mass theo level.
@@ -298,6 +317,27 @@
   \begin{figure}
     \centering
     \includegraphics[width=0.98\linewidth,height=0.82\textheight,keepaspectratio]{SPOS-Workflow-viz.png}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Inference heatmap của kiến trúc tốt nhất}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.98\linewidth,height=0.82\textheight,keepaspectratio]{spos_best_architecture_heatmap.png}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Ví dụ heatmap generated theo edge-focus}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.98\linewidth,height=0.82\textheight,keepaspectratio]{spos_edge_focus_heatmap_example.png}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Ví dụ heatmap ngược lại theo center-focus}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.98\linewidth,height=0.82\textheight,keepaspectratio]{spos_center_focus_heatmap_example.png}
   \end{figure}
 \end{frame}
 
@@ -516,3 +556,9 @@
 \end{frame}
 
 \end{document}
+
+
+
+
+
+

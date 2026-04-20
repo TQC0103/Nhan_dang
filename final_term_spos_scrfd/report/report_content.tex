@@ -796,7 +796,7 @@ Giới hạn thứ hai là ASR+JSAR hiện được kiểm chứng trên WIDER F
 
 \chapter{Kết luận}
 
-Qua việc đọc paper, đối chiếu code và chạy lại thực nghiệm, insight trung tâm của SCRFD có thể tóm lại như sau: với face detection hiệu quả, tổng FLOPs không quan trọng bằng vị trí FLOPs và chất lượng tín hiệu huấn luyện mà từng stage nhận được. Một detector 2.5GF không tự động tốt vì nó có 2.5GF; nó tốt khi compute được đặt đúng vào các mức feature còn giữ chi tiết không gian cho mặt nhỏ, và khi pipeline huấn luyện tạo đủ supervision cho những khuôn mặt tiny/hard vốn quyết định phần khó nhất của WIDER FACE.
+Qua việc đọc paper, đối chiếu code và chạy lại thực nghiệm, insight trung tâm của SCRFD có thể tóm lại như sau: với face detection hiệu quả, tổng FLOPs không quan trọng bằng vị trí FLOPs và chất lượng tín hiệu huấn luyện mà từng stage nhận được. Một detector 2.5GF không tự động tốt vì nó có 2.5GF; nó tốt khi compute được đặt đúng vào các mức feature còn giữ chi tiết về vị trí cho mặt nhỏ, và khi pipeline huấn luyện tạo đủ supervision cho những khuôn mặt tiny/hard vốn quyết định phần khó nhất của WIDER FACE.
 
 Kết quả tái hiện củng cố nhận định đó. Baseline paper-SR12 cosine 80e đạt Easy \(91.61\), Medium \(89.99\), Hard \(73.71\), thấp hơn số official \textit{SCRFD-2.5GF} lần lượt \(2.17\), \(2.17\) và \(4.16\) điểm. Gap lớn nhất nằm ở Hard, tức đúng vùng mà SCRFD nhắm tới. Quan trọng hơn, baseline này được xây trên official public codebase nhưng dùng recipe ngắn hơn và scale policy được phục dựng lại, nên nó tạo ra một mốc đối chứng có kiểm soát thay vì cố giả vờ rằng nhóm đã tái tạo nguyên xi toàn bộ model zoo.
 

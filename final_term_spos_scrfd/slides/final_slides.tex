@@ -331,9 +331,9 @@
 \begin{frame}{Kết quả chính của SPOS-NAS}
   \begin{itemize}
     \item Nhóm tốt có xu hướng \textbf{đầu tư mạnh vào \(C_2\)} và tránh làm \(C_3\) phình quá mức.
-    \item \(C_2\) giữ chi tiết không gian cho tiny faces, còn \(C_5\) bổ sung ngữ nghĩa đủ mạnh cho head.
+    \item \(C_2\) giữ chi tiết vị trí không gian cho tiny faces, còn \(C_5\) bổ sung ngữ nghĩa đủ mạnh cho head.
     \item \(C_3\) là vùng dễ thành bẫy chi phí: feature map vẫn còn lớn nên chi phí đắt, nhưng gain tăng không tương xứng.
-    \item Khi đổi proxy từ center-focus sang edge-focus, phân bố học dịch chuyển (giảm C2 tăng C3) \(\rightarrow\) phản ứng linh hoạt với hình học task.
+    \item Khi đổi proxy từ center-focus sang edge-focus, phân bố học dịch chuyển (giảm C2 tăng C3) \(\rightarrow\) phản ứng linh hoạt với hình học của bài toán (vì ở viền cần thêm ngữ cảnh không gian nên cần stride lớn hơn).
   \end{itemize}
 \end{frame}
 

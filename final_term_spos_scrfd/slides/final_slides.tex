@@ -66,7 +66,7 @@
   \end{itemize}
   \begin{block}{Hai hướng mở rộng}
     \textbf{SPOS-NAS} cho bước \textbf{Computation Redistribution};\\[0.15cm]
-    \textbf{ASR+JSAR} cho bước \textbf{Sample Redistribution} và assignment khi train.
+    \textbf{ASR+JSAR} cho \textbf{việc điều chỉnh tỉ lệ cắt và gán mẫu} trong lúc huấn luyện.
   \end{block}
 \end{frame}
 
@@ -88,7 +88,7 @@
 
   \vspace{0.6cm}
   \begin{itemize}
-    \item Điểm quan trọng là ba bước này gắn chặt với nhau: kiến trúc đúng nhưng sample policy sai vẫn tụt Hard AP.
+    \item Điểm quan trọng là ba bước này gắn chặt với nhau: kiến trúc đúng nhưng phân phối tỉ lệ cắt khi tăng cường dữ liệu sai vẫn tụt Hard AP.
     \item Vì vậy phần mở rộng cũng phải đi theo đúng trình tự \textbf{CR trước, SR sau}.
   \end{itemize}
 \end{frame}
@@ -175,16 +175,16 @@
     \item Do đó SR không chỉ là augmentation; nó đang điều khiển trực tiếp \textbf{training signal} cho tiny/small faces.
   \end{enumerate}
   \begin{block}{Luồng nhân quả}
-    scale set \(\rightarrow\) face size sau resize \(\rightarrow\) positive samples \(\rightarrow\) Hard AP
+    bộ tỉ lệ cắt \(\rightarrow\) face size sau resize \(\rightarrow\) positive samples \(\rightarrow\) Hard AP
   \end{block}
 \end{frame}
 
 \begin{frame}{Giả định và giới hạn của SR}
   \begin{itemize}
-    \item SR cũng không tối ưu trực tiếp positive supervision; paper chỉ search trên một \textbf{tập scale rời rạc} rồi để pipeline crop/resize biến nó thành tín hiệu học.
-    \item Nghĩa là paper tối ưu một biến gián tiếp: scale set, chứ không tối ưu trực tiếp số positives hay gradient mass theo level.
-    \item Public release còn cho thấy narrative của paper và code public không hoàn toàn trùng nhau: code công khai giữ một scale list hand-crafted, trong khi paper nhấn mạnh searched scale set.
-    \item Điểm này rất quan trọng khi đọc kết quả reproduction: chênh lệch Hard AP có thể đến từ chính sample policy, không chỉ từ backbone hay random seed.
+    \item SR cũng không tối ưu trực tiếp mật độ mẫu dương; paper chỉ search trên một \textbf{tập tỉ lệ cắt rời rạc} rồi để pipeline crop/resize biến nó thành tín hiệu học.
+    \item Nghĩa là paper tối ưu một biến gián tiếp: bộ tỉ lệ cắt, chứ không tối ưu trực tiếp số mẫu dương hay gradient mass theo level.
+    \item Public release còn cho thấy narrative của paper và code public không hoàn toàn trùng nhau: code công khai giữ một danh sách tỉ lệ cắt dựng tay, trong khi paper nhấn mạnh bộ tỉ lệ cắt được tìm ra.
+    \item Điểm này rất quan trọng khi đọc kết quả reproduction: chênh lệch Hard AP có thể đến từ chính phân phối tỉ lệ cắt khi tăng cường dữ liệu, không chỉ từ backbone hay random seed.
   \end{itemize}
 \end{frame}
 
@@ -235,7 +235,7 @@
     \item Nhóm bám \textbf{official public SCRFD codebase} và official detector family, không tự viết lại mô hình.
     \item Baseline được chọn là \textbf{SCRFD-2.5GF}: đủ lớn để có ý nghĩa thống kê, nhưng vẫn nằm trong phạm vi tài nguyên có thể tái hiện ổn định.
     \item Đây là quyết định có chủ ý: full NAS của paper quá nặng vì phải sinh nhiều candidate, train rút gọn, đánh giá, chọn cấu hình rồi mới train dài cho model cuối.
-    \item Scale policy \textbf{paper-SR12} được nhóm \textbf{phục dựng lại} trên pipeline công khai; nó không phải một baseline upstream có sẵn đúng nguyên xi từ authors.
+    \item Bộ 12 mức tỉ lệ cắt theo bài báo được nhóm \textbf{phục dựng lại} trên pipeline công khai; nó không phải một baseline upstream có sẵn đúng nguyên xi từ authors.
     \item Vì vậy reproduction của nhóm là \textbf{public reproducible baseline trên official stack}, không phải rerun toàn bộ NAS end-to-end của paper.
   \end{itemize}
 \end{frame}
@@ -256,27 +256,27 @@
 
   \vspace{0.3cm}
   \begin{itemize}
-    \item Điểm cần nhớ là baseline dùng cùng pipeline train/eval với official repo, nhưng đường chạy `80e cosine + paper-SR12` là cấu hình thực nghiệm nhóm dựng lại trên official stack.
-    \item Vì vậy khi so với official model zoo, phải tách rõ hai lớp nguyên nhân: khác recipe train dài-ngắn và khác sample policy.
+    \item Điểm cần nhớ là baseline dùng cùng pipeline train/eval với official repo, nhưng đường chạy `80e cosine + bộ 12 mức theo bài báo` là cấu hình thực nghiệm nhóm dựng lại trên official stack.
+    \item Vì vậy khi so với official model zoo, phải tách rõ hai lớp nguyên nhân: khác recipe train dài-ngắn và khác phân phối tỉ lệ cắt khi tăng cường dữ liệu.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Kết quả tái hiện baseline và vai trò của paper-SR12}
+\begin{frame}{Kết quả tái hiện baseline và vai trò của bộ 12 mức theo bài báo}
   \small
   \begin{tabular}{@{}lcccc@{}}
     \toprule
     Thiết lập & Easy & Medium & Hard & mAP \\
     \midrule
     Official model zoo & 93.78 & 92.16 & 77.87 & 87.94 \\
-    Baseline default scale set & 91.40 & 89.69 & 72.49 & 84.53 \\
-    Baseline paper-SR12 & 91.61 & 89.99 & 73.71 & 85.10 \\
+    Baseline (bộ mặc định) & 91.40 & 89.69 & 72.49 & 84.53 \\
+    Baseline (12 mức theo bài báo) & 91.61 & 89.99 & 73.71 & 85.10 \\
     \bottomrule
   \end{tabular}
 
   \vspace{0.35cm}
   \begin{itemize}
-    \item Trong cùng khung \textbf{80 epoch cosine}, chỉ riêng việc đổi sang \textbf{paper-SR12} đã kéo Hard AP tăng \(+1.22\).
-    \item Điều này xác nhận một insight lớn của report: phần khó nhất của SCRFD không chỉ là chạy model, mà là tái tạo đúng sample policy cho tiny faces.
+    \item Trong cùng khung \textbf{80 epoch cosine}, chỉ riêng việc đổi sang \textbf{bộ 12 mức theo bài báo} đã kéo Hard AP tăng \(+1.22\).
+    \item Điều này xác nhận một insight lớn của report: phần khó nhất của SCRFD không chỉ là chạy model, mà là tái tạo đúng phân phối tỉ lệ cắt cho tiny faces.
   \end{itemize}
 \end{frame}
 
@@ -284,7 +284,7 @@
   \begin{itemize}
     \item Gap với official không nên quy hết cho một lý do duy nhất.
     \item \textbf{Official 2.5GF} là mốc model zoo đã được huấn luyện rất dài trong public recipe gốc, khoảng \textbf{640 epoch với step schedule}.
-    \item \textbf{Baseline của nhóm} là \textbf{80 epoch với cosine scheduler} trên official public codebase, rồi gắn thêm paper-SR12 vào pipeline công khai.
+    \item \textbf{Baseline của nhóm} là \textbf{80 epoch với cosine scheduler} trên official public codebase, rồi gắn thêm bộ 12 mức theo bài báo vào pipeline công khai.
     \item Vì vậy gap Hard \(-4.16\) phải được đọc như tổng hợp của:
   \end{itemize}
   \begin{block}{Bốn nguồn chênh lệch}
@@ -410,18 +410,57 @@
   \end{itemize}
 \end{frame}
 
-\section{ASR+JSAR Cho SR Và Train}
+\section{ASR+JSAR: Điều chỉnh tỉ lệ cắt và gán mẫu khi huấn luyện}
 
 \begin{frame}{Động cơ của ASR+JSAR}
+  \small
+  \textbf{Adaptive Sample Redistribution (ASR)} và \textbf{Joint Sample Assignment Redistribution (JSAR)}
+  là hai cải tiến được thêm vào giai đoạn huấn luyện của SCRFD.
+  \vspace{0.4em}
   \begin{itemize}
-    \item Sau baseline paper-SR12, gap lớn nhất vẫn nằm ở split Hard.
-    \item Điều đó cho thấy sample policy tĩnh vẫn chưa đủ, và tiny faces vẫn còn bị thiếu positive supervision ở bước assignment.
+    \item Sau baseline dùng bộ 12 mức theo bài báo, gap lớn nhất vẫn nằm ở split Hard.
+    \item Điều đó cho thấy phân phối chọn tỉ lệ cắt tĩnh vẫn chưa đủ, và tiny faces vẫn còn bị thiếu mẫu dương ở bước gán nhãn.
     \item Vì vậy nhóm sửa đúng hai nút thắt của giai đoạn train:
   \end{itemize}
   \begin{block}{Hai cải tiến}
-    \textbf{ASR}: điều chỉnh xác suất lấy các scale theo tín hiệu khó dễ đang quan sát được.\\
-    \textbf{JSAR}: tăng positive assignment cho tiny faces khi pipeline chuẩn còn bỏ sót.
+    \textbf{Adaptive Sample Redistribution (ASR)}: điều chỉnh động xác suất chọn các mức tỉ lệ cắt khi tăng cường dữ liệu theo tín hiệu khó dễ đang quan sát được.\\
+    \textbf{Joint Sample Assignment Redistribution (JSAR)}: tăng số mẫu dương được gán cho tiny faces khi quy tắc gán chuẩn còn bỏ sót.
   \end{block}
+  \vfill
+  {\tiny
+  Nguồn tham khảo: ý tưởng được tham khảo từ \textbf{Sample Redistribution} của SCRFD~\cite{guo2022scrfd}
+  và \textbf{ATSS} cho bước gán mẫu~\cite{zhang2020atss}.}
+\end{frame}
+
+\begin{frame}{Cấu hình huấn luyện của ASR+JSAR}
+  \scriptsize
+  \begin{columns}[T,onlytextwidth]
+    \column{0.48\textwidth}
+    \begin{block}{Thiết lập chung}
+      \begin{itemize}
+        \item Mô hình: \textbf{SCRFD-2.5GF}, input \(640\times640\)
+        \item Số epoch: \textbf{80}
+        \item Phần cứng: \textbf{1 $\times$ NVIDIA RTX 3090}
+        \item Batch size: \textbf{32}
+        \item Optimizer: \textbf{SGD}, momentum \(=0.9\), weight decay \(=5\times10^{-4}\)
+        \item Learning rate ban đầu: \textbf{0.04}
+        \item Lịch học: \textbf{CosineAnnealing}, warmup tuyến tính 1500 iter, warmup ratio \(=10^{-3}\), min lr \(=0\)
+      \end{itemize}
+    \end{block}
+    \column{0.48\textwidth}
+    \begin{block}{Tham số ASR và JSAR}
+      \begin{itemize}
+        \item ASR: warmup \(=2\) epoch, update interval \(=1000\), EMA \(=0.8\), min prob \(=0.03\)
+        \item Bin kích thước: \([0,16), [16,32), [32,96), [96,+\infty)\)
+        \item Tiny / small threshold: \(16\) và \(32\)
+        \item IoU delta: tiny \(=0.05\), small \(=0.02\)
+        \item Top-k \(=4\), center radius scale \(=1.3\)
+        \item Min positive / tiny GT \(=3\)
+      \end{itemize}
+    \end{block}
+  \end{columns}
+  \vspace{0.05cm}
+  Bộ tỉ lệ cắt của ASR thay đổi theo thí nghiệm: bộ mặc định hoặc bộ 12 mức theo bài báo.
 \end{frame}
 
 \begin{frame}{ASR và JSAR hoạt động như thế nào}
@@ -429,51 +468,141 @@
     \column{0.49\textwidth}
     \begin{block}{ASR}
       \begin{itemize}
-        \item Bắt đầu từ scale pool đủ rộng.
+        \item Bắt đầu từ một bộ ứng viên tỉ lệ cắt đủ rộng.
         \item Gom thống kê face-size distribution và thiếu hụt recall theo từng giai đoạn train.
-        \item Tăng xác suất cho các scale tạo ra nhóm tiny/small faces còn thiếu.
-        \item Làm mượt policy bằng EMA để tránh dao động quá mạnh.
+        \item Điều chỉnh xác suất chọn các mức tỉ lệ cắt để tăng tần suất xuất hiện của nhóm tiny/small faces còn thiếu.
+        \item Làm mượt phân phối xác suất bằng EMA để tránh dao động quá mạnh.
       \end{itemize}
     \end{block}
     \column{0.49\textwidth}
     \begin{block}{JSAR}
       \begin{itemize}
-        \item Tiny faces thường nhận quá ít positives với assignment gốc.
+        \item Tiny faces thường nhận quá ít mẫu dương với quy tắc gán gốc.
         \item JSAR nới lỏng bước chọn ứng viên quanh tâm.
-        \item Nếu vẫn thiếu positives, fallback sẽ giữ lại một nhóm anchor gần nhất còn hợp lý.
+        \item Nếu vẫn thiếu mẫu dương, fallback sẽ giữ lại một nhóm anchor gần nhất còn hợp lý.
         \item Nhờ đó tiny faces không còn bị rơi khỏi supervision.
       \end{itemize}
     \end{block}
   \end{columns}
 \end{frame}
 
-\begin{frame}{Scale pool và áp lực phân phối của ASR}
+\begin{frame}{ASR: công thức điều chỉnh phân phối tỉ lệ cắt}
+  \small
   \begin{columns}[T,onlytextwidth]
-    \column{0.49\textwidth}
-    \begin{figure}
-      \centering
-      \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/scale_pool_geometry.png}
-    \end{figure}
-    \column{0.49\textwidth}
-    \begin{figure}
-      \centering
-      \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/distribution_pressure.png}
-    \end{figure}
+    \column{0.52\textwidth}
+    \begin{block}{Đo độ khó theo từng nhóm kích thước}
+    \[
+      r_b=\max\!\left(0,\;1-\min\!\left(\frac{P_b}{\max(G_b,1)},1\right)\right)
+    \]
+    \[
+      c_b=\frac{L^{cls}_b}{\max(P_b,1)},\qquad
+      u_b=\frac{L^{box}_b}{\max(P_b,1)}
+    \]
+    \[
+      d_b \propto \mathrm{norm}(r_b)+\mathrm{norm}(c_b)+\mathrm{norm}(u_b)
+    \]
+    \end{block}
+    \column{0.46\textwidth}
+    \begin{block}{Cập nhật xác suất chọn tỉ lệ cắt}
+    \[
+      q(s)=\sum_b M(s,b)\,d_b
+    \]
+    \[
+      \hat p(s)=\frac{q(s)}{\sum_j q(j)}
+    \]
+    \[
+      p_{t+1}(s)=\alpha p_t(s)+(1-\alpha)\,\mathrm{floor}(\hat p(s))
+    \]
+    \end{block}
   \end{columns}
+
+  \vspace{0.15cm}
+  \begin{itemize}
+    \item \(b\): nhóm kích thước mặt; \(s\): tỉ lệ cắt ảnh; \(M(s,b)\): mức hỗ trợ giữa mỗi mức cắt và từng nhóm kích thước.
+    \item ASR tăng xác suất cho các mức tỉ lệ cắt tạo ra nhiều tín hiệu học hơn ở các nhóm còn khó.
+    \item Tỉ lệ cắt nhỏ tương ứng \textbf{zoom-in}; tỉ lệ cắt lớn tương ứng \textbf{zoom-out}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{JSAR: công thức nới phép gán mẫu cho tiny faces}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \column{0.50\textwidth}
+    \begin{block}{Hạ ngưỡng và nới center gating}
+    \[
+      \tau'_g=\tau_g-\Delta_g,\qquad
+      \Delta_g=
+      \begin{cases}
+        0.05, & \mathrm{size}_g<16\\
+        0.02, & 16\le \mathrm{size}_g<32\\
+        0, & \text{otherwise}
+      \end{cases}
+    \]
+    \[
+      c_g=\mathrm{clip}\!\left(\frac{\mathrm{size}_g}{T_{tiny}},1,\rho\right)
+    \]
+    \[
+      \text{keep if }\mathrm{dist}_{\min}(a,g)\,c_g > t_{center}
+    \]
+    \end{block}
+    \column{0.48\textwidth}
+    \begin{block}{Fallback top-k nếu vẫn thiếu mẫu dương}
+    \[
+      \mathrm{score}(a,g)=\mathrm{IoU}(a,g)-0.05\,
+      \frac{\mathrm{dist}(a,g)}{\max(\mathrm{size}_g,1)}
+    \]
+    \[
+      \mathcal{P}_g \leftarrow \mathcal{P}_g \cup \mathrm{TopK}(\mathrm{score},k)
+    \]
+    \[
+      |\mathcal{P}_g| \ge N_{\min},\quad N_{\min}=3 \text{ cho tiny GT}
+    \]
+    \end{block}
+  \end{columns}
+
+  \vspace{0.15cm}
+  \begin{itemize}
+    \item JSAR chỉ can thiệp mạnh vào tiny/small faces; medium và large gần như giữ nguyên.
+    \item Ý nghĩa chính: tiny faces không còn bị rơi khỏi supervision chỉ vì IoU thấp hoặc center constraint quá chặt.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{ASR: hình học của bộ tỉ lệ cắt}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.93\linewidth,height=0.72\textheight,keepaspectratio]{../../figures/final_term_spos_scrfd/scale_pool_geometry.png}
+  \end{figure}
+  \vspace{-0.15cm}
+  \footnotesize
+  \begin{itemize}
+    \item Tỉ lệ cắt nhỏ làm khuôn mặt lớn hơn sau resize; tỉ lệ cắt lớn làm khuôn mặt nhỏ hơn sau resize.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{ASR: áp lực phân phối theo nhóm kích thước}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.93\linewidth,height=0.72\textheight,keepaspectratio]{../../figures/final_term_spos_scrfd/distribution_pressure.png}
+  \end{figure}
+  \vspace{-0.15cm}
+  \footnotesize
+  \begin{itemize}
+    \item Khi một nhóm kích thước còn khó, ASR sẽ tăng xác suất cho các mức tỉ lệ cắt có khả năng tạo thêm tín hiệu học cho đúng nhóm đó.
+  \end{itemize}
 \end{frame}
 
 \begin{frame}{Protocol thực nghiệm cho ASR+JSAR}
   \begin{itemize}
     \item Cả baseline và cải tiến đều dùng \textbf{SCRFD-2.5GF}, input \(640\times640\), 80 epoch, cosine scheduler.
-    \item Nhóm chạy hai cặp thí nghiệm để tách ảnh hưởng của sample pool:
+    \item Nhóm chạy hai cặp thí nghiệm để tách ảnh hưởng của bộ tỉ lệ cắt và cơ chế điều chỉnh động trong lúc train:
   \end{itemize}
   \begin{block}{Hai trường hợp}
-    \textbf{Default scale set}: baseline gốc của source code.\\
-    \textbf{Paper-SR12 scale set}: scale policy gần hơn với narrative của paper.
+    \textbf{Bộ mặc định trong mã nguồn}: baseline gốc của source code.\\
+    \textbf{Bộ 12 mức theo bài báo}: tập tỉ lệ cắt gần hơn với narrative của paper.
   \end{block}
   \begin{itemize}
-    \item Cách so sánh này giúp đọc đúng delta của ASR+JSAR: gain đến từ adaptive redistribution và assignment, không chỉ từ việc đổi scale pool.
-    \item Trên nhánh `default`, baseline và ASR không dùng hoàn toàn cùng điểm đầu bên trái của scale pool; trên nhánh \textbf{paper-SR12}, cả hai mới thật sự dùng cùng một 12-scale set.
+    \item Cách so sánh này giúp đọc đúng delta của ASR+JSAR: gain đến từ việc điều chỉnh động xác suất chọn tỉ lệ cắt và cách gán mẫu dương, không chỉ từ việc đổi bộ tỉ lệ cắt.
+    \item Trên nhánh \textbf{mặc định}, baseline và ASR không dùng hoàn toàn cùng điểm đầu bên trái của bộ ứng viên; trên nhánh \textbf{12 mức theo bài báo}, cả hai mới thật sự dùng cùng một tập 12 mức.
   \end{itemize}
 \end{frame}
 
@@ -484,58 +613,79 @@
     \toprule
     Thiết lập & Easy & Medium & Hard & mAP \\
     \midrule
-    Default baseline & 91.40 & 89.69 & 72.49 & 84.53 \\
-    Default ASR+JSAR & 90.39 & 89.25 & 76.90 & 85.51 \\
-    Paper-SR12 baseline & 91.61 & 89.99 & 73.71 & 85.10 \\
-    Paper-SR12 ASR+JSAR & 90.28 & 89.01 & 77.38 & 85.56 \\
+    Baseline (mặc định) & 91.40 & 89.69 & 72.49 & 84.53 \\
+    ASR+JSAR (mặc định) & 90.39 & 89.25 & 76.90 & 85.51 \\
+    Baseline (12 mức theo bài báo) & 91.61 & 89.99 & 73.71 & 85.10 \\
+    ASR+JSAR (12 mức theo bài báo) & 90.28 & 89.01 & 77.38 & 85.56 \\
     \bottomrule
   \end{tabular}
   }
 
   \vspace{0.35cm}
   \begin{itemize}
-    \item Gain lớn nhất tập trung ở \textbf{Hard}: \(+4.40\) với default và \(+3.67\) với paper-SR12.
-    \item Trên paper-SR12, kết quả chỉ còn cách official model zoo khoảng \(0.49\) điểm ở split khó nhất.
+    \item Gain lớn nhất tập trung ở \textbf{Hard}: \(+4.40\) với bộ mặc định và \(+3.67\) với bộ 12 mức theo bài báo.
+    \item Trên bộ 12 mức theo bài báo, kết quả chỉ còn cách official model zoo khoảng \(0.49\) điểm ở split khó nhất.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Metric và delta của ASR+JSAR}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.49\textwidth}
-    \begin{figure}
-      \centering
-      \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/metrics_by_scale_set.png}
-    \end{figure}
-    \column{0.49\textwidth}
-    \begin{figure}
-      \centering
-      \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/asr_delta_by_scale_set.png}
-    \end{figure}
-  \end{columns}
+\begin{frame}{Các chỉ số theo từng bộ tỉ lệ cắt}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.94\linewidth,height=0.76\textheight,keepaspectratio]{../../figures/final_term_spos_scrfd/metrics_by_scale_set.png}
+  \end{figure}
 \end{frame}
 
-\begin{frame}{ASR+JSAR đang sửa đúng cái gì}
+\begin{frame}{Delta của ASR+JSAR theo từng bộ tỉ lệ cắt}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.94\linewidth,height=0.76\textheight,keepaspectratio]{../../figures/final_term_spos_scrfd/asr_delta_by_scale_set.png}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Histogram kích thước khuôn mặt: bộ mặc định trong mã nguồn}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.94\linewidth,height=0.72\textheight,keepaspectratio]{../../figures/final_term_spos_scrfd/default_face_size_histogram.png}
+  \end{figure}
+  \vspace{-0.15cm}
+  \footnotesize
   \begin{itemize}
-    \item Về \textbf{dữ liệu train}, ASR làm thay đổi face-size distribution theo hướng detector còn thiếu.
-    \item Về \textbf{supervision}, JSAR làm tiny positives/GT tăng từ khoảng \(1.76\) lên \(2.67\), tức gần \(1.52\times\).
-    \item Về \textbf{kết quả}, gain tập trung ở Hard subset, nghĩa là phần cải tiến đúng là đang chạm vào vùng tiny/hard faces thay vì cải thiện đồng đều mọi split.
-    \item Trade-off vẫn tồn tại: Easy/Medium giảm nhẹ, nhưng đó là đánh đổi có chủ đích để đẩy training signal về đúng nhóm khó nhất.
+    \item Với bộ mặc định, histogram của ASR+JSAR lệch trái rõ hơn baseline, cho thấy mô hình cải tiến chủ động tạo thêm nhiều khuôn mặt nhỏ trong lúc huấn luyện.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{JSAR và gain theo nhóm khuôn mặt khó}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.49\textwidth}
-    \begin{figure}
-      \centering
-      \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/jsar_tiny_supervision.png}
-    \end{figure}
-    \column{0.49\textwidth}
-    \begin{figure}
-      \centering
-      \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]{../../detection/scrfd/experiments/scrfd_2.5g_cosine_scale_set_results/report_assets/hard_size_gain_by_scale_set.png}
-    \end{figure}
-  \end{columns}
+\begin{frame}{Histogram kích thước khuôn mặt: bộ 12 mức theo bài báo}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.94\linewidth,height=0.72\textheight,keepaspectratio]{../../figures/final_term_spos_scrfd/paper_sr12_face_size_histogram.png}
+  \end{figure}
+  \vspace{-0.15cm}
+  \footnotesize
+  \begin{itemize}
+    \item Với bộ 12 mức theo bài báo, baseline và ASR+JSAR có phân phối gần nhau hơn; phần gain còn lại đến nhiều hơn từ cơ chế gán mẫu của JSAR.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{JSAR: mật độ mẫu dương cho tiny faces}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.94\linewidth,height=0.76\textheight,keepaspectratio]{../../figures/final_term_spos_scrfd/jsar_tiny_supervision.png}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Gain theo nhóm khuôn mặt khó}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.94\linewidth,height=0.76\textheight,keepaspectratio]{../../figures/final_term_spos_scrfd/hard_size_gain_by_scale_set.png}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Hạn chế}
+  \begin{itemize}
+    \item Kết quả hiện tại mới được đánh giá trong thiết lập huấn luyện 80 epoch, trong khi bản SCRFD gốc trong bài báo được huấn luyện dài hơn, tới 640 epoch. Vì vậy, chưa thể kết luận đây là mức trần hiệu quả của ASR+JSAR.
+    \item Lợi ích của phương pháp tập trung rõ nhất ở khuôn mặt nhỏ và các mẫu thuộc split Hard; đây cũng là nơi SCRFD baseline yếu nhất.
+    \item Đổi lại, khi tín hiệu học được dồn nhiều hơn về nhóm khó, hiệu năng trên khuôn mặt vừa và lớn có thể giảm nhẹ. Nói cách khác, cải tiến này không làm tốt đồng đều mọi nhóm kích thước, mà ưu tiên mạnh hơn cho nhóm khó nhất.
+  \end{itemize}
 \end{frame}
 
 \section{Kết luận}
@@ -544,7 +694,7 @@
   \begin{itemize}
     \item SCRFD mạnh vì tối ưu đồng thời \textbf{nơi mô hình đặt năng lực biểu diễn} và \textbf{nơi dữ liệu tạo tín hiệu học}.
     \item \textbf{Baseline reproduction} cho thấy gap lớn nhất luôn nằm ở Hard; đó mới là vùng khó thật của SCRFD.
-    \item \textbf{ASR+JSAR} là bằng chứng mạnh nhất của report: giữ nguyên kiến trúc suy luận vẫn có thể kéo Hard AP từ \(73.71\) lên \(77.38\) nếu scale distribution và positive supervision cho tiny faces được sửa đúng chỗ.
+    \item \textbf{ASR+JSAR} là bằng chứng mạnh nhất của report: giữ nguyên kiến trúc suy luận vẫn có thể kéo Hard AP từ \(73.71\) lên \(77.38\) nếu phân phối tỉ lệ cắt và mật độ mẫu dương cho tiny faces được sửa đúng chỗ.
     \item \textbf{SPOS-NAS} củng cố phía CR: trong cùng miền 2.5 GFLOPs, winner thắng vì phân bổ compute đúng hơn, đặc biệt ở \(C_2\), \(C_3\) và \(C_5\).
     \item Insight cuối cùng của report là: với efficient face detection, tối ưu kiến trúc thôi là chưa đủ; phải tối ưu cùng lúc \textbf{architecture, data distribution và supervision}.
   \end{itemize}
@@ -594,6 +744,11 @@ Wei Liu, Dragomir Anguelov, Dumitru Erhan, Christian Szegedy, Scott Reed, Cheng-
 Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun.
 \newblock Deep Residual Learning for Image Recognition.
 \newblock In \emph{IEEE Conference on Computer Vision and Pattern Recognition}, 2016.
+
+\bibitem{zhang2020atss}
+Shifeng Zhang, Cheng Chi, Yongqiang Yao, Zhen Lei, and Stan Z. Li.
+\newblock Bridging the Gap Between Anchor-based and Anchor-free Detection via Adaptive Training Sample Selection.
+\newblock In \emph{IEEE Conference on Computer Vision and Pattern Recognition}, 2020.
 
 \bibitem{insightface2026}
 DeepInsight contributors.
